@@ -1,0 +1,20 @@
+reader_test.py - test if an LLRP reader is compliant to the protocol
+
+This script executes some tests on a remote reader to test if it's
+LLRP protocol compliant.
+
+Current implementation does the following tests:
+
+  'Connection tests'
+          simple_connection,
+          double_connection,
+
+To run the program use the command line:
+
+ $ ./simple_inventory.py [<options>] host
+
+where <options> are:
+	-h - show this help message
+	-d - enable debugging messages
+
+and host is the internet address of the remote reader.
