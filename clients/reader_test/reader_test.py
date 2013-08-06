@@ -33,83 +33,83 @@ def out(x):
 #
 
 def simple_connection(host):
-	out('doing \'%s\' test... ' % func())
+    out('doing \'%s\' test... ' % func())
 
-	try:
-		server = LLRPdConnection(host)
-	except:
-		print 'failed!'
-		ret = 1
-	else:
-		print 'pass'
-		ret = 0
+    try:
+        server = LLRPdConnection(host)
+    except:
+        print 'failed!'
+        ret = 1
+    else:
+        print 'pass'
+        ret = 0
 
-	server.close()
+    server.close()
 
-	return ret
+    return ret
 
 def double_connection(host):
-	out('doing \'%s\' test... ' % func())
+    out('doing \'%s\' test... ' % func())
 
-	# First connection should success
-	try:
-		server1 = LLRPdConnection(host)
-	except:
-		print 'failed!'
-		ret = 1
+    # First connection should success
+    try:
+        server1 = LLRPdConnection(host)
+    except:
+        print 'failed!'
+        ret = 1
 
-	# But not the second one!
-	try:
-		server2 = LLRPdConnection(host)
-	except LLRPError, ret:
-		print 'pass'
-		ret = 0
-	else:
-		print 'failed!'
-		ret = 1
+    # But not the second one!
+    try:
+        server2 = LLRPdConnection(host)
+    except LLRPError, ret:
+        print 'pass'
+        ret = 0
+    else:
+        print 'failed!'
+        ret = 1
 
-	server1.close()
+    server1.close()
 
-	return ret
+    return ret
 
 #
 # Do it all
 #
 
 tests = {
-	'Connection tests' : [
-		simple_connection,
-		double_connection,
-	]
+    'Connection tests' : [
+        simple_connection,
+        double_connection,
+    ]
 }
 
 def do_all(host):
-	print 'running LLRP tests'
-	print 'parameters are:'
-	print '\thost = %s' % host
-	print
+    print 'running LLRP tests'
+    print 'parameters are:'
+    print '\thost = %s' % host
+    print
 
-	x = 1
-	y = 1
-	ok = True
-	for test in tests:
-		print '--- %s ---' % test
-		for func in tests[test]:
-			out('%d.%d) ' % (x, y))
-			ret = func(host)
-			if ret:
-				ok = False
+    x = 1
+    y = 1
+    ok = True
+    for test in tests:
+        print '--- %s ---' % test
+        for func in tests[test]:
+            out('%d.%d) ' % (x, y))
+            ret = func(host)
+            if ret:
+                ok = False
 
-			y += 1
-		x += 1
-	print
+            y += 1
+        x += 1
+    print
 
-	if not ok:
-		print 'at least one test failed!'
-		sys.exit(1)
+    if not ok:
+        print 'at least one test failed!'
+        sys.exit(1)
 
-	print 'all tests passed!'
-	sys.exit(0)
+    print 'all tests passed!'
+    sys.exit(0)
 
 #
 # Usage function
@@ -129,14 +129,14 @@ def usage():
 # Check command line
 optlist, list = getopt.getopt(sys.argv[1:], ':hd')
 for opt in optlist:
-	if opt[0] == '-h':
-		usage()
+    if opt[0] == '-h':
+        usage()
 
-	if opt[0] == '-d':
-		llrp_set_logging(logging.DEBUG)
+    if opt[0] == '-d':
+        llrp_set_logging(logging.DEBUG)
 
 if len(list) < 1:
-	usage()
+    usage()
 host = list[0]
 
 # Do LLRP tests

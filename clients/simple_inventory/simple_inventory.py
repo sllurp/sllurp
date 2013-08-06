@@ -26,11 +26,11 @@ from llrp_proto import *
 #
 
 def out(x):
-	sys.stdout.write(str(x))
+    sys.stdout.write(str(x))
 
 def print_event(connection, msg):
-	print 'New event:'
-	print msg
+    print 'New event:'
+    print msg
 
 #
 # Usage function
@@ -63,19 +63,19 @@ host = list[0]
 # Connect with remote LLRPd
 out('connecting with ' + host +'... ')
 try:
-	server = LLRPdConnection(host, event_cb = print_event)
+    server = LLRPdConnection(host, event_cb = print_event)
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 print 'done'
 
 # Get reader capabilities
 out('asking for reader capabilities... ')
 try:
-	cap = server.get_capabilities('LLRP Capabilities')
+    cap = server.get_capabilities('LLRP Capabilities')
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 print 'done'
 print 'capabilities are:'
 print cap
@@ -83,10 +83,10 @@ print cap
 # Delete all existing ROSpecs
 out('deleting all existing ROSpecs... ')
 try:
-	server.delete_all_rospec()
+    server.delete_all_rospec()
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 print 'done'
 
 # Create a ROSpec
@@ -102,22 +102,22 @@ print 'done'
 # Enable ROSpec
 out('enabling ROSpec... ')
 try:
-	rospec.enable(server)
+    rospec.enable(server)
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 else:
         print 'done'
 
 # Start ROSpec
 out('starting ROSpec... ')
 try:
-	rospec.start(server)
+    rospec.start(server)
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 else:
-	print 'done'
+    print 'done'
 
 print 'waiting 5 seconds... '
 time.sleep(5)
@@ -125,30 +125,30 @@ time.sleep(5)
 # Stop ROSpec
 out('stopping ROSpec... ')
 try:
-	rospec.stop(server)
+    rospec.stop(server)
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 else:
         print 'done'
 
 # Disable ROSpec
 out('disabling ROSpec... ')
 try:
-	rospec.disable(server)
+    rospec.disable(server)
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 else:
         print 'done'
 
 # Delete ROSpec
 out('deleting ROSpec... ')
 try:
-	rospec.delete(server)
+    rospec.delete(server)
 except LLRPResponseError, ret:
-	print 'fail: %s' % ret
-	sys.exit(1)
+    print 'fail: %s' % ret
+    sys.exit(1)
 else:
         print 'done'
 
