@@ -1555,7 +1555,7 @@ def llrp_data2xml(msg):
 
             if type(sub) == DictionaryType:
                 str += __llrp_data2xml(sub, p, level + 1)
-            elif type(sub) == ListType and \
+            elif type(sub) == ListType and sub and \
                     type(sub[0]) == DictionaryType:
                 for e in sub:
                     str += __llrp_data2xml(e, p, level + 1)
