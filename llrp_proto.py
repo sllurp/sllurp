@@ -1622,6 +1622,7 @@ def llrp_stop_rospec(connection, rospec):
 
     # Check the server response
     try:
+        print ans
         (code, descr) = (ans['STOP_ROSPEC_RESPONSE']\
                     ['LLRPStatus']['StatusCode'],
                  ans['STOP_ROSPEC_RESPONSE']\
@@ -1652,19 +1653,28 @@ def wait_for_message(connection):
     return msg
 
 class reader_thread(Thread):
+    keep_running = False
+
     def __init__(self, connection):
         Thread.__init__(self)
         self.connection = connection
+        self.keep_running = True
 
     def run(self):
         connection = self.connection
+        events = [
+            'RO_ACCESS_REPORT',
+            'READER_EVENT_NOTIFICATION',
+            'ADD_ROSPEC_RESPONSE',
+            'START_ROSPEC_RESPONSE',
+            'ENABLE_ROSPEC_RESPONSE',
+            'DELETE_ROSPEC_RESPONSE',
+            'STOP_ROSPEC_RESPONSE',
+            'GET_READER_CAPABILITIES_RESPONSE',
+            'CLOSE_CONNECTION_RESPONSE',
+        ]
 
-        while True:
-            events = [
-                'RO_ACCESS_REPORT',
-                'READER_EVENT_NOTIFICATION',
-            ]
-
+        while self.keep_running:
             # Wait for a server message
             while True:
                 try:
@@ -1677,7 +1687,9 @@ class reader_thread(Thread):
                 if msg.keys()[0] in events:
                     connection.event_cb(connection, msg)
                 else:
-                    break
+                    print 'unrecognized msg: %s' % msg
+
+                break
 
             connection.msg_cond.acquire()
 
@@ -1685,6 +1697,9 @@ class reader_thread(Thread):
 
             connection.msg_cond.notifyAll()
             connection.msg_cond.release()
+
+    def stop(self):
+        self.keep_running = False
 
 class LLRPdConnection():
     def __init__(self, host, port = LLRP_PORT, event_cb = do_nothing):
@@ -1704,6 +1719,7 @@ class LLRPdConnection():
         self.recv_thread.start()
 
     def close(self):
+        self.recv_thread.stop()
         llrp_close(self)
 
     def delete_all_rospec(self):
