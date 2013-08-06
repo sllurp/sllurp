@@ -113,7 +113,7 @@ except LLRPResponseError, ret:
     server.close()
     sys.exit(1)
 else:
-        print 'done'
+    print 'done'
 
 # Start ROSpec
 out('starting ROSpec... ')
@@ -126,8 +126,8 @@ except LLRPResponseError, ret:
 else:
     print 'done'
 
-print 'waiting 5 seconds... '
-time.sleep(5)
+#print 'waiting 5 seconds... '
+#time.sleep(5)
 
 # Stop ROSpec
 out('stopping ROSpec... ')
@@ -138,7 +138,7 @@ except LLRPResponseError, ret:
     server.close()
     sys.exit(1)
 else:
-        print 'done'
+    print 'done'
 
 # Disable ROSpec
 out('disabling ROSpec... ')
@@ -149,7 +149,7 @@ except LLRPResponseError, ret:
     server.close()
     sys.exit(1)
 else:
-        print 'done'
+    print 'done'
 
 # Delete ROSpec
 out('deleting ROSpec... ')
@@ -160,7 +160,7 @@ except LLRPResponseError, ret:
     server.close()
     sys.exit(1)
 else:
-        print 'done'
+    print 'done'
 
 # Close connection
 out('disconnecting from ' + host + '... ')
