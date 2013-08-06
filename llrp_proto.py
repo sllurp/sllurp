@@ -1843,10 +1843,10 @@ class LLRPROSpec(dict):
                 ['InventoryParameterSpec'] = { }
         self['ROSpec']['AISpec']\
                 ['InventoryParameterSpec']\
-                ['InventoryParameterSpecID'] = 0
+                ['InventoryParameterSpecID'] = 1
         self['ROSpec']['AISpec']\
                 ['InventoryParameterSpec']\
-                ['ProtocolID'] = 0
+                ['ProtocolID'] = 1
 
     def __repr__(self):
         return llrp_data2xml(self)
