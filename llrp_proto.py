@@ -147,7 +147,7 @@ def recv_message(connection):
     ver = (type >> 10) & BITMASK(3)
     if (ver != VER_PROTO_V1) :
         raise LLRPError('messages version %d are not supported' % ver)
-    
+
     # Then try to read the message's body.
     length -= gen_header_len
     data += connection.stream.recv(length)
@@ -160,10 +160,10 @@ def recv_message(connection):
     logger.debug('%s (type=%d len=%d id=%d)' % (func(), type, length, id))
 
     # Decode message
-        try:
-            name = Message_Type2Name[type]
-        except KeyError:
-                raise LLRPError('message type %d is not supported' % type)
+    try:
+       name = Message_Type2Name[type]
+    except KeyError:
+       raise LLRPError('message type %d is not supported' % type)
     data = decode(name)(body)
 
     msg[name] = data
@@ -209,11 +209,11 @@ VER_PROTO_V1                = 1
 gen_header = '!HI'
 gen_header_len = struct.calcsize(gen_header)
 msg_header = '!HII'
-msg_header_len = struct.calcsize(msg_header)    
+msg_header_len = struct.calcsize(msg_header)
 par_header = '!HH'
-par_header_len = struct.calcsize(par_header)    
+par_header_len = struct.calcsize(par_header)
 tve_header = '!B'
-tve_header_len = struct.calcsize(tve_header)    
+tve_header_len = struct.calcsize(tve_header)
 
 # 9.1.1 Capabilities requests
 Capability_Name2Type = {
@@ -797,9 +797,9 @@ def encode_ROSpec(par):
     data = encode('ROBoundarySpec')(par['ROBoundarySpec'])
     data += encode('AISpec')(par['AISpec'])
 
-        data = struct.pack(msg_header, type,
-                                len(data) + msg_header_len,
-                id, priority, state) + data
+    data = struct.pack(msg_header, type,
+            len(data) + msg_header_len,
+            id, priority, state) + data
 
     return data
 
@@ -853,8 +853,8 @@ def encode_ROSpecStartTrigger(par):
 
     data = ''
 
-        data = struct.pack(msg_header, type,
-                                len(data) + msg_header_len, t_type) + data
+    data = struct.pack(msg_header, type,
+            len(data) + msg_header_len, t_type) + data
 
     return data
 
@@ -880,9 +880,9 @@ def encode_ROSpecStopTrigger(par):
 
     data = ''
 
-        data = struct.pack(msg_header, type,
-                                len(data) + msg_header_len,
-                t_type, duration) + data
+    data = struct.pack(msg_header, type,
+            len(data) + msg_header_len,
+            t_type, duration) + data
 
     return data
 
@@ -912,8 +912,8 @@ def encode_AISpec(par):
     data += encode('AISpecStopTrigger')(par['AISpecStopTrigger'])
     data += encode('InventoryParameterSpec')(par['InventoryParameterSpec'])
 
-        data = struct.pack(msg_header, type,
-                                len(data) + msg_header_len, count) + data
+    data = struct.pack(msg_header, type,
+            len(data) + msg_header_len, count) + data
 
     return data
 
@@ -939,9 +939,9 @@ def encode_AISpecStopTrigger(par):
 
     data = ''
 
-        data = struct.pack(msg_header, type,
-                                len(data) + msg_header_len,
-                t_type, duration) + data
+    data = struct.pack(msg_header, type,
+            len(data) + msg_header_len,
+            t_type, duration) + data
 
     return data
 
@@ -968,9 +968,9 @@ def encode_InventoryParameterSpec(par):
 
     data = ''
 
-        data = struct.pack(msg_header, type,
-                                len(data) + msg_header_len,
-                inv, proto) + data
+    data = struct.pack(msg_header, type,
+            len(data) + msg_header_len,
+            inv, proto) + data
 
     return data
 
@@ -996,8 +996,8 @@ def decode_TagReportData(data):
     header = data[0 : par_header_len]
     type, length = struct.unpack(par_header, header)
     type = type & BITMASK(10)
-        if type != Message_struct['TagReportData']['type']:
-                return (None, data)
+    if type != Message_struct['TagReportData']['type']:
+        return (None, data)
     body = data[par_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), type, length))
 
@@ -1052,7 +1052,7 @@ def decode_EPCData(data):
                     body[0 : struct.calcsize('!H')])
     par['EPC'] = body[struct.calcsize('!H') : ].encode('hex')
 
-        return par, data[length : ]
+    return par, data[length : ]
 
 Message_struct['EPCData'] = {
     'type': 241,
@@ -1082,7 +1082,7 @@ def decode_EPC96(data):
     # Decode fields
     par['EPC'] = body.encode('hex')
 
-        return par, data[length : ]
+    return par, data[length : ]
 
 Message_struct['EPC-96'] = {
     'type': 13,
@@ -1111,7 +1111,7 @@ def decode_ROSpecID(data):
     # Decode fields
     (par['ROSpecID'], ) = struct.unpack('!I', body)
 
-        return par, data[length : ]
+    return par, data[length : ]
 
 Message_struct['ROSpecID'] = {
     'type': 9,
@@ -1396,7 +1396,7 @@ def llrp_connect(connection, host, port = LLRP_PORT):
                 ['Status']
     except:
         raise LLRPError('invalid connection answer!')
-    
+
     if status != 'Success':
         raise LLRPResponseError(status)
 
@@ -1543,9 +1543,9 @@ def llrp_get_capabilities(connection, req):
 def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level = 0):
         tabs = '\t' * level
-    
+
         str = tabs + '<%s>\n' % name
-    
+
         fields =  Message_struct[name]['fields']
         for p in fields:
             try:
@@ -1557,11 +1557,11 @@ def llrp_data2xml(msg):
                 str += __llrp_data2xml(sub, p, level + 1)
             elif type(sub) == ListType and \
                     type(sub[0]) == DictionaryType:
-                for e in sub:   
+                for e in sub:
                     str += __llrp_data2xml(e, p, level + 1)
             else:
                 str += tabs + '\t<%s>%s</%s>\n' % (p, sub, p)
-    
+
         str += tabs + '</%s>\n' % name
 
         return str
@@ -1862,7 +1862,7 @@ class LLRPROSpec(dict):
 
     def enable(self, connection):
         llrp_enable_rospec(connection, self)
-        
+
     def start(self, connection):
         llrp_start_rospec(connection, self)
 
