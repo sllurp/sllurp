@@ -96,7 +96,12 @@ print rospec
 
 # Add ROSpec
 out('adding ROSpec... ')
-rospec.add(server)
+try:
+    rospec.add(server)
+except LLRPResponseError, ret:
+    print 'fail: %s' % ret
+    server.close()
+    sys.exit(1)
 print 'done'
 
 # Enable ROSpec
@@ -105,6 +110,7 @@ try:
     rospec.enable(server)
 except LLRPResponseError, ret:
     print 'fail: %s' % ret
+    server.close()
     sys.exit(1)
 else:
         print 'done'
@@ -115,6 +121,7 @@ try:
     rospec.start(server)
 except LLRPResponseError, ret:
     print 'fail: %s' % ret
+    server.close()
     sys.exit(1)
 else:
     print 'done'
@@ -128,6 +135,7 @@ try:
     rospec.stop(server)
 except LLRPResponseError, ret:
     print 'fail: %s' % ret
+    server.close()
     sys.exit(1)
 else:
         print 'done'
@@ -138,6 +146,7 @@ try:
     rospec.disable(server)
 except LLRPResponseError, ret:
     print 'fail: %s' % ret
+    server.close()
     sys.exit(1)
 else:
         print 'done'
@@ -148,6 +157,7 @@ try:
     rospec.delete(server)
 except LLRPResponseError, ret:
     print 'fail: %s' % ret
+    server.close()
     sys.exit(1)
 else:
         print 'done'
