@@ -1702,9 +1702,13 @@ class reader_thread(Thread):
         self.keep_running = False
 
 class LLRPdConnection():
-    def __init__(self, host, port = LLRP_PORT, event_cb = do_nothing):
+    def __init__(self, host, port = LLRP_PORT, event_cb = do_nothing,
+            timeout = None):
         # Create the communication socket and then do the connect
         self.stream = socket(AF_INET, SOCK_STREAM)
+        if timeout:
+            logger.debug('setting timeout to {}'.format(timeout))
+            self.stream.settimeout(timeout)
         llrp_connect(self, host, port)
 
         # Set events callback to void function
