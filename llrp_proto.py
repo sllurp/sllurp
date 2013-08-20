@@ -1657,6 +1657,7 @@ class reader_thread(Thread):
 
     def __init__(self, connection):
         Thread.__init__(self)
+        self.daemon = True # exit when parent exits
         self.connection = connection
         self.keep_running = True
 
