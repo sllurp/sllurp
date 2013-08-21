@@ -22,6 +22,7 @@ import logging, inspect, struct, exceptions
 from threading import *
 from types import *
 from socket import *
+import time
 
 #
 # Define exported symbols
@@ -1081,6 +1082,7 @@ def decode_EPC96(data):
 
     # Decode fields
     par['EPC'] = body.encode('hex')
+    logger.info('tag: {}'.format(par['EPC']))
 
     return par, data[length : ]
 
@@ -1585,7 +1587,6 @@ def llrp_start_rospec(connection, rospec):
         'ROSpecID' : id
     }
 
-    logger.debug(msg)
     send_message(connection, msg)
 
     # Wait for the answer
@@ -1657,7 +1658,6 @@ class ReaderThread(Thread):
 
     def __init__(self, connection):
         Thread.__init__(self)
-        self.daemon = True # exit when parent exits
         self.connection = connection
         self.keep_running = True
 
@@ -1720,12 +1720,17 @@ class LLRPdConnection():
         self.msg_cond = Condition()
 
         # Start the receiving thread
+        logger.debug('starting reader thread...')
         self.recv_thread = ReaderThread(self)
+        self.recv_thread.setDaemon(True)
         self.recv_thread.start()
 
     def close(self):
+        logger.debug('closing connection...')
+        self.delete_all_rospec()
         self.recv_thread.stop()
         llrp_close(self)
+        logger.debug('connection closed.')
 
     def delete_all_rospec(self):
         rospec = { }
