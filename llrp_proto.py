@@ -1642,13 +1642,18 @@ def do_nothing(connection, msg):
     pass
 
 def wait_for_message(connection):
+    logger.debug('wait_for_message: acquiring lock')
     connection.msg_cond.acquire()
+    logger.debug('wait_for_message: got lock')
 
+    logger.debug('wait_for_message: waiting for #messages != 0')
     while len(connection.messages) == 0:
         connection.msg_cond.wait()
+    logger.debug('wait_for_message: #messages != 0')
 
     msg = connection.messages.pop(0)
 
+    logger.debug('wait_for_message: releasing lock')
     connection.msg_cond.release()
 
     return msg
