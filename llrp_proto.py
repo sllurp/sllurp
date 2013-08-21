@@ -1652,7 +1652,7 @@ def wait_for_message(connection):
 
     return msg
 
-class reader_thread(Thread):
+class ReaderThread(Thread):
     keep_running = False
 
     def __init__(self, connection):
@@ -1720,7 +1720,7 @@ class LLRPdConnection():
         self.msg_cond = Condition()
 
         # Start the receiving thread
-        self.recv_thread = reader_thread(self)
+        self.recv_thread = ReaderThread(self)
         self.recv_thread.start()
 
     def close(self):
