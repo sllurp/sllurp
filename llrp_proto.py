@@ -157,7 +157,7 @@ def recv_message(connection):
     header = data[0 : msg_header_len]
     type, length, id = struct.unpack(msg_header, header)
     type = type & BITMASK(10)
-    body = data[msg_header_len : msg_header_len + length - msg_header_len]
+    body = data[msg_header_len : length]
     logger.debug('%s (type=%d len=%d id=%d)' % (func(), type, length, id))
 
     # Decode message
