@@ -4,11 +4,12 @@ import logging
 import Queue
 from llrp import LLRPReaderThread, LLRPMessage
 from llrp_proto import LLRPROSpec
+import sys
 
 logging.basicConfig(level=logging.DEBUG)
 
 def main():
-    rv = LLRPReaderThread('172.33.33.254', 5084)
+    rv = LLRPReaderThread(sys.argv[1], 5084)
     rv.setDaemon(True)
 
     inq = rv.inq # put messages in here
@@ -26,16 +27,6 @@ def main():
             'ID':   0,
             'ROSpecID': rospec['ROSpec']['ROSpecID'],
             'ROSpec': rospec['ROSpec'],
-        }})))
-
-    # enable the ROspec
-    time.sleep(1)
-    outq.put((0, LLRPMessage(msgdict={
-        'ENABLE_ROSPEC': {
-            'Ver':  1,
-            'Type': 24,
-            'ID':   0,
-            'ROSpecID': rospec['ROSpec']['ROSpecID'],
         }})))
 
     # enable the ROspec
@@ -83,7 +74,7 @@ def main():
     logging.debug('Size of inq: {}'.format(inq.qsize()))
     while True:
         try:
-            print(inq.get(timeout=10))
+            print(inq.get(timeout=5))
         except Queue.Empty:
             break
 

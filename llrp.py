@@ -33,7 +33,7 @@ class LLRPMessage:
         if self.msgdict is None:
             raise LLRPError('No message dict to serialize.')
         name = self.msgdict.keys()[0]
-        logging.debug('Name {}'.format(name))
+        logging.debug('serializing {} command'.format(name))
         ver = self.msgdict[name]['Ver'] & BITMASK(3)
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
         msgid = self.msgdict[name]['ID']
@@ -59,17 +59,21 @@ class LLRPMessage:
         msgtype = msgtype & BITMASK(10)
         try:
             name = Message_Type2Name[msgtype]
+            logging.debug('deserializing {} command'.format(name))
             decoder = Message_struct[name]['decode']
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
                     '{}'.format(msgtype))
         body = data[self.full_hdr_len:length]
-        self.msgdict = {
-           name: dict(decoder(body))
-        }
-        self.msgdict[name]['Ver'] = ver
-        self.msgdict[name]['Type'] = msgtype
-        self.msgdict[name]['ID'] = msgid
+        try:
+            self.msgdict = {
+               name: dict(decoder(body))
+            }
+            self.msgdict[name]['Ver'] = ver
+            self.msgdict[name]['Type'] = msgtype
+            self.msgdict[name]['ID'] = msgid
+        except LLRPError as e:
+            logging.warning('Uncaught error: {}'.format(e))
         return self.msgdict
 
 class LLRPDispatcher (asyncore.dispatcher):
