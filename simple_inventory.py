@@ -19,7 +19,9 @@ def main():
             help='show debugging output')
     args = parser.parse_args()
 
-    logging.basicConfig(level=(args.debug and logging.DEBUG or logging.INFO))
+    debugLevel = (args.debug and logging.DEBUG or logging.INFO)
+    logging.basicConfig(level=debugLevel)
+    logging.getLogger('llrpc').setLevel(debugLevel)
 
     rv = llrp.LLRPReaderThread(args.host, args.port)
     rv.setDaemon(True)
