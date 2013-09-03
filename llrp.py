@@ -10,6 +10,8 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, Message_Type2Name
 import copy
 from util import *
 
+LLRP_PORT = 5084
+
 class LLRPMessage:
     hdr_fmt = '!HI'
     hdr_len = struct.calcsize(hdr_fmt)
