@@ -1196,7 +1196,10 @@ def decode_LLRPStatus(data):
     # Decode fields
     offset = struct.calcsize('!HH')
     (code, n) = struct.unpack('!HH', body[ : offset])
-    par['StatusCode'] = Error_Type2Name[code]
+    try:
+        par['StatusCode'] = Error_Type2Name[code]
+    except KeyError:
+        logger.warning('Unknown field code {}'.format(hex(code)))
     par['ErrorDescription'] = body[offset : offset + n]
 
     # Decode parameters
