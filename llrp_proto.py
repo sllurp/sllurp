@@ -18,11 +18,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import logging, inspect, struct, exceptions
+import logging, struct, exceptions
 from threading import *
 from types import *
 from socket import *
 import time
+from util import *
 
 #
 # Define exported symbols
@@ -78,28 +79,11 @@ class LLRPResponseError(LLRPError):
 # Local functions
 #
 
-def BIT(n):
-    return 1 << n
-
-def BITMASK(n):
-    return ((1 << (n)) - 1)
-
-def func():
-    return inspect.stack()[1][3]
-
 def decode(data):
     return Message_struct[data]['decode']
 
 def encode(data):
     return Message_struct[data]['encode']
-
-def reverse_dict(data):
-    atad = { }
-    for m in data:
-        i = data[m]
-        atad[i] = m
-
-    return atad
 
 def bin2dump(data, label=''):
     def isprint(c):
@@ -1193,6 +1177,7 @@ Message_struct['ConnectionAttemptEvent'] = {
 def decode_LLRPStatus(data):
     logger.debug(func())
     par = {}
+    logger.debug('decode_LLRPStatus: {}'.format(hexlify(data)))
 
     if len(data) == 0:
         return None, data
@@ -1201,6 +1186,9 @@ def decode_LLRPStatus(data):
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['LLRPStatus']['type']:
+        logger.debug('Got msgtype={0}, expected {1}'.format(msgtype,
+                    Message_struct['LLRPStatus']['type']))
+        logger.debug('Note length={}'.format(length))
         return (None, data)
     body = data[par_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
@@ -1215,10 +1203,14 @@ def decode_LLRPStatus(data):
     ret, body = decode('FieldError')(body[offset + n : ])
     if ret:
         par['FieldError'] = ret
+    else:
+        logging.debug('no FieldError')
 
     ret, body = decode('ParameterError')(body)
     if ret:
         par['ParameterError'] = ret
+    else:
+        logging.debug('no ParameterError')
 
     # Check the end of the message
     if len(body) > 0:

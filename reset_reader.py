@@ -17,46 +17,14 @@ def main():
 
     rv.start()
 
-    # add an ROspec
-    time.sleep(1)
     rospec = LLRPROSpec(1)
-    outq.put((0, LLRPMessage(msgdict={
-        'ADD_ROSPEC': {
-            'Ver':  1,
-            'Type': 20,
-            'ID':   0,
-            'ROSpecID': rospec['ROSpec']['ROSpecID'],
-            'ROSpec': rospec['ROSpec'],
-        }})))
-
-    # enable the ROspec
-    time.sleep(1)
-    outq.put((0, LLRPMessage(msgdict={
-        'ENABLE_ROSPEC': {
-            'Ver':  1,
-            'Type': 24,
-            'ID':   0,
-            'ROSpecID': rospec['ROSpec']['ROSpecID'],
-        }})))
-
-    # start the ROspec
-    time.sleep(1)
-    outq.put((0, LLRPMessage(msgdict={
-        'START_ROSPEC': {
-            'Ver':  1,
-            'Type': 22,
-            'ID':   0,
-            'ROSpecID': rospec['ROSpec']['ROSpecID'],
-        }})))
-
-    time.sleep(30)
 
     # stop the ROspec
     time.sleep(1)
     outq.put((0, LLRPMessage(msgdict={
-        'STOP_ROSPEC': {
+        'DISABLE_ROSPEC': {
             'Ver':  1,
-            'Type': 23,
+            'Type': 25,
             'ID':   0,
             'ROSpecID': rospec['ROSpec']['ROSpecID'],
         }})))
@@ -71,7 +39,6 @@ def main():
             'ROSpecID': rospec['ROSpec']['ROSpecID'],
         }})))
 
-    logging.debug('Size of inq: {}'.format(inq.qsize()))
     while True:
         try:
             print(inq.get(timeout=5))

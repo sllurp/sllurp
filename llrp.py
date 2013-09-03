@@ -8,9 +8,7 @@ import Queue
 from threading import Thread, Condition
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, Message_Type2Name
 import copy
-
-def BITMASK(n):
-    return ((1 << (n)) - 1)
+from util import *
 
 class LLRPMessage:
     hdr_fmt = '!HI'
@@ -47,6 +45,8 @@ class LLRPMessage:
                 (ver << 10) | msgtype,
                 len(data) + self.full_hdr_len,
                 msgid) + data
+        logging.debug('serialized bytes: {}'.format(hexlify(self.msgbytes)))
+        logging.debug('done serializing {} command'.format(name))
         return self.msgbytes
 
     def deserialize (self):
@@ -73,7 +73,8 @@ class LLRPMessage:
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
         except LLRPError as e:
-            logging.warning('Uncaught error: {}'.format(e))
+            logging.warning('Problem with {} message format: {}'.format(name, e))
+        logging.debug('done deserializing {} command'.format(name))
         return self.msgdict
 
 class LLRPDispatcher (asyncore.dispatcher):
@@ -105,7 +106,7 @@ class LLRPDispatcher (asyncore.dispatcher):
             bs = self.recv(to_read)
             bytes_read += len(bs)
             msgbytes += bs
-        logging.debug('Got {} bytes.'.format(bytes_read))
+        logging.debug('Got {} bytes from reader: {}'.format(bytes_read, hexlify(msgbytes)))
         self.inqueue.put(LLRPMessage(msgbytes=msgbytes).deserialize())
 
     def writable(self):
