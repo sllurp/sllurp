@@ -3,12 +3,13 @@ import time
 import socket
 import logging
 import struct
-import asyncore
 import Queue
 from threading import Thread, Condition
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, Message_Type2Name
 import copy
 from util import *
+from twisted.internet import reactor
+from twisted.internet.protocol import Protocol, ClientFactory, ClientCreator
 
 LLRP_PORT = 5084
 
@@ -79,58 +80,144 @@ class LLRPMessage:
         logging.debug('done deserializing {} command'.format(name))
         return self.msgdict
 
-class LLRPDispatcher (asyncore.dispatcher):
-    """ Simply manage sending and receiving the contents of incoming & outgoing
-        message queues.
-    """
-    inqueue = None
-    outqueue = None
+class LLRPClient (Protocol):
+    def connectionMade(self):
+        logging.debug('socket connected')
 
-    def __init__ (self, host, port, inqueue, outqueue):
-        asyncore.dispatcher.__init__(self)
-        self.inqueue = inqueue
-        self.outqueue = outqueue
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect((host, port))
+    def connectionLost(self, reason):
+        logging.debug('socket closed: {}'.format(reason))
 
-    def handle_connect(self):
-        pass
+    def dataReceived (self, data):
+        #msgbytes = self.recv(LLRPMessage.hdr_len)
+        #bytes_read = len(msgbytes)
+        #ty, length = struct.unpack(LLRPMessage.hdr_fmt, msgbytes)
+        #to_read = length - LLRPMessage.hdr_len
+        #while (bytes_read < to_read):
+        #    bs = self.recv(to_read)
+        #    bytes_read += len(bs)
+        #    msgbytes += bs
+        logging.debug('Got {} bytes from reader: {}'.format(len(data),
+                    data.encode('hex')))
+        #self.inqueue.put(LLRPMessage(msgbytes=data).deserialize())
 
-    def handle_close(self):
-        self.close()
+    def sendLLRPMessage (self, llrp_msg):
+        reactor.callFromThread(self.sendMessage, llrp_msg.serialize())
 
-    def handle_read(self):
-        msgbytes = self.recv(LLRPMessage.hdr_len)
-        bytes_read = len(msgbytes)
-        ty, length = struct.unpack(LLRPMessage.hdr_fmt, msgbytes)
-        to_read = length - LLRPMessage.hdr_len
-        while (bytes_read < to_read):
-            bs = self.recv(to_read)
-            bytes_read += len(bs)
-            msgbytes += bs
-        logging.debug('Got {} bytes from reader: {}'.format(bytes_read, hexlify(msgbytes)))
-        self.inqueue.put(LLRPMessage(msgbytes=msgbytes).deserialize())
+    def sendMessage (self, msg):
+        self.transport.write(msg)
 
-    def writable(self):
-        return not self.outqueue.empty()
+class LLRPClientFactory (ClientFactory):
+    protocol = LLRPClient
 
-    def handle_write(self):
-        while True:
-            try:
-                (pri, msg) = self.outqueue.get_nowait()
-                self.send(msg.serialize())
-            except Queue.Empty:
-                break
+    def clientConnectionFailed (self, connector, reason):
+        logging.debug('connection failed: {}'.format(reason))
+        reactor.stop()
+
+    def clientConnectionLost (self, connector, reason):
+        logging.debug('connection lost: {}'.format(reason))
+        reactor.stop()
 
 class LLRPReaderThread (Thread):
-    """ Thread object that connects input and output message queues to a socket
-        (which is managed by an LLRPDispatcher)."""
-    inq = Queue.PriorityQueue()
-    outq = Queue.PriorityQueue()
+    """ Thread object that connects input and output message queues to a
+        socket."""
+    client = None
+    rospec = None
+    host = None
+    port = None
+    protocol = None
 
-    def __init__ (self, host, port):
+    def __init__ (self, host, port=LLRP_PORT):
         super(LLRPReaderThread, self).__init__()
-        dispatcher = LLRPDispatcher(host, port, self.inq, self.outq)
-    def run (self):
-        asyncore.loop()
+        self.host = host
+        self.port = port
 
+    def cbConnected (self, connectedProtocol):
+        logging.debug('connected!')
+        self.protocol = connectedProtocol
+
+    def ebConnectError (self, reason):
+        logging.debug('connection error: {}'.format(reason))
+        pass
+
+    def run (self):
+        logging.debug('will connect to {}:{}'.format(self.host, self.port))
+        cc = ClientCreator(reactor, LLRPClient)
+        whenConnected = cc.connectTCP(self.host, self.port)
+        #reactor.run(installSignalHandlers=0)
+        whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)
+        reactor.run(False)
+
+    def start_inventory (self):
+        "Start the reader inventorying."
+        if not self.protocol:
+            return
+        if not self.rospec:
+            # create an ROSpec, which defines the reader's inventorying
+            # behavior, and start running it on the reader
+            self.rospec = LLRPROSpec(1)
+
+        roSpecId = self.rospec['ROSpec']['ROSpecID']
+
+        # add an ROspec
+        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+            'ADD_ROSPEC': {
+                'Ver':  1,
+                'Type': 20,
+                'ID':   0,
+                'ROSpecID': roSpecId,
+                'ROSpec': self.rospec['ROSpec'],
+            }}))
+
+        # enable the ROspec
+        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+            'ENABLE_ROSPEC': {
+                'Ver':  1,
+                'Type': 24,
+                'ID':   0,
+                'ROSpecID': roSpecId
+            }}))
+
+        # start the ROspec
+        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+            'START_ROSPEC': {
+                'Ver':  1,
+                'Type': 22,
+                'ID':   0,
+                'ROSpecID': roSpecId
+            }}))
+
+    def stop_inventory (self):
+        "Stop the reader from inventorying."
+        if not self.protocol:
+            return
+        if not self.rospec:
+            return
+
+        roSpecId = self.rospec['ROSpec']['ROSpecID']
+
+        # stop the ROspec
+        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+            'STOP_ROSPEC': {
+                'Ver':  1,
+                'Type': 23,
+                'ID':   0,
+                'ROSpecID': roSpecId
+            }}))
+
+        # disable the ROspec
+        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+            'DISABLE_ROSPEC': {
+                'Ver':  1,
+                'Type': 25,
+                'ID':   0,
+                'ROSpecID': roSpecId
+            }}))
+
+        # delete the ROspec
+        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+            'DELETE_ROSPEC': {
+                'Ver':  1,
+                'Type': 21,
+                'ID':   0,
+                'ROSpecID': roSpecId
+            }}))
