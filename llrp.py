@@ -221,3 +221,7 @@ class LLRPReaderThread (Thread):
                 'ID':   0,
                 'ROSpecID': roSpecId
             }}))
+
+    def disconnect (self):
+        logging.debug('stopping reactor')
+        reactor.callFromThread(reactor.stop)

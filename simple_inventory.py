@@ -32,6 +32,7 @@ def main():
     reader.start_inventory()
     time.sleep(10)
     reader.stop_inventory()
+    reader.disconnect()
 
 if __name__ == '__main__':
     main()
