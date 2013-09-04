@@ -3,10 +3,8 @@
 from __future__ import print_function
 import time
 import logging
-import Queue
 import llrp
 from llrp_proto import LLRPROSpec
-import sys
 from util import *
 
 def main():
