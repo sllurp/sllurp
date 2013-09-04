@@ -3,10 +3,9 @@
 from __future__ import print_function
 import time
 import logging
-import Queue
 import llrp
 from llrp_proto import LLRPROSpec
-import sys
+from util import *
 
 def main():
     import argparse
@@ -18,45 +17,19 @@ def main():
             help='show debugging output')
     args = parser.parse_args()
 
-    debugLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logging.basicConfig(level=debugLevel)
-    logging.getLogger('llrpc').setLevel(debugLevel)
+    logLevel = (args.debug and logging.DEBUG or logging.INFO)
+    logging.basicConfig(level=logLevel,
+            format='%(asctime)s: %(levelname)s: %(message)s')
+    logging.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
+    logging.getLogger('llrpc').setLevel(logLevel)
 
-    rv = llrp.LLRPReaderThread(args.host, args.port)
-    rv.setDaemon(True)
+    # spawn a thread to talk to the reader
+    reader = llrp.LLRPReaderThread(args.host, args.port)
+    reader.setDaemon(True)
+    reader.start()
 
-    inq = rv.inq # put messages in here
-    outq = rv.outq # collect messages from here
-
-    rv.start()
-
-    rospec = LLRPROSpec(1)
-
-    # stop the ROspec
-    time.sleep(1)
-    outq.put((0, llrp.LLRPMessage(msgdict={
-        'DISABLE_ROSPEC': {
-            'Ver':  1,
-            'Type': 25,
-            'ID':   0,
-            'ROSpecID': rospec['ROSpec']['ROSpecID'],
-        }})))
-
-    # delete the ROspec
-    time.sleep(1)
-    outq.put((0, llrp.LLRPMessage(msgdict={
-        'DELETE_ROSPEC': {
-            'Ver':  1,
-            'Type': 21,
-            'ID':   0,
-            'ROSpecID': rospec['ROSpec']['ROSpecID'],
-        }})))
-
-    while True:
-        try:
-            print(inq.get(timeout=5))
-        except Queue.Empty:
-            break
+    time.sleep(3)
+    reader.stop_inventory()
 
 if __name__ == '__main__':
     main()
