@@ -98,7 +98,11 @@ class LLRPClient (Protocol):
         #    msgbytes += bs
         logging.debug('Got {} bytes from reader: {}'.format(len(data),
                     data.encode('hex')))
-        #self.inqueue.put(LLRPMessage(msgbytes=data).deserialize())
+        try:
+            lmsg = LLRPMessage(msgbytes=data).deserialize()
+            print(lmsg)
+        except:
+            logger.warn('failed to decode LLRPMessage')
 
     def sendLLRPMessage (self, llrp_msg):
         reactor.callFromThread(self.sendMessage, llrp_msg.serialize())
