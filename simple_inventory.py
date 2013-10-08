@@ -27,11 +27,13 @@ def main():
     reader = llrp.LLRPReaderThread(args.host, args.port)
     reader.setDaemon(True)
     reader.start()
-
     time.sleep(3)
+
+    # read for 10 seconds
     reader.start_inventory()
     time.sleep(10)
     reader.stop_inventory()
+
     reader.disconnect()
 
 if __name__ == '__main__':

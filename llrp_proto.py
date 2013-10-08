@@ -19,21 +19,20 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import logging, struct, exceptions
+import traceback
 from threading import *
 from types import *
 from socket import *
 import time
 from util import *
+import llrp_decoder
+from llrp_errors import *
 
 #
 # Define exported symbols
 #
 
 __all__ = [
-    # Exceptions
-    "LLRPError",
-    "LLRPResponseError",
-
     # Class
     "LLRPdConnection",
     "LLRPdCapabilities",
@@ -64,16 +63,6 @@ log.setFormatter(formatter)
 
 # Add log to logger
 logger.addHandler(log)
-
-#
-# Define exceptions
-#
-
-class LLRPError(Exception):
-    pass
-
-class LLRPResponseError(LLRPError):
-    pass
 
 #
 # Local functions
@@ -577,6 +566,8 @@ def decode_ROAccessReport(data):
     msg = LLRPMessage()
     logger.debug('%s' % func())
 
+    logger.debug('RO_ACCESS_REPORT bytes: {}'.format(data.encode('hex')))
+
     # Decode parameters
     msg['TagReportData'] = [ ]
     while True:
@@ -588,7 +579,7 @@ def decode_ROAccessReport(data):
 
     # Check the end of the message
     if len(data) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('junk at end of message: ' + bin2dump(data))
 
     return msg
 
@@ -974,6 +965,7 @@ Message_struct['InventoryParameterSpec'] = {
 def decode_TagReportData(data):
     par = {}
     logger.debug('%s' % func())
+    logger.debug('TagReportData bytes: {}'.format(data.encode('hex')))
 
     if len(data) == 0:
         return None, data
@@ -990,20 +982,16 @@ def decode_TagReportData(data):
     ret, body = decode('EPCData')(body)
     if ret:
         par['EPCData'] = ret
+        logger.info('tag: {}'.format(ret))
     else:
         ret, body = decode('EPC-96')(body)
         if ret:
-            par['EPC-96'] = ret
+            par['EPC-96'] = ret['EPC']
+            logger.info('tag: {}'.format(ret))
         else:
             raise LLRPError('missing or invalid EPCData parameter')
 
-    ret, body = decode('ROSpecID')(body)
-    if ret:
-        par['ROSpecID'] = ret
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+    par.update(llrp_decoder.decode_tve_parameters(body))
 
     return par, data[length : ]
 
@@ -1011,7 +999,8 @@ Message_struct['TagReportData'] = {
     'type': 240,
     'fields': [
         'Type',
-        'EPCData', 'EPC-96',
+        'EPCData',
+        'EPC-96',
         'ROSpecID',
     ],
     'decode': decode_TagReportData
@@ -1066,7 +1055,6 @@ def decode_EPC96(data):
 
     # Decode fields
     par['EPC'] = body.encode('hex')
-    logger.info('tag: {}'.format(par['EPC']))
 
     return par, data[length : ]
 
@@ -1079,6 +1067,41 @@ Message_struct['EPC-96'] = {
     'decode': decode_EPC96
 }
 
+# 16.2.7.3.* TagReportData Parameters
+def decode_TagReportDataParam(data):
+    param_formats = {
+        # param type: (param name, struct format)
+        1: ('AntennaID', '!H'),
+        2: ('FirstSeenTimestampUTC', '!Q'),
+        3: ('FirstSeenTimestampUptime', '!Q'),
+        4: ('LastSeenTimestampUTC', '!Q'),
+        5: ('LastSeenTimestampUptime', '!Q'),
+        6: ('PeakRSSI', '!b'),
+        7: ('ChannelIndex', '!H'),
+        8: ('TagSeenCount', '!H'),
+        9: ('ROSpecID', '!I'),
+        10: ('InventoryParameterSpecID', '!H'),
+        14: ('SpecIndex', '!H'),
+        15: ('ClientRequestOpSpecResult', '!H'),
+        16: ('AccessSpecID', '!I')
+    }
+    par = {}
+
+    header = data[0 : tve_header_len]
+    (msgtype,) = struct.unpack(tve_header, header)
+    msgtype = msgtype & BITMASK(7)
+    try:
+        param_name, struct_fmt = param_formats[msgtype]
+    except KeyError:
+        return None, data
+    end = struct.calcsize(struct_fmt) + tve_header_len
+    par[param_name] = struct.unpack(struct_fmt, data[tve_header_len:end])
+    return par, data[end:]
+
+Message_struct['TagReportDataParam'] = {
+    'decode': decode_TagReportDataParam
+}
+
 # 16.2.7.3.3 ROSpecID Parameter
 def decode_ROSpecID(data):
     par = {}
@@ -1089,7 +1112,7 @@ def decode_ROSpecID(data):
     header = data[0 : tve_header_len]
     (msgtype, ), length = struct.unpack(tve_header, header), 1 + 4
     msgtype = msgtype & BITMASK(7)
-    if msgtype != Message_struct['EPC-96']['type']:
+    if msgtype != Message_struct['ROSpecID']['type']:
         return (None, data)
     body = data[tve_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))

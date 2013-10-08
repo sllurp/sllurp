@@ -15,9 +15,9 @@ LLRP_PORT = 5084
 
 class LLRPMessage:
     hdr_fmt = '!HI'
-    hdr_len = struct.calcsize(hdr_fmt)
+    hdr_len = struct.calcsize(hdr_fmt) # == 6 bytes
     full_hdr_fmt = hdr_fmt + 'I'
-    full_hdr_len = struct.calcsize(full_hdr_fmt)
+    full_hdr_len = struct.calcsize(full_hdr_fmt) # == 10 bytes
     msgdict = None
     msgbytes = None
 
@@ -101,8 +101,8 @@ class LLRPClient (Protocol):
         try:
             lmsg = LLRPMessage(msgbytes=data).deserialize()
             print(lmsg)
-        except:
-            logger.warn('failed to decode LLRPMessage')
+        except LLRPError as err:
+            logging.warn('failed to decode LLRPMessage: {}'.format(err))
 
     def sendLLRPMessage (self, llrp_msg):
         reactor.callFromThread(self.sendMessage, llrp_msg.serialize())
@@ -114,11 +114,11 @@ class LLRPClientFactory (ClientFactory):
     protocol = LLRPClient
 
     def clientConnectionFailed (self, connector, reason):
-        logging.debug('connection failed: {}'.format(reason))
+        logging.error('connection failed: {}'.format(reason))
         reactor.stop()
 
     def clientConnectionLost (self, connector, reason):
-        logging.debug('connection lost: {}'.format(reason))
+        logging.info('connection lost: {}'.format(reason))
         reactor.stop()
 
 class LLRPReaderThread (Thread):
