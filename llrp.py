@@ -1,7 +1,9 @@
 from __future__ import print_function
+from collections import defaultdict
 import time
 import socket
 import logging
+import pprint
 import struct
 import Queue
 from threading import Thread, Condition
@@ -80,12 +82,25 @@ class LLRPMessage:
         logging.debug('done deserializing {} command'.format(name))
         return self.msgdict
 
+    def getName (self):
+        if not self.msgdict:
+            return None
+        return self.msgdict.keys()[0]
+
+    def __repr__ (self):
+        return pprint.pformat(self.msgdict)
+
 class LLRPClient (Protocol):
+    eventCallbacks = {}
+
     def connectionMade(self):
         logging.debug('socket connected')
 
     def connectionLost(self, reason):
         logging.debug('socket closed: {}'.format(reason))
+
+    def addEventCallbacks (self, callbacks):
+        self.eventCallbacks = callbacks.copy()
 
     def dataReceived (self, data):
         #msgbytes = self.recv(LLRPMessage.hdr_len)
@@ -99,8 +114,13 @@ class LLRPClient (Protocol):
         logging.debug('Got {} bytes from reader: {}'.format(len(data),
                     data.encode('hex')))
         try:
-            lmsg = LLRPMessage(msgbytes=data).deserialize()
+            lmsg = LLRPMessage(msgbytes=data)
+            lmsg.deserialize()
             logging.debug('LLRPMessage received: {}'.format(lmsg))
+            msgName = lmsg.getName()
+            if msgName in self.eventCallbacks:
+                for fn in self.eventCallbacks[msgName]:
+                    fn(lmsg)
         except LLRPError as err:
             logging.warn('Failed to decode LLRPMessage: {}'.format(err))
 
@@ -128,7 +148,7 @@ class LLRPReaderThread (Thread):
     host = None
     port = None
     protocol = None
-    callbacks = {}
+    callbacks = defaultdict(list)
 
     def __init__ (self, host, port=LLRP_PORT):
         super(LLRPReaderThread, self).__init__()
@@ -138,7 +158,7 @@ class LLRPReaderThread (Thread):
     def cbConnected (self, connectedProtocol):
         logging.info('Connected to {}:{}'.format(self.host, self.port))
         self.protocol = connectedProtocol
-        self.setCallbacks
+        self.protocol.addEventCallbacks(self.callbacks)
 
     def ebConnectError (self, reason):
         logging.debug('Connection error: {}'.format(reason))
@@ -151,6 +171,9 @@ class LLRPReaderThread (Thread):
         #reactor.run(installSignalHandlers=0)
         whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)
         reactor.run(False)
+
+    def addCallback (self, eventName, eventCb):
+        self.callbacks[eventName].append(eventCb)
 
     def start_inventory (self):
         "Start the reader inventorying."

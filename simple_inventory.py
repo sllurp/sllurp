@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import time
+import argparse
 import logging
-import llrp
-from llrp_proto import LLRPROSpec
+import pprint
+import time
 from util import *
 
+import llrp
+from llrp_proto import LLRPROSpec
+
+def tagSeenCallback (llrpMsg):
+    """Function to run each time the reader reports seeing one or more tags."""
+    tagDict = llrpMsg.deserialize()
+    logging.info('Saw tag(s): {}'.\
+            format(pprint.pformat(tagDict['RO_ACCESS_REPORT']['TagReportData'])))
+
 def main():
-    import argparse
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
@@ -26,6 +34,7 @@ def main():
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port)
     reader.setDaemon(True)
+    reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
     time.sleep(3)
 
