@@ -1919,58 +1919,43 @@ class LLRPROSpec(dict):
             raise LLRPError('invalid argument 3 (not [%s])' %
                     ROSpecState_Name2Type.keys())
 
-        self['ROSpec'] = { }
-        self['ROSpec']['ROSpecID'] = msgid
-        self['ROSpec']['Priority'] = priority
-        self['ROSpec']['CurrentState'] = state
+        self['ROSpec'] = {
+            'ROSpecID': msgid,
+            'Priority': priority,
+            'CurrentState': state,
+            'ROBoundarySpec': {
+                'ROSpecStartTrigger': {
+                    'ROSpecStartTriggerType': 'Null'
+                },
+                'ROSpecStopTrigger': {
+                    'ROSpecStopTriggerType': 'Null',
+                    'DurationTriggerValue': 0
+                }
+            },
+            'AISpec': {
+                'AntennaID': [ 0, ],
+                'AISpecStopTrigger': {
+                    'AISpecStopTriggerType': 'Null',
+                    'DurationTriggerValue': 0
+                },
+                'InventoryParameterSpec': {
+                    'InventoryParameterSpecID': 1,
+                    'ProtocolID': 1
+                }
+            },
+            'ROReportSpec': {
+                'N': 0,
+                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+                'TagReportContentSelector': {
+                    'EnableAntennaID': True,
+                    'EnablePeakRSSI': True,
+                    'EnableFirstSeenTimestamp': True,
+                    'EnableLastSeenTimestamp': True,
+                    'EnableTagSeenCount': True
+                }
+            }
+        }
 
-        self['ROSpec']['ROBoundarySpec'] = {}
-        self['ROSpec']['ROBoundarySpec']\
-                ['ROSpecStartTrigger'] = { }
-        self['ROSpec']['ROBoundarySpec']\
-                ['ROSpecStartTrigger']\
-                ['ROSpecStartTriggerType'] = 'Null'
-
-        self['ROSpec']['ROBoundarySpec']\
-                ['ROSpecStopTrigger'] = { }
-        self['ROSpec']['ROBoundarySpec']\
-                ['ROSpecStopTrigger']\
-                ['ROSpecStopTriggerType'] = 'Null'
-        self['ROSpec']['ROBoundarySpec']\
-                ['ROSpecStopTrigger']\
-                ['DurationTriggerValue'] = 0
-
-        self['ROSpec']['AISpec'] = {}
-        self['ROSpec']['AISpec']\
-                ['AntennaID'] = [ 0, ]
-
-        self['ROSpec']['AISpec']\
-                ['AISpecStopTrigger'] = { }
-        self['ROSpec']['AISpec']\
-                ['AISpecStopTrigger']\
-                ['AISpecStopTriggerType'] = 'Null'
-        self['ROSpec']['AISpec']\
-                ['AISpecStopTrigger']\
-                ['DurationTriggerValue'] = 0
-
-        self['ROSpec']['ROReportSpec'] = {}
-        self['ROSpec']['ROReportSpec']['N'] = 0
-        self['ROSpec']['ROReportSpec']['ROReportTrigger'] = 0
-        self['ROSpec']['ROReportSpec']['TagReportContentSelector'] = {}
-        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableAntennaID'] = True
-        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnablePeakRSSI'] = True
-        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableFirstSeenTimestamp'] = True
-        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableLastSeenTimestamp'] = True
-        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableTagSeenCount'] = True
-
-        self['ROSpec']['AISpec']\
-                ['InventoryParameterSpec'] = { }
-        self['ROSpec']['AISpec']\
-                ['InventoryParameterSpec']\
-                ['InventoryParameterSpecID'] = 1
-        self['ROSpec']['AISpec']\
-                ['InventoryParameterSpec']\
-                ['ProtocolID'] = 1
 
     def __repr__(self):
         return llrp_data2xml(self)

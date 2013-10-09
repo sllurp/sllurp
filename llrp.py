@@ -159,6 +159,7 @@ class LLRPReaderThread (Thread):
             # create an ROSpec, which defines the reader's inventorying
             # behavior, and start running it on the reader
             self.rospec = LLRPROSpec(1)
+            logging.debug('ROSpec: {}'.format(self.rospec))
 
         roSpecId = self.rospec['ROSpec']['ROSpecID']
 
