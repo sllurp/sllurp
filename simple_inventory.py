@@ -5,7 +5,7 @@ import argparse
 import logging
 import pprint
 import time
-from util import *
+from sllurp.util import *
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
