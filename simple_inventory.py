@@ -7,8 +7,8 @@ import pprint
 import time
 from util import *
 
-import llrp
-from llrp_proto import LLRPROSpec
+import sllurp.llrp as llrp
+from sllurp.llrp_proto import LLRPROSpec
 
 def tagSeenCallback (llrpMsg):
     """Function to run each time the reader reports seeing one or more tags."""

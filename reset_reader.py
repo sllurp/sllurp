@@ -3,9 +3,10 @@
 from __future__ import print_function
 import time
 import logging
-import llrp
-from llrp_proto import LLRPROSpec
-from util import *
+
+import sllurp.llrp as llrp
+from sllurp.llrp_proto import LLRPROSpec
+from sllurp.util import *
 
 def main():
     import argparse
