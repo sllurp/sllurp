@@ -100,7 +100,7 @@ class LLRPClient (Protocol):
                     data.encode('hex')))
         try:
             lmsg = LLRPMessage(msgbytes=data).deserialize()
-            print(lmsg)
+            logging.debug('LLRPMessage received: {}'.format(lmsg))
         except LLRPError as err:
             logging.warn('failed to decode LLRPMessage: {}'.format(err))
 

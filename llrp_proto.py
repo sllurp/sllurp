@@ -1047,12 +1047,10 @@ def decode_TagReportData(data):
     ret, body = decode('EPCData')(body)
     if ret:
         par['EPCData'] = ret
-        logger.info('tag: {}'.format(ret))
     else:
         ret, body = decode('EPC-96')(body)
         if ret:
             par['EPC-96'] = ret['EPC']
-            logger.info('tag: {}'.format(ret))
         else:
             raise LLRPError('missing or invalid EPCData parameter')
 
