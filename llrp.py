@@ -102,7 +102,7 @@ class LLRPClient (Protocol):
             lmsg = LLRPMessage(msgbytes=data).deserialize()
             logging.debug('LLRPMessage received: {}'.format(lmsg))
         except LLRPError as err:
-            logging.warn('failed to decode LLRPMessage: {}'.format(err))
+            logging.warn('Failed to decode LLRPMessage: {}'.format(err))
 
     def sendLLRPMessage (self, llrp_msg):
         reactor.callFromThread(self.sendMessage, llrp_msg.serialize())
@@ -114,21 +114,21 @@ class LLRPClientFactory (ClientFactory):
     protocol = LLRPClient
 
     def clientConnectionFailed (self, connector, reason):
-        logging.error('connection failed: {}'.format(reason))
+        logging.error('Connection failed: {}'.format(reason))
         reactor.stop()
 
     def clientConnectionLost (self, connector, reason):
-        logging.info('connection lost: {}'.format(reason))
+        logging.info('Connection lost: {}'.format(reason))
         reactor.stop()
 
 class LLRPReaderThread (Thread):
     """ Thread object that connects input and output message queues to a
         socket."""
-    client = None
     rospec = None
     host = None
     port = None
     protocol = None
+    callbacks = {}
 
     def __init__ (self, host, port=LLRP_PORT):
         super(LLRPReaderThread, self).__init__()
@@ -136,15 +136,16 @@ class LLRPReaderThread (Thread):
         self.port = port
 
     def cbConnected (self, connectedProtocol):
-        logging.debug('connected!')
+        logging.info('Connected to {}:{}'.format(self.host, self.port))
         self.protocol = connectedProtocol
+        self.setCallbacks
 
     def ebConnectError (self, reason):
-        logging.debug('connection error: {}'.format(reason))
+        logging.debug('Connection error: {}'.format(reason))
         pass
 
     def run (self):
-        logging.debug('will connect to {}:{}'.format(self.host, self.port))
+        logging.debug('Will connect to {}:{}'.format(self.host, self.port))
         cc = ClientCreator(reactor, LLRPClient)
         whenConnected = cc.connectTCP(self.host, self.port)
         #reactor.run(installSignalHandlers=0)
