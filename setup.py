@@ -3,12 +3,12 @@
 from distutils.core import setup
 
 setup(
-    name        = 'LLRPyC',
-    version     = '0.0.11',
-    description = 'Client side of LLRP protocol',
-    author      = 'Rodolfo Giometti',
-    author_email    = 'giometti@linux.it',
-    url     = 'http://wiki.enneenne.com/index.php/LLRPyC',
+    name        = 'sllurp',
+    version     = '0.0.1',
+    description = 'Python LLRP client',
+    author      = 'Ben Ransford',
+    author_email = 'ransford@cs.washington.edu',
+    url         = 'https://github.com/ransford/sllurp',
     license     = 'GPLv2',
-    py_modules  = ['llrp_proto'],
+    packages    = ['sllurp']
 )
