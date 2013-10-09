@@ -961,6 +961,71 @@ Message_struct['InventoryParameterSpec'] = {
     'encode': encode_InventoryParameterSpec
 }
 
+# 16.2.7.1 ROReportSpec Parameter
+def encode_ROReportSpec (par):
+    msgtype = Message_struct['ROReportSpec']['type']
+    n = par['N']
+    roReportTrigger = par['ROReportTrigger']
+
+    msg_header = '!HHBH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len,
+            roReportTrigger, n) + data
+
+    return data
+
+Message_struct['ROReportSpec'] = {
+    'type': 237,
+    'fields': [
+        'N',
+        'ROReportTrigger',
+        'TagReportContentSelector'
+    ],
+    'encode': encode_ROReportSpec
+}
+
+# 16.2.7.1 TagReportContentSelector Parameter
+def encode_TagReportContentSelector (par):
+    msgtype = Message_struct['TagReportContentSelector']['type']
+
+    msg_header = '!HHH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    flags = 0
+    i = 15
+    for field in Message_struct['TagReportContentSelector']['fields']:
+        if field in par and par[field]:
+            flags = flags | (1 << i)
+        i = i - 1
+
+    data = ''
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len,
+            flags) + data
+
+    return data
+
+Message_struct['TagReportContentSelector'] = {
+    'type': 238,
+    'fields': [
+        'EnableROSpecID',
+        'EnableSpecIndex',
+        'EnableInventoryParameterSpecID',
+        'EnableAntennaID',
+        'EnableChannelIndex',
+        'EnablePeakRRSI',
+        'EnableFirstSeenTimestamp',
+        'EnableLastSeenTimestamp',
+        'EnableTagSeenCount',
+        'EnableAccessSpecID'
+    ],
+    'encode': encode_TagReportContentSelector
+}
+
 # 16.2.7.3 TagReportData Parameter
 def decode_TagReportData(data):
     par = {}
@@ -1887,6 +1952,16 @@ class LLRPROSpec(dict):
         self['ROSpec']['AISpec']\
                 ['AISpecStopTrigger']\
                 ['DurationTriggerValue'] = 0
+
+        self['ROSpec']['ROReportSpec'] = {}
+        self['ROSpec']['ROReportSpec']['N'] = 0
+        self['ROSpec']['ROReportSpec']['ROReportTrigger'] = 0
+        self['ROSpec']['ROReportSpec']['TagReportContentSelector'] = {}
+        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableAntennaID'] = True
+        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnablePeakRSSI'] = True
+        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableFirstSeenTimestamp'] = True
+        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableLastSeenTimestamp'] = True
+        self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableTagSeenCount'] = True
 
         self['ROSpec']['AISpec']\
                 ['InventoryParameterSpec'] = { }
