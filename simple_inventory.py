@@ -21,6 +21,8 @@ def main():
     parser.add_argument('host', help='hostname or IP address of RFID reader')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
+    parser.add_argument('-t', '--time', default=10, type=float,
+            help='number of seconds for which to inventory (default 10)')
     parser.add_argument('-d', '--debug', action='store_true',
             help='show debugging output')
     args = parser.parse_args()
@@ -38,9 +40,9 @@ def main():
     reader.start()
     time.sleep(3)
 
-    # read for 10 seconds
+    logging.info('Will run for {} seconds'.format(args.time))
     reader.start_inventory()
-    time.sleep(10)
+    time.sleep(args.time)
     reader.stop_inventory()
 
     reader.disconnect()
