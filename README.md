@@ -29,3 +29,10 @@ expose interesting events to programs.
    argument.
  * `start_inventory()`: Starts the reader performing inventory.
  * `stop_inventory()`: Cleanly stops the active inventory operation.
+
+## Handy Commands
+
+To see what inventory settings an Impinj reader is currently using (i.e., to
+fetch the current ROSpec), ssh to the reader and
+
+    show rfid llrp rospec 0
