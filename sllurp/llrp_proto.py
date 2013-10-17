@@ -886,7 +886,7 @@ def encode_AISpec(par):
     msg_header_len = struct.calcsize(msg_header)
     data = ''
 
-    antid = par['AntennaID']
+    antid = par['AntennaIDs']
     antennas = []
     if type(antid) is str:
         antennas = antid.split()
@@ -906,8 +906,8 @@ def encode_AISpec(par):
 Message_struct['AISpec'] = {
     'type': 183,
     'fields': [
-                'Type',
-        'AntennaID',
+        'Type',
+        'AntennaIDs',
         'AISpecStopTrigger',
         'InventoryParameterSpec'
     ],
@@ -2076,7 +2076,7 @@ class LLRPROSpec(dict):
                 },
             },
             'AISpec': {
-                'AntennaID': ' '.join(map(str, antennas)),
+                'AntennaIDs': ' '.join(map(str, antennas)),
                 'AISpecStopTrigger': {
                     'AISpecStopTriggerType': 'Null',
                     'DurationTriggerValue': 0,
