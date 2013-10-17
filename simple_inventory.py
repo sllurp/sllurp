@@ -10,11 +10,15 @@ from sllurp.util import *
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
 
+tagsSeen = 0
+
 def tagSeenCallback (llrpMsg):
     """Function to run each time the reader reports seeing one or more tags."""
-    tagDict = llrpMsg.deserialize()
-    logging.info('Saw tag(s): {}'.\
-            format(pprint.pformat(tagDict['RO_ACCESS_REPORT']['TagReportData'])))
+    global tagsSeen
+    tagSeenDict = llrpMsg.deserialize()
+    tags = tagSeenDict['RO_ACCESS_REPORT']['TagReportData']
+    logging.info('Saw tag(s): {}'.format(pprint.pformat(tags)))
+    tagsSeen += len(tags)
 
 def main():
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
@@ -46,6 +50,8 @@ def main():
     reader.stop_inventory()
 
     reader.disconnect()
+
+    logging.info('Total # of tags seen by callback: {}'.format(tagsSeen))
 
 if __name__ == '__main__':
     main()
