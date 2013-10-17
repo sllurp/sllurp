@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import logging
-from llrp_proto import LLRPROSpec
+from sllurp.llrp_proto import LLRPROSpec
 
 logLevel = logging.DEBUG
 logging.basicConfig(level=logLevel,
