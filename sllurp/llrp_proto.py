@@ -189,6 +189,11 @@ par_header_len = struct.calcsize(par_header)
 tve_header = '!B'
 tve_header_len = struct.calcsize(tve_header)
 
+AirProtocol = {
+    'UnspecifiedAirProtocol': 0,
+    'EPCGlobalClass1Gen2': 1,
+}
+
 # 9.1.1 Capabilities requests
 Capability_Name2Type = {
     'All':                  0,
@@ -876,20 +881,25 @@ Message_struct['ROSpecStopTrigger'] = {
 # 16.2.4.2 AISpec Parameter
 def encode_AISpec(par):
     msgtype = Message_struct['AISpec']['type']
-    count = len(par['AntennaID'])
 
     msg_header = '!HHH'
     msg_header_len = struct.calcsize(msg_header)
-
     data = ''
-    for a in par['AntennaID']:
-        data += struct.pack('!H', a)
+
+    antid = par['AntennaID']
+    antennas = []
+    if type(antid) is str:
+        antennas = antid.split()
+    else:
+        antennas.extend(antid)
+    for a in antennas:
+        data += struct.pack('!H', int(a))
 
     data += encode('AISpecStopTrigger')(par['AISpecStopTrigger'])
     data += encode('InventoryParameterSpec')(par['InventoryParameterSpec'])
 
     data = struct.pack(msg_header, msgtype,
-            len(data) + msg_header_len, count) + data
+            len(data) + msg_header_len, len(antennas)) + data
 
     return data
 
@@ -936,17 +946,15 @@ Message_struct['AISpecStopTrigger'] = {
 # 16.2.4.2.2 InventoryParameterSpec Parameter
 def encode_InventoryParameterSpec(par):
     msgtype = Message_struct['InventoryParameterSpec']['type']
-    inv = par['InventoryParameterSpecID']
-    proto = par['ProtocolID']
 
-    msg_header = '!HHHB'
+    msg_header = '!HH'
+    data = struct.pack('!H', par['InventoryParameterSpecID'])
+    data += struct.pack('!B', par['ProtocolID'])
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
-
+    logger.debug(par)
     data = struct.pack(msg_header, msgtype,
-            len(data) + msg_header_len,
-            inv, proto) + data
+            struct.calcsize(msg_header) + len(data)) + data
 
     return data
 
@@ -959,6 +967,143 @@ Message_struct['InventoryParameterSpec'] = {
         'AntennaConfiguration'
     ],
     'encode': encode_InventoryParameterSpec
+}
+
+# 16.2.6.6 AntennaConfiguration Parameter
+def encode_AntennaConfiguration(par):
+    msgtype = Message_struct['AntennaConfiguration']['type']
+    msg_header = '!HH'
+    data = struct.pack('!H', par['AntennaID'])
+    if 'RFReceiver' in par:
+        data += encode('RFReceiver')(par['RFReceiver'])
+    if 'RFTransmitter' in par:
+        data += encode('RFTransmitter')(par['RFTransmitter'])
+    if 'C1G2InventoryCommand' in par:
+        data += encode('C1G2InventoryCommand')(par['C1G2InventoryCommand'])
+    data = struct.pack(msg_header, msgtype,
+            len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['AntennaConfiguration'] = {
+    'type': 222,
+    'fields': [
+        'Type',
+        'AntennaID',
+        'RFReceiver',
+        'RFTransmitter',
+        # XXX handle AirProtocolInventoryCommandSettings params other than
+        # C1G2InventoryCommand?
+        'C1G2InventoryCommand'
+    ],
+    'encode': encode_AntennaConfiguration
+}
+
+# 16.2.6.7 RFReceiver Parameter
+def encode_RFReceiver (par):
+    msgtype = Message_struct['RFReceiver']['type']
+    msg_header = '!HH'
+    data = struct.pack('!H', par['ReceiverSensitivity'])
+    data = struct.pack(msg_header, msgtype,
+            len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['RFReceiver'] = {
+    'type': 223,
+    'fields': [
+        'Type',
+        'ReceiverSensitivity',
+    ],
+    'encode': encode_RFReceiver
+}
+
+# 16.2.6.8 RFTransmitter Parameter
+def encode_RFTransmitter (par):
+    msgtype = Message_struct['RFTransmitter']['type']
+    msg_header = '!HH'
+    data = struct.pack('!H', par['HopTableId'])
+    data = struct.pack('!H', par['ChannelIndex'])
+    data = struct.pack('!H', par['TransmitPower'])
+    data = struct.pack(msg_header, msgtype,
+            len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['RFTransmitter'] = {
+    'type': 224,
+    'fields': [
+        'Type',
+        'HopTableId',
+        'ChannelIndex',
+        'TransmitPower',
+    ],
+    'encode': encode_RFTransmitter
+}
+
+# 16.3.1.2.1 C1G2InventoryCommand Parameter
+def encode_C1G2InventoryCommand (par):
+    msgtype = Message_struct['C1G2InventoryCommand']['type']
+    msg_header = '!HH'
+    data = struct.pack('!B', (par['TagInventoryStateAware'] and 1 or 0) << 7)
+    if 'C1G2Filter' in par:
+        data += encode('C1G2Filter')(par['C1G2Filter'])
+    if 'C1G2RFControl' in par:
+        data += encode('C1G2RFControl')(par['C1G2RFControl'])
+    if 'C1G2SingulationControl' in par:
+        data += encode('C1G2SingulationControl')(par['C1G2SingulationControl'])
+    # XXX custom parameters
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['C1G2InventoryCommand'] = {
+    'type': 330,
+    'fields': [
+        'TagInventoryStateAware',
+        'C1G2Filter',
+        'C1G2RFControl',
+        'C1G2SingulationControl'
+        # XXX custom parameters
+    ],
+    'encode': encode_C1G2InventoryCommand
+}
+
+# 16.3.1.2.1.1 C1G2Filter Parameter
+def encode_C1G2Filter (par):
+    raise NotImplementedError
+
+Message_struct['C1G2Filter'] = {
+    'type': 331,
+}
+
+# 16.3.1.2.1.2 C1G2RFControl Parameter
+def encode_C1G2RFControl (par):
+# 'C1G2RFControl': {
+#     'ModeIndex': 1,
+#     'Tari': 0,
+# },
+    msgtype = Message_struct['C1G2RFControl']['type']
+    msg_header = '!HH'
+    data = struct.pack('!H', par['ModeIndex'])
+    data += struct.pack('!H', par['Tari'])
+    data = struct.pack(msg_header, msgtype,
+            len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['C1G2RFControl'] = {
+    'type': 335,
+    'fields': [
+        'ModeIndex',
+        'Tari',
+    ],
+    'encode': encode_C1G2RFControl
+}
+
+# 16.3.1.2.1.3 C1G2SingulationControl Parameter
+def encode_C1G2SingulationControl (par):
+    raise NotImplementedError
+
+Message_struct['C1G2SingulationControl'] = {
+    'type': 336,
 }
 
 # 16.2.7.1 ROReportSpec Parameter
@@ -1907,7 +2052,7 @@ class LLRPdCapabilities(dict):
             ['MaxNumOpSpecsPerAccessSpec'] = max_opspec_x_accesspec
 
 class LLRPROSpec(dict):
-    def __init__(self, msgid, priority = 0, state = 'Disabled'):
+    def __init__(self, msgid, priority = 0, state = 'Disabled', antennas=(1,)):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid argument 1 (not positive)')
@@ -1923,37 +2068,52 @@ class LLRPROSpec(dict):
             'CurrentState': state,
             'ROBoundarySpec': {
                 'ROSpecStartTrigger': {
-                    'ROSpecStartTriggerType': 'Null'
+                    'ROSpecStartTriggerType': 'Immediate',
                 },
                 'ROSpecStopTrigger': {
                     'ROSpecStopTriggerType': 'Null',
-                    'DurationTriggerValue': 0
-                }
+                    'DurationTriggerValue': 0,
+                },
             },
             'AISpec': {
-                'AntennaID': [ 0, ],
+                'AntennaID': ' '.join(map(str, antennas)),
                 'AISpecStopTrigger': {
                     'AISpecStopTriggerType': 'Null',
-                    'DurationTriggerValue': 0
+                    'DurationTriggerValue': 0,
                 },
                 'InventoryParameterSpec': {
                     'InventoryParameterSpecID': 1,
-                    'ProtocolID': 1
-                }
+                    'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
+                    # XXX handle multiple antennas
+                    'AntennaConfiguration': {
+                        'AntennaID': 1,
+                        'RFTransmitter': {
+                            'HopTableId': 1,
+                            'ChannelIndex': 0,
+                            'TransmitPower': 61, # XXX correct value?
+                        },
+                        'C1G2InventoryCommand': {
+                            'TagInventoryStateAware': False,
+                            'C1G2RFControl': {
+                                'ModeIndex': 1,
+                                'Tari': 0,
+                            },
+                        },
+                    },
+                },
             },
             'ROReportSpec': {
-                'N': 0,
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+                'N': 1,
                 'TagReportContentSelector': {
                     'EnableAntennaID': True,
                     'EnablePeakRSSI': True,
                     'EnableFirstSeenTimestamp': True,
                     'EnableLastSeenTimestamp': True,
                     'EnableTagSeenCount': True
-                }
-            }
+                },
+            },
         }
-
 
     def __repr__(self):
         return llrp_data2xml(self)
