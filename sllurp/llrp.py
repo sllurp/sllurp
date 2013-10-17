@@ -135,11 +135,11 @@ class LLRPClientFactory (ClientFactory):
 
     def clientConnectionFailed (self, connector, reason):
         logging.error('Connection failed: {}'.format(reason))
-        reactor.stop()
+        reactor.callFromThread(reactor.stop)
 
     def clientConnectionLost (self, connector, reason):
         logging.info('Connection lost: {}'.format(reason))
-        reactor.stop()
+        reactor.callFromThread(reactor.stop)
 
 class LLRPReaderThread (Thread):
     """ Thread object that connects input and output message queues to a
