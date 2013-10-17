@@ -1137,8 +1137,7 @@ Message_struct['ROReportSpec'] = {
 def encode_TagReportContentSelector (par):
     msgtype = Message_struct['TagReportContentSelector']['type']
 
-    msg_header = '!HHH'
-    msg_header_len = struct.calcsize(msg_header)
+    msg_header = '!HH'
 
     flags = 0
     i = 15
@@ -1147,10 +1146,9 @@ def encode_TagReportContentSelector (par):
             flags = flags | (1 << i)
         i = i - 1
 
-    data = ''
+    data = struct.pack('!H', flags)
     data = struct.pack(msg_header, msgtype,
-            len(data) + msg_header_len,
-            flags) + data
+            len(data) + struct.calcsize(msg_header)) + data
 
     return data
 
@@ -1186,13 +1184,14 @@ def decode_TagReportData(data):
     if msgtype != Message_struct['TagReportData']['type']:
         return (None, data)
     body = data[par_header_len : length]
-    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
 
     # Decode parameters
     ret, body = decode('EPCData')(body)
     if ret:
+        logger.debug("Got EPCData; won't try EPC-96")
         par['EPCData'] = ret
     else:
+        logger.debug('Failed to decode EPCData; trying EPC-96')
         ret, body = decode('EPC-96')(body)
         if ret:
             par['EPC-96'] = ret['EPC']
@@ -2106,11 +2105,16 @@ class LLRPROSpec(dict):
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
                 'N': 1,
                 'TagReportContentSelector': {
+                    'EnableROSpecID': False,
+                    'EnableSpecIndex': False,
+                    'EnableInventoryParameterSpecID': False,
                     'EnableAntennaID': True,
-                    'EnablePeakRSSI': True,
+                    'EnableChannelIndex': False,
+                    'EnablePeakRRSI': True,
                     'EnableFirstSeenTimestamp': True,
                     'EnableLastSeenTimestamp': True,
-                    'EnableTagSeenCount': True
+                    'EnableTagSeenCount': True,
+                    'EnableAccessSpecID': False,
                 },
             },
         }
