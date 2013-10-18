@@ -50,6 +50,7 @@ def main():
     reader.stop_inventory()
 
     reader.disconnect()
+    reader.join()
 
     logging.info('Total # of tags seen by callback: {}'.format(tagsSeen))
 
