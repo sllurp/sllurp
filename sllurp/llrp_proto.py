@@ -18,6 +18,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+#
+# TODO: use generic functions from llrp_decoder where possible
+#
+
 import logging, struct, exceptions
 import traceback
 from threading import *
