@@ -1,14 +1,14 @@
+.PHONY: all install clean tar
+
+all:
+	python setup.py build
+
 install:
 	python setup.py install
 
-clean: clean_clients
+clean:
 	rm -rf *~ *.pyc
-
-clean_clients:
-	$(MAKE) -C clients clean
 
 tar: clean
 	python setup.py sdist --formats=gztar
 
-.PHONY: install
-.PHONY: clean clean_clients
