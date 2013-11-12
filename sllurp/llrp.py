@@ -5,7 +5,6 @@ import socket
 import logging
 import pprint
 import struct
-import Queue
 from threading import Thread, Condition
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, Message_Type2Name
 import copy
