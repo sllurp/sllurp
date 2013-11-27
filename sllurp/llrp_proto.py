@@ -1104,10 +1104,24 @@ Message_struct['C1G2RFControl'] = {
 
 # 16.3.1.2.1.3 C1G2SingulationControl Parameter
 def encode_C1G2SingulationControl (par):
-    raise NotImplementedError
+    msgtype = Message_struct['C1G2SingulationControl']['type']
+    msg_header = '!HH'
+    data = struct.pack('!B', par['Session'] << 6)
+    data += struct.pack('!H', par['TagPopulation'])
+    data += struct.pack('!I', par['TagTransitTime'])
+    #data = struct.pack('!H', par['ModeIndex'])
+    #data += struct.pack('!H', par['Tari'])
+    data = struct.pack(msg_header, msgtype,
+            len(data) + struct.calcsize(msg_header)) + data
+    return data
 
 Message_struct['C1G2SingulationControl'] = {
     'type': 336,
+    'fields': [
+        'Session',
+        'TagPopulation',
+        'TagTransitTime',
+    ],
 }
 
 # 16.2.7.1 ROReportSpec Parameter
