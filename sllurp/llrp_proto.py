@@ -2107,13 +2107,18 @@ class LLRPROSpec(dict):
                         'RFTransmitter': {
                             'HopTableId': 1,
                             'ChannelIndex': 0,
-                            'TransmitPower': 61, # XXX correct value?
+                            'TransmitPower': 81,
                         },
                         'C1G2InventoryCommand': {
                             'TagInventoryStateAware': False,
                             'C1G2RFControl': {
-                                'ModeIndex': 1,
+                                'ModeIndex': 2,
                                 'Tari': 0,
+                            },
+                            'C1G2SingulationControl': {
+                                'Session': 0,
+                                'TagPopulation': 4,
+                                'TagTransitTime': 0,
                             },
                         },
                     },
