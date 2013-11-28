@@ -13,9 +13,9 @@ provide a simple callback-based API to clients.
 To connect to a reader and perform EPC Gen 2 inventory for 10 seconds:
 
 1. Figure out your reader's IP address `ip.add.re.ss`
-2. `./simple_inventory.py ip.add.re.ss`
+2. `bin/inventory ip.add.re.ss`
 
-Run `./simple_inventory.py -h` to see options.
+Run `bin/inventory -h` to see options.
 
 ## Reader API
 
@@ -36,3 +36,6 @@ To see what inventory settings an Impinj reader is currently using (i.e., to
 fetch the current ROSpec), ssh to the reader and
 
     show rfid llrp rospec 0
+
+You can dump the reader's entire configuration, including the current ROSpec,
+to a set of files by running `bin/get_reader_config.sh`.

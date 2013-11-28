@@ -1,32 +1,16 @@
-#!/usr/bin/env python
-
 from __future__ import print_function
-import argparse
-import logging
-import pprint
 import time
-from sllurp.util import *
+import logging
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
 
-tagsSeen = 0
-
-def tagSeenCallback (llrpMsg):
-    """Function to run each time the reader reports seeing one or more tags."""
-    global tagsSeen
-    tagSeenDict = llrpMsg.deserialize()
-    tags = tagSeenDict['RO_ACCESS_REPORT']['TagReportData']
-    logging.info('Saw tag(s): {}'.format(pprint.pformat(tags)))
-    tagsSeen += len(tags)
-
 def main():
+    import argparse
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
-    parser.add_argument('-t', '--time', default=10, type=float,
-            help='number of seconds for which to inventory (default 10)')
     parser.add_argument('-d', '--debug', action='store_true',
             help='show debugging output')
     args = parser.parse_args()
@@ -40,19 +24,12 @@ def main():
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port)
     reader.setDaemon(True)
-    reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
+
     time.sleep(3)
-
-    logging.info('Will run for {} seconds'.format(args.time))
-    reader.start_inventory()
-    time.sleep(args.time)
     reader.stop_inventory()
-
     reader.disconnect()
     reader.join()
-
-    logging.info('Total # of tags seen by callback: {}'.format(tagsSeen))
 
 if __name__ == '__main__':
     main()
