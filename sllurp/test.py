@@ -5,6 +5,11 @@ import sllurp.llrp
 import sllurp.llrp_proto as LLRPProto
 import sllurp.llrp_errors
 import binascii
+import logging
+
+logLevel = logging.ERROR
+logging.basicConfig(level=logLevel, format='%(asctime)s: %(levelname)s: %(message)s')
+logging.getLogger('llrpc').setLevel(logLevel)
 
 def randhex (numdigits):
     """Return a string with numdigits hexadecimal digits."""
