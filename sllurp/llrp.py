@@ -6,7 +6,8 @@ import logging
 import pprint
 import struct
 from threading import Thread, Condition
-from llrp_proto import LLRPROSpec, LLRPError, Message_struct, Message_Type2Name
+from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
+         Message_Type2Name, llrp_data2xml, LLRPMessageDict
 import copy
 from util import *
 from twisted.internet import reactor
@@ -27,7 +28,7 @@ class LLRPMessage:
             raise LLRPError('Provide either a message dict or a sequence' \
                     ' of bytes.')
         if msgdict:
-            self.msgdict = dict(msgdict)
+            self.msgdict = LLRPMessageDict(msgdict)
         if msgbytes:
             self.msgbytes = copy.copy(msgbytes)
 
@@ -87,7 +88,7 @@ class LLRPMessage:
         return self.msgdict.keys()[0]
 
     def __repr__ (self):
-        return pprint.pformat(self.msgdict)
+        return llrp_data2xml(self.msgdict)
 
 class LLRPClient (Protocol):
     eventCallbacks = {}

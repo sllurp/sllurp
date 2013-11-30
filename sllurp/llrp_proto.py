@@ -115,7 +115,7 @@ def dump(data, label):
     logger.debug(bin2dump(data, label))
 
 def recv_message(connection):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
 
     # Try to read the message's header first.
     data = connection.stream.recv(gen_header_len)
@@ -288,7 +288,7 @@ Message_struct['GET_READER_CAPABILITIES'] = {
 
 # 16.1.2 GET_READER_CAPABILITIES_RESPONSE
 def decode_GetReaderCapabilitiesResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -335,7 +335,7 @@ Message_struct['ADD_ROSPEC'] = {
 
 # 16.1.4 ADD_ROSPEC_RESPONSE
 def decode_AddROSpecResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -377,7 +377,7 @@ Message_struct['DELETE_ROSPEC'] = {
 
 # 16.1.6 DELETE_ROSPEC_RESPONSE
 def decode_DeleteROSpecResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -419,7 +419,7 @@ Message_struct['START_ROSPEC'] = {
 
 # 16.1.8 START_ROSPEC_RESPONSE
 def decode_StartROSpecResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -461,7 +461,7 @@ Message_struct['STOP_ROSPEC'] = {
 
 # 16.1.10 STOP_ROSPEC_RESPONSE
 def decode_StopROSpecResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -503,7 +503,7 @@ Message_struct['ENABLE_ROSPEC'] = {
 
 # 16.1.12 ENABLE_ROSPEC_RESPONSE
 def decode_EnableROSpecResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -545,7 +545,7 @@ Message_struct['DISABLE_ROSPEC'] = {
 
 # 16.1.14 DISABLE_ROSPEC_RESPONSE
 def decode_DisableROSpecResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -572,7 +572,7 @@ Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
 
 # 16.1.30 RO_ACCESS_REPORT
 def decode_ROAccessReport(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     logger.debug('RO_ACCESS_REPORT bytes: {}'.format(data.encode('hex')))
@@ -603,7 +603,7 @@ Message_struct['RO_ACCESS_REPORT'] = {
 
 # 16.1.33 READER_EVENT_NOTIFICATION
 def decode_ReaderEventNotification(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -640,7 +640,7 @@ Message_struct['CLOSE_CONNECTION'] = {
 
 # 16.1.41 CLOSE_CONNECTION_RESPONSE
 def decode_CloseConnectionResponse(data):
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
     # Decode parameters
@@ -1570,7 +1570,7 @@ Message_struct['ParameterError'] = {
 def llrp_add_rospec(connection, rospec):
     msgid = rospec['ROSpec']['ROSpecID']
 
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['ADD_ROSPEC'] = {
         'Ver':  1,
                 'Type': Message_struct['ADD_ROSPEC']['type'],
@@ -1599,7 +1599,7 @@ def llrp_add_rospec(connection, rospec):
 
 def llrp_close(connection):
     # Send the message to gently close the connection
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['CLOSE_CONNECTION'] = {
         'Ver':  1,
                 'Type': Message_struct['CLOSE_CONNECTION']['type'],
@@ -1648,7 +1648,7 @@ def llrp_connect(connection, host, port = LLRP_PORT):
 def llrp_delete_rospec(connection, rospec):
     msgid = rospec['ROSpec']['ROSpecID']
 
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['DELETE_ROSPEC'] = {
         'Ver':  1,
                 'Type': Message_struct['DELETE_ROSPEC']['type'],
@@ -1677,7 +1677,7 @@ def llrp_delete_rospec(connection, rospec):
 def llrp_disable_rospec(connection, rospec):
     msgid = rospec['ROSpec']['ROSpecID']
 
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['DISABLE_ROSPEC'] = {
         'Ver':  1,
                 'Type': Message_struct['DISABLE_ROSPEC']['type'],
@@ -1706,7 +1706,7 @@ def llrp_disable_rospec(connection, rospec):
 def llrp_enable_rospec(connection, rospec):
     msgid = rospec['ROSpec']['ROSpecID']
 
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['ENABLE_ROSPEC'] = {
         'Ver':  1,
         'Type': Message_struct['ENABLE_ROSPEC']['type'],
@@ -1737,7 +1737,7 @@ def llrp_get_capabilities(connection, req):
     if req not in Capability_Name2Type:
         raise LLRPError('invalid request (req=%s)' % req)
 
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['GET_READER_CAPABILITIES'] = {
         'Ver':  1,
         'Type': Message_struct['GET_READER_CAPABILITIES']['type'],
@@ -1822,7 +1822,7 @@ def llrp_set_logging(level):
 def llrp_start_rospec(connection, rospec):
     msgid = rospec['ROSpec']['ROSpecID']
 
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['START_ROSPEC'] = {
         'Ver':  1,
         'Type': Message_struct['START_ROSPEC']['type'],
@@ -1850,7 +1850,7 @@ def llrp_start_rospec(connection, rospec):
 def llrp_stop_rospec(connection, rospec):
     msgid = rospec['ROSpec']['ROSpecID']
 
-    msg = LLRPMessage()
+    msg = LLRPMessageDict()
     msg['STOP_ROSPEC'] = {
         'Ver':  1,
                 'Type': Message_struct['STOP_ROSPEC']['type'],
@@ -2163,7 +2163,7 @@ class LLRPROSpec(dict):
     def stop(self, connection):
         llrp_stop_rospec(connection, self)
 
-class LLRPMessage(dict):
+class LLRPMessageDict(dict):
     def __repr__(self):
         return llrp_data2xml(self)
 
