@@ -116,6 +116,7 @@ def dump(data, label):
 
 def recv_message(connection):
     msg = LLRPMessageDict()
+    logger.debug('recv_message()')
 
     # Try to read the message's header first.
     data = connection.stream.recv(gen_header_len)
@@ -581,14 +582,16 @@ def decode_ROAccessReport(data):
     msg['TagReportData'] = [ ]
     while True:
         ret, data = decode('TagReportData')(data)
+        #print('len(ret) = {}'.format(len(ret)))
+        #print('len(data) = {}'.format(len(data)))
         if ret:
             msg['TagReportData'].append(ret)
         else:
             break
 
-    # Check the end of the message
-    if len(data) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(data))
+    ## Check the end of the message
+    #if len(data) > 0:
+    #    raise LLRPError('junk at end of message: ' + bin2dump(data))
 
     return msg
 
@@ -1197,11 +1200,14 @@ def decode_TagReportData(data):
         return None, data
 
     header = data[0 : par_header_len]
+    logger.debug('TagReportData header: {}'.format(header.encode('hex')))
     msgtype, length = struct.unpack(par_header, header)
+    logger.debug('TagReportData msgtype, length: {}, {}'.format(msgtype, length))
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['TagReportData']['type']:
         return (None, data)
     body = data[par_header_len : length]
+    logger.debug('TagReportData body: {}'.format(body.encode('hex')))
 
     # Decode parameters
     ret, body = decode('EPCData')(body)
@@ -1928,6 +1934,7 @@ class ReaderThread(Thread):
             while True:
                 try:
                     msg = recv_message(connection)
+                    #logger.debug('got message via recv_message')
                 except:
                     return
 
