@@ -2,12 +2,12 @@ import unittest
 import random
 import sllurp
 import sllurp.llrp
-import sllurp.llrp_proto as LLRPProto
+import sllurp.llrp_proto
 import sllurp.llrp_errors
 import binascii
 import logging
 
-logLevel = logging.ERROR
+logLevel = logging.DEBUG
 logging.basicConfig(level=logLevel, format='%(asctime)s: %(levelname)s: %(message)s')
 logging.getLogger('llrpc').setLevel(logLevel)
 
@@ -25,6 +25,24 @@ def bytes_to_hex (bindata):
     ascrep = binascii.hexlify(bindata)
     assert len(ascrep) == (len(bindata) * 2)
     return ascrep
+
+class mock_stream (object):
+    _bytes = None
+    def __init__ (self, mybytes):
+        self._bytes = mybytes
+    def recv (self, length):
+        if length > len(self._bytes):
+            length = len(self._bytes)
+        data = self._bytes[:length]
+        self._bytes = self._bytes[length:]
+        return data
+    def waiting (self):
+        return len(self._bytes)
+
+class mock_conn (object):
+    stream = None
+    def __init__ (self, mybytes):
+        self.stream = mock_stream(mybytes)
 
 class TestROSpec (unittest.TestCase):
     def setUp (self):
@@ -92,15 +110,22 @@ class TestDecodeROAccessReport (unittest.TestCase):
     ec2ea83c9699880001043d0000002c4095895b00f000228d300833b2ddd906c0000000008100
     0186c7820004ec2ea83ca950880001"""
     _binr = None
+    _client = None
     def setUp (self):
         self._r = self._r.rstrip().lstrip().replace('\n', '').replace(' ', '')
         self._binr = hex_to_bytes(self._r)
         self.assertEqual(len(self._r), 3982)
         self.assertEqual(len(self._binr), 1991)
+        self._mock_conn = mock_conn(self._binr)
+        logging.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
     def test_start(self):
-        roar = LLRPProto.decode_ROAccessReport(self._binr)
-        msgs = roar['TagReportData']
-        self.assertEqual(len(msgs), 20) # XXX replace w/ real count
+        logging.debug('About to recv_message')
+        msg = sllurp.llrp_proto.recv_message(self._mock_conn)
+        logging.debug('Finished recv_message')
+        logging.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
+        self.assertEqual(self._mock_conn.stream.waiting(), 1947)
+        #roar = LLRPProto.decode_ROAccessReport(self._binr)
+        #msgs = roar['TagReportData']
     def tearDown (self):
         pass
 
