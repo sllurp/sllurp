@@ -190,7 +190,8 @@ class LLRPReaderThread (Thread):
             self.rospec = LLRPROSpec(1)
             logging.debug('ROSpec: {}'.format(self.rospec))
 
-        roSpecId = self.rospec['ROSpec']['ROSpecID']
+        r = self.rospec['ROSpec']
+        roSpecId = r['ROSpecID']
 
         # add an ROspec
         self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
@@ -199,7 +200,7 @@ class LLRPReaderThread (Thread):
                 'Type': 20,
                 'ID':   0,
                 'ROSpecID': roSpecId,
-                'ROSpec': self.rospec['ROSpec'],
+                'ROSpec': r,
             }}))
 
         # enable the ROspec
@@ -211,14 +212,16 @@ class LLRPReaderThread (Thread):
                 'ROSpecID': roSpecId
             }}))
 
-        # start the ROspec
-        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
-            'START_ROSPEC': {
-                'Ver':  1,
-                'Type': 22,
-                'ID':   0,
-                'ROSpecID': roSpecId
-            }}))
+        rt = r['ROBoundarySpec']['ROSpecStartTrigger']
+        if rt['ROSpecStartTriggerType'] != 'Immediate':
+            # start the ROspec
+            self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+                'START_ROSPEC': {
+                    'Ver':  1,
+                    'Type': 22,
+                    'ID':   0,
+                    'ROSpecID': roSpecId
+                }}))
 
     def stop_inventory (self):
         "Stop the reader from inventorying."
