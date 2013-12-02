@@ -11,7 +11,7 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
 import copy
 from util import *
 from twisted.internet import reactor
-from twisted.internet.protocol import Protocol, ClientFactory, ClientCreator
+from twisted.internet.protocol import Protocol, ClientCreator
 
 LLRP_PORT = 5084
 
@@ -129,17 +129,6 @@ class LLRPClient (Protocol):
 
     def sendMessage (self, msg):
         self.transport.write(msg)
-
-class LLRPClientFactory (ClientFactory):
-    protocol = LLRPClient
-
-    def clientConnectionFailed (self, connector, reason):
-        logging.error('Connection failed: {}'.format(reason))
-        reactor.callFromThread(reactor.stop)
-
-    def clientConnectionLost (self, connector, reason):
-        logging.info('Connection lost: {}'.format(reason))
-        reactor.callFromThread(reactor.stop)
 
 class LLRPReaderThread (Thread):
     """ Thread object that connects input and output message queues to a
