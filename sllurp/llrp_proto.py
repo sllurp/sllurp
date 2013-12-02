@@ -1957,57 +1957,6 @@ class ReaderThread(Thread):
     def stop(self):
         self.keep_running = False
 
-class LLRPdConnection():
-    def __init__(self, host, port = LLRP_PORT, event_cb = do_nothing,
-            timeout = None):
-        # Create the communication socket and then do the connect
-        self.stream = socket(AF_INET, SOCK_STREAM)
-        if timeout:
-            logger.debug('setting timeout to {}'.format(timeout))
-            self.stream.settimeout(timeout)
-        llrp_connect(self, host, port)
-
-        # Set events callback to void function
-        self.event_cb = event_cb
-
-        # Setup the messages mutex
-        self.messages = list()
-        self.msg_cond = Condition()
-
-        # Start the receiving thread
-        logger.debug('starting reader thread...')
-        self.recv_thread = ReaderThread(self)
-        self.recv_thread.setDaemon(True)
-        self.recv_thread.start()
-
-    def close(self):
-        logger.debug('closing connection...')
-        self.delete_all_rospec()
-        self.recv_thread.stop()
-        llrp_close(self)
-        logger.debug('connection closed.')
-
-    def delete_all_rospec(self):
-        rospec = { }
-        rospec['ROSpec'] = { }
-        rospec['ROSpec']['ROSpecID'] = 0
-        llrp_delete_rospec(self, rospec)
-
-    def disable_all_rospec(self):
-        rospec = { }
-        rospec['ROSpec'] = { }
-        rospec['ROSpec']['ROSpecID'] = 0
-        llrp_disable_rospec(self, rospec)
-
-    def enable_all_rospec(self):
-        rospec = { }
-        rospec['ROSpec'] = { }
-        rospec['ROSpec']['ROSpecID'] = 0
-        llrp_enable_rospec(self, rospec)
-
-    def get_capabilities(self, req):
-        return llrp_get_capabilities(self, req)
-
 class LLRPdCapabilities(dict):
     def __init__(self):
         self['LLRPdCapabilities'] = { }
