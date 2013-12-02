@@ -29,8 +29,12 @@ class LLRPMessage:
                     ' of bytes.')
         if msgdict:
             self.msgdict = LLRPMessageDict(msgdict)
+            if not msgbytes:
+                self.serialize()
         if msgbytes:
             self.msgbytes = copy.copy(msgbytes)
+            if not msgdict:
+                self.deserialize()
 
     def serialize (self):
         if self.msgdict is None:
@@ -115,7 +119,6 @@ class LLRPClient (Protocol):
                     data.encode('hex')))
         try:
             lmsg = LLRPMessage(msgbytes=data)
-            lmsg.deserialize()
             logging.debug('LLRPMessage received: {}'.format(lmsg))
             msgName = lmsg.getName()
             if msgName in self.eventCallbacks:
@@ -125,7 +128,7 @@ class LLRPClient (Protocol):
             logging.warn('Failed to decode LLRPMessage: {}'.format(err))
 
     def sendLLRPMessage (self, llrp_msg):
-        reactor.callFromThread(self.sendMessage, llrp_msg.serialize())
+        reactor.callFromThread(self.sendMessage, llrp_msg.msgbytes)
 
     def sendMessage (self, msg):
         self.transport.write(msg)
