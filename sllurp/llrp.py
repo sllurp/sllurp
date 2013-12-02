@@ -22,6 +22,7 @@ class LLRPMessage:
     full_hdr_len = struct.calcsize(full_hdr_fmt) # == 10 bytes
     msgdict = None
     msgbytes = None
+    remainder = None
 
     def __init__ (self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
@@ -34,7 +35,7 @@ class LLRPMessage:
         if msgbytes:
             self.msgbytes = copy.copy(msgbytes)
             if not msgdict:
-                self.deserialize()
+                self.remainder = self.deserialize()
 
     def serialize (self):
         if self.msgdict is None:
@@ -56,12 +57,14 @@ class LLRPMessage:
                 msgid) + data
         logging.debug('serialized bytes: {}'.format(hexlify(self.msgbytes)))
         logging.debug('done serializing {} command'.format(name))
-        return self.msgbytes
 
     def deserialize (self):
+        """Turns a sequence of bytes into a message dictionary.  Any leftover
+        data in the sequence is returned as the remainder."""
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
         data = ''.join(self.msgbytes)
+        remainder = ''
         msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
                 data[:self.full_hdr_len])
         ver = (msgtype >> 10) & BITMASK(3)
@@ -81,10 +84,15 @@ class LLRPMessage:
             self.msgdict[name]['Ver'] = ver
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
+            logging.debug('done deserializing {} command'.format(name))
         except LLRPError as e:
             logging.warning('Problem with {} message format: {}'.format(name, e))
-        logging.debug('done deserializing {} command'.format(name))
-        return self.msgdict
+            return ''
+        if length < len(data):
+            remainder = data[length:]
+            logging.debug('{} bytes of data remaining'.format(len(remainder)))
+            return remainder
+        return ''
 
     def getName (self):
         if not self.msgdict:
@@ -118,12 +126,17 @@ class LLRPClient (Protocol):
         logging.debug('Got {} bytes from reader: {}'.format(len(data),
                     data.encode('hex')))
         try:
-            lmsg = LLRPMessage(msgbytes=data)
-            logging.debug('LLRPMessage received: {}'.format(lmsg))
-            msgName = lmsg.getName()
-            if msgName in self.eventCallbacks:
-                for fn in self.eventCallbacks[msgName]:
-                    fn(lmsg)
+            while data:
+                lmsg = LLRPMessage(msgbytes=data)
+                logging.debug('LLRPMessage received: {}'.format(lmsg))
+                msgName = lmsg.getName()
+                if msgName in self.eventCallbacks:
+                    for fn in self.eventCallbacks[msgName]:
+                        fn(lmsg)
+                logging.debug('remaining bytes: {}'.format(len(lmsg.remainder)))
+                if not lmsg.remainder:
+                    break
+                data = lmsg.remainder # remaining bytes
         except LLRPError as err:
             logging.warn('Failed to decode LLRPMessage: {}'.format(err))
 

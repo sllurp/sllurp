@@ -7,7 +7,7 @@ import sllurp.llrp_errors
 import binascii
 import logging
 
-logLevel = logging.DEBUG
+logLevel = logging.WARNING
 logging.basicConfig(level=logLevel, format='%(asctime)s: %(levelname)s: %(message)s')
 logging.getLogger('llrpc').setLevel(logLevel)
 
@@ -111,6 +111,9 @@ class TestDecodeROAccessReport (unittest.TestCase):
     0186c7820004ec2ea83ca950880001"""
     _binr = None
     _client = None
+    _tags_seen = 0
+    def tagcb (self, llrpmsg):
+        self._tags_seen += 1
     def setUp (self):
         self._r = self._r.rstrip().lstrip().replace('\n', '').replace(' ', '')
         self._binr = hex_to_bytes(self._r)
@@ -118,9 +121,14 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = mock_conn(self._binr)
         logging.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
+        self._client = sllurp.llrp.LLRPClient()
+        self._client.addEventCallbacks({
+                    'RO_ACCESS_REPORT': [self.tagcb]
+                })
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
-        pass
+        self._client.dataReceived(self._binr)
+        self.assertEqual(self._tags_seen, 45)
     def tearDown (self):
         pass
 
