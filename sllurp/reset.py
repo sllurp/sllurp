@@ -1,4 +1,5 @@
 from __future__ import print_function
+import argparse
 import time
 import logging
 
@@ -6,8 +7,7 @@ import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
 
 def main():
-    import argparse
-    parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
+    parser = argparse.ArgumentParser(description='Reset RFID Reader')
     parser.add_argument('host', help='hostname or IP address of RFID reader')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
@@ -25,9 +25,9 @@ def main():
     reader = llrp.LLRPReaderThread(args.host, args.port)
     reader.setDaemon(True)
     reader.start()
-
     time.sleep(3)
-    reader.stop_inventory()
+    reader.delete_all_rospecs()
+    time.sleep(3)
     reader.disconnect()
     reader.join()
 

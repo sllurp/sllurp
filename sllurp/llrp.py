@@ -223,6 +223,16 @@ class LLRPReaderThread (Thread):
                     'ROSpecID': roSpecId
                 }}))
 
+    def delete_all_rospecs (self):
+        """Delete all active ROSpecs."""
+        self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
+            'DELETE_ROSPEC': {
+                'Ver':  1,
+                'Type': 21,
+                'ID':   0,
+                'ROSpecID': 0
+            }}))
+
     def stop_inventory (self):
         "Stop the reader from inventorying."
         if not self.protocol:
