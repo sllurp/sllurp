@@ -12,8 +12,7 @@ tagsSeen = 0
 def tagSeenCallback (llrpMsg):
     """Function to run each time the reader reports seeing one or more tags."""
     global tagsSeen
-    tagSeenDict = llrpMsg.deserialize()
-    tags = tagSeenDict['RO_ACCESS_REPORT']['TagReportData']
+    tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     logging.info('Saw tag(s): {}'.format(pprint.pformat(tags)))
     tagsSeen += len(tags)
 
