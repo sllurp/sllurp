@@ -10,6 +10,11 @@ provide a simple callback-based API to clients.
 
 ## Quick Start
 
+Make sure you have the prerequisite Python modules installed.  Use the `pip`
+package manager to load the requirements:
+
+    pip install -r requirements.txt
+
 To connect to a reader and perform EPC Gen 2 inventory for 10 seconds:
 
 1. Figure out your reader's IP address `ip.add.re.ss`
