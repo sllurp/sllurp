@@ -769,25 +769,14 @@ Message_struct['LLRPCapabilities'] = {
 }
 
 def decode_ErrorMessage(data):
-    logger.debug(func())
-    par = {}
-
-    if len(data) == 0:
-        return None, data
-
-    header = data[0 : par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
-    msgtype = msgtype & BITMASK(10)
-    if msgtype != Message_struct['LLRPCapabilities']['type']:
-        return (None, data)
-    body = data[par_header_len : length]
-    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
-
-    par['MessageLength'] = struct.unpack('!I', body[:4])
-    par['MessageID'] = struct.unpack('!I', body[4:8])
-    # TODO LLRPStatus parameters
-
-    return par, data[length : ]
+    msg = LLRPMessageDict()
+    logger.debug('%s' % func())
+    ret, body = decode('LLRPStatus')(data)
+    if ret:
+        msg['LLRPStatus'] = ret
+    else:
+        raise LLRPError('missing or invalid LLRPStatus parameter')
+    return msg
 
 Message_struct['ErrorMessage'] = {
     'type': 100,
@@ -799,8 +788,6 @@ Message_struct['ErrorMessage'] = {
     ],
     'decode': decode_ErrorMessage
 }
-
-# TODO 16.2.8.1 LLRPStatus Parameter
 
 # 16.2.4.1 ROSpec Parameter
 def encode_ROSpec(par):
