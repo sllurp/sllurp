@@ -669,11 +669,6 @@ Message_struct['CLOSE_CONNECTION_RESPONSE'] = {
     'decode': decode_CloseConnectionResponse
 }
 
-Message_Type2Name = { }
-for m in Message_struct:
-    i = Message_struct[m]['type']
-    Message_Type2Name[i] = m
-
 #
 # LLRP Parameters
 #
@@ -710,6 +705,7 @@ Message_struct['UTCTimestamp'] = {
 
 Message_struct['LLRPdCapabilities'] = {
     # no 'type': dummy message struct!
+    'type': -1,
     'fields': [
         'GeneralDeviceCapabilities',
         'LLRPCapabilities',
@@ -2156,6 +2152,15 @@ class LLRPROSpec(dict):
 class LLRPMessageDict(dict):
     def __repr__(self):
         return llrp_data2xml(self)
+
+# Reverse dictionary for Message_struct types
+Message_Type2Name = { }
+for m in Message_struct:
+    if 'type' in Message_struct[m]:
+        i = Message_struct[m]['type']
+        Message_Type2Name[i] = m
+    else:
+        logging.warn('Message_struct type {} lacks "type" field'.format(m))
 
 #
 # Main
