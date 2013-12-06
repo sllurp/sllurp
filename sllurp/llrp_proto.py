@@ -1253,6 +1253,19 @@ Message_struct['TagReportData'] = {
         'EPCData',
         'EPC-96',
         'ROSpecID',
+        'SpecIndex',
+        'InventoryParameterSpecID',
+        'AntennaID',
+        'PeakRSSI',
+        'ChannelIndex',
+        'FirstSeenTimestampUTC',
+        'FirstSeenTimestampUptime',
+        'LastSeenTimestampUTC',
+        'LastSeenTimestampUptime',
+        'TagSeenCount',
+        'AirProtocolTagData',
+        'AccessSpecID',
+        'OpSpecResultParameter',
     ],
     'decode': decode_TagReportData
 }
@@ -1316,41 +1329,6 @@ Message_struct['EPC-96'] = {
         'EPC'
     ],
     'decode': decode_EPC96
-}
-
-# 16.2.7.3.* TagReportData Parameters
-def decode_TagReportDataParam(data):
-    param_formats = {
-        # param type: (param name, struct format)
-        1: ('AntennaID', '!H'),
-        2: ('FirstSeenTimestampUTC', '!Q'),
-        3: ('FirstSeenTimestampUptime', '!Q'),
-        4: ('LastSeenTimestampUTC', '!Q'),
-        5: ('LastSeenTimestampUptime', '!Q'),
-        6: ('PeakRSSI', '!b'),
-        7: ('ChannelIndex', '!H'),
-        8: ('TagSeenCount', '!H'),
-        9: ('ROSpecID', '!I'),
-        10: ('InventoryParameterSpecID', '!H'),
-        14: ('SpecIndex', '!H'),
-        15: ('ClientRequestOpSpecResult', '!H'),
-        16: ('AccessSpecID', '!I')
-    }
-    par = {}
-
-    header = data[0 : tve_header_len]
-    (msgtype,) = struct.unpack(tve_header, header)
-    msgtype = msgtype & BITMASK(7)
-    try:
-        param_name, struct_fmt = param_formats[msgtype]
-    except KeyError:
-        return None, data
-    end = struct.calcsize(struct_fmt) + tve_header_len
-    par[param_name] = struct.unpack(struct_fmt, data[tve_header_len:end])
-    return par, data[end:]
-
-Message_struct['TagReportDataParam'] = {
-    'decode': decode_TagReportDataParam
 }
 
 # 16.2.7.3.3 ROSpecID Parameter
