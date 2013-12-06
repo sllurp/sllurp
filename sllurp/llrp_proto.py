@@ -931,6 +931,7 @@ Message_struct['AISpec'] = {
     'type': 183,
     'fields': [
         'Type',
+        'AntennaCount',
         'AntennaIDs',
         'AISpecStopTrigger',
         'InventoryParameterSpec'
@@ -972,11 +973,14 @@ def encode_InventoryParameterSpec(par):
     msgtype = Message_struct['InventoryParameterSpec']['type']
 
     msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
     data = struct.pack('!H', par['InventoryParameterSpecID'])
     data += struct.pack('!B', par['ProtocolID'])
-    msg_header_len = struct.calcsize(msg_header)
 
-    logger.debug(par)
+    for antconf in par['AntennaConfiguration']:
+        logger.debug('encoding AntennaConfiguration: {}'.format(antconf))
+        data += encode('AntennaConfiguration')(antconf)
+
     data = struct.pack(msg_header, msgtype,
             struct.calcsize(msg_header) + len(data)) + data
 
@@ -997,7 +1001,7 @@ Message_struct['InventoryParameterSpec'] = {
 def encode_AntennaConfiguration(par):
     msgtype = Message_struct['AntennaConfiguration']['type']
     msg_header = '!HH'
-    data = struct.pack('!H', par['AntennaID'])
+    data = struct.pack('!H', int(par['AntennaID']))
     if 'RFReceiver' in par:
         data += encode('RFReceiver')(par['RFReceiver'])
     if 'RFTransmitter' in par:
@@ -1045,8 +1049,8 @@ def encode_RFTransmitter (par):
     msgtype = Message_struct['RFTransmitter']['type']
     msg_header = '!HH'
     data = struct.pack('!H', par['HopTableId'])
-    data = struct.pack('!H', par['ChannelIndex'])
-    data = struct.pack('!H', par['TransmitPower'])
+    data += struct.pack('!H', par['ChannelIndex'])
+    data += struct.pack('!H', par['TransmitPower'])
     data = struct.pack(msg_header, msgtype,
             len(data) + struct.calcsize(msg_header)) + data
     return data
@@ -1129,8 +1133,6 @@ def encode_C1G2SingulationControl (par):
     data = struct.pack('!B', par['Session'] << 6)
     data += struct.pack('!H', par['TagPopulation'])
     data += struct.pack('!I', par['TagTransitTime'])
-    #data = struct.pack('!H', par['ModeIndex'])
-    #data += struct.pack('!H', par['Tari'])
     data = struct.pack(msg_header, msgtype,
             len(data) + struct.calcsize(msg_header)) + data
     return data
@@ -1142,6 +1144,7 @@ Message_struct['C1G2SingulationControl'] = {
         'TagPopulation',
         'TagTransitTime',
     ],
+    'encode': encode_C1G2SingulationControl
 }
 
 # 16.2.7.1 ROReportSpec Parameter
@@ -2074,8 +2077,7 @@ class LLRPROSpec(dict):
                 'InventoryParameterSpec': {
                     'InventoryParameterSpecID': 1,
                     'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
-                    # XXX handle multiple antennas
-                    'AntennaConfiguration': {
+                    'AntennaConfiguration': [{
                         'AntennaID': 1,
                         'RFTransmitter': {
                             'HopTableId': 1,
@@ -2094,7 +2096,7 @@ class LLRPROSpec(dict):
                                 'TagTransitTime': 0,
                             },
                         },
-                    },
+                    }],
                 },
             },
             'ROReportSpec': {
