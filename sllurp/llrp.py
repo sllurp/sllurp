@@ -233,6 +233,9 @@ class LLRPReaderThread (Thread):
                 'ROSpecID': 0
             }}))
 
+        logging.debug('waiting 3 seconds reader to delete all ROSpecs...')
+        time.sleep(3)
+
     def stop_inventory (self):
         "Stop the reader from inventorying."
         if not self.protocol:
@@ -268,6 +271,9 @@ class LLRPReaderThread (Thread):
                 'ID':   0,
                 'ROSpecID': roSpecId
             }}))
+
+        logging.debug('waiting 3 seconds for inventory to stop...')
+        time.sleep(3)
 
     def disconnect (self):
         logging.debug('stopping reactor')

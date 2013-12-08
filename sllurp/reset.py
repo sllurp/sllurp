@@ -27,7 +27,6 @@ def main():
     reader.start()
     time.sleep(3)
     reader.delete_all_rospecs()
-    time.sleep(3)
     reader.disconnect()
     reader.join()
 
