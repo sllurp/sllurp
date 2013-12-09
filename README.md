@@ -44,3 +44,12 @@ fetch the current ROSpec), ssh to the reader and
 
 You can dump the reader's entire configuration, including the current ROSpec,
 to a set of files by running `bin/get_reader_config.sh`.
+
+## Contributing
+
+Want to contribute?  Here are some areas that need improvement:
+
+ * Reduce redundancy in the `encode_*` and `decode_*` functions in
+   `llrp_proto.py`.
+ * Support the AccessSpec primitive (basis for tag read and write).
+ * Write tests for common encoding and decoding tasks.
