@@ -14,7 +14,8 @@ def tagSeenCallback (llrpMsg):
     global tagsSeen
     tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     logging.info('Saw tag(s): {}'.format(pprint.pformat(tags)))
-    tagsSeen += len(tags)
+    for tag in tags:
+        tagsSeen += tag['TagSeenCount'][0]
 
 def main():
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
