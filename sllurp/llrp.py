@@ -115,14 +115,6 @@ class LLRPClient (Protocol):
         self.eventCallbacks = callbacks.copy()
 
     def dataReceived (self, data):
-        #msgbytes = self.recv(LLRPMessage.hdr_len)
-        #bytes_read = len(msgbytes)
-        #ty, length = struct.unpack(LLRPMessage.hdr_fmt, msgbytes)
-        #to_read = length - LLRPMessage.hdr_len
-        #while (bytes_read < to_read):
-        #    bs = self.recv(to_read)
-        #    bytes_read += len(bs)
-        #    msgbytes += bs
         logging.debug('Got {} bytes from reader: {}'.format(len(data),
                     data.encode('hex')))
         try:
