@@ -266,6 +266,13 @@ for m in Error_Name2Type:
     i = Error_Name2Type[m]
     Error_Type2Name[i] = m
 
+# 13.2.1 ROReportTrigger
+ROReportTrigger_Name2Type = {
+    'None': 0,
+    'Upon_N_Tags_Or_End_Of_AISpec': 1,
+    'Upon_N_Tags_Or_End_Of_ROSpec': 2,
+}
+
 #
 # LLRP Messages
 #
@@ -801,6 +808,7 @@ def encode_ROSpec(par):
 
     data = encode('ROBoundarySpec')(par['ROBoundarySpec'])
     data += encode('AISpec')(par['AISpec'])
+    data += encode('ROReportSpec')(par['ROReportSpec'])
 
     data = struct.pack(msg_header, msgtype,
             len(data) + msg_header_len,
@@ -1150,8 +1158,8 @@ Message_struct['C1G2SingulationControl'] = {
 # 16.2.7.1 ROReportSpec Parameter
 def encode_ROReportSpec (par):
     msgtype = Message_struct['ROReportSpec']['type']
-    n = par['N']
-    roReportTrigger = par['ROReportTrigger']
+    n = int(par['N'])
+    roReportTrigger = ROReportTrigger_Name2Type[par['ROReportTrigger']]
 
     msg_header = '!HHBH'
     msg_header_len = struct.calcsize(msg_header)

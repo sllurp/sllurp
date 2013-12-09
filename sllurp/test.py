@@ -132,8 +132,8 @@ class TestDecodeROAccessReport (unittest.TestCase):
     def tearDown (self):
         pass
 
-class TestTagReportContentSelector (unittest.TestCase):
-    selections = {
+class TestEncodings (unittest.TestCase):
+    tagReportContentSelector = {
         'EnableROSpecID': False,
         'EnableSpecIndex': False,
         'EnableInventoryParameterSpecID': False,
@@ -143,10 +143,16 @@ class TestTagReportContentSelector (unittest.TestCase):
         'EnableFirstSeenTimestamp': True,
         'EnableLastSeenTimestamp': True,
         'EnableTagSeenCount': True,
-        'EnableAccessSpecID': False,
-    }
-    def test_start (self):
-        data = sllurp.llrp_proto.encode_TagReportContentSelector(self.selections)
+        'EnableAccessSpecID': False}
+    def test_roreportspec (self):
+        par = {'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+            'N': 1}
+        par['TagReportContentSelector'] = self.tagReportContentSelector
+        data = sllurp.llrp_proto.encode_ROReportSpec(par)
+
+    def test_tagreportcontentselector (self):
+        par = self.tagReportContentSelector
+        data = sllurp.llrp_proto.encode_TagReportContentSelector(par)
         self.assertEqual(len(data), 48 / 8)
         ty = int(binascii.hexlify(data[0:2]), 16) & (2**10 - 1)
         self.assertEqual(ty, 238)
