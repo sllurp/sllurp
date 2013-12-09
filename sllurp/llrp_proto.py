@@ -2122,6 +2122,8 @@ class LLRPROSpec(dict):
             }
 
         if report_every_n_tags is not None:
+            logger.debug('will report every ~N={}' \
+                    ' tags'.format(report_every_n_tags))
             self['ROSpec']['ROReportSpec']['N'] = report_every_n_tags
 
     def __repr__(self):
