@@ -9,6 +9,6 @@ setup(
     author      = 'Ben Ransford',
     author_email = 'ransford@cs.washington.edu',
     url         = 'https://github.com/ransford/sllurp',
-    license     = 'GPLv2',
+    license     = 'GPLv3',
     packages    = ['sllurp']
 )
