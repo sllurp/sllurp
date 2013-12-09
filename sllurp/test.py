@@ -132,5 +132,28 @@ class TestDecodeROAccessReport (unittest.TestCase):
     def tearDown (self):
         pass
 
+class TestTagReportContentSelector (unittest.TestCase):
+    selections = {
+        'EnableROSpecID': False,
+        'EnableSpecIndex': False,
+        'EnableInventoryParameterSpecID': False,
+        'EnableAntennaID': True,
+        'EnableChannelIndex': False,
+        'EnablePeakRRSI': True,
+        'EnableFirstSeenTimestamp': True,
+        'EnableLastSeenTimestamp': True,
+        'EnableTagSeenCount': True,
+        'EnableAccessSpecID': False,
+    }
+    def test_start (self):
+        data = sllurp.llrp_proto.encode_TagReportContentSelector(self.selections)
+        self.assertEqual(len(data), 48 / 8)
+        ty = int(binascii.hexlify(data[0:2]), 16) & (2**10 - 1)
+        self.assertEqual(ty, 238)
+        length = int(binascii.hexlify(data[2:4]), 16)
+        self.assertEqual(length, len(data))
+        flags = int(binascii.hexlify(data[4:]), 16) >> 6
+        self.assertEqual(flags, 0b0001011110)
+
 if __name__ == '__main__':
     unittest.main()
