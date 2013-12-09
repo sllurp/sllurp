@@ -1390,6 +1390,17 @@ Message_struct['ReaderEventNotificationData'] = {
     'type': 246,
     'fields': [
         'Type',
+        'HoppingEvent',
+        'GPIEvent',
+        'ROSpecEvent',
+        'ReportBufferLevelWarningEvent',
+        'ReportBufferOverflowErrorEvent',
+        'ReaderExceptionEvent',
+        'RFSurveyEvent',
+        'AISpecEvent',
+        'AntennaEvent',
+        'ConnectionAttemptEvent',
+        'ConnectionCloseEvent'
     ],
     'decode': decode_ReaderEventNotificationData
 }
