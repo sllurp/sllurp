@@ -2098,7 +2098,7 @@ class LLRPROSpec(dict):
                 },
             },
             'ROReportSpec': {
-                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'N': 1,
                 'TagReportContentSelector': {
                     'EnableROSpecID': False,
