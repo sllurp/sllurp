@@ -40,10 +40,11 @@ def main():
     reader.start()
     time.sleep(3)
 
-    logging.info('Will run for {} seconds'.format(args.time))
-    reader.start_inventory()
-    time.sleep(args.time)
+    logging.info('Will run inventory for {} seconds'.format(args.time))
+    reader.start_inventory(duration=args.time)
+    time.sleep(args.time + 3)
     reader.stop_inventory()
+    time.sleep(1)
 
     reader.disconnect()
     reader.join()

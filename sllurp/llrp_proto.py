@@ -943,16 +943,16 @@ Message_struct['AISpec'] = {
 def encode_AISpecStopTrigger(par):
     msgtype = Message_struct['AISpecStopTrigger']['type']
     t_type = StopTrigger_Name2Type[par['AISpecStopTriggerType']]
-    duration = par['DurationTriggerValue']
+    duration = int(par['DurationTriggerValue'])
 
-    msg_header = '!HHBI'
+    msg_header = '!HH'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
+    data = struct.pack('!B', t_type)
+    data += struct.pack('!I', int(duration))
 
     data = struct.pack(msg_header, msgtype,
-            len(data) + msg_header_len,
-            t_type, duration) + data
+            len(data) + msg_header_len) + data
 
     return data
 
@@ -2023,7 +2023,8 @@ class LLRPdCapabilities(dict):
             ['MaxNumOpSpecsPerAccessSpec'] = max_opspec_x_accesspec
 
 class LLRPROSpec(dict):
-    def __init__(self, msgid, priority = 0, state = 'Disabled', antennas=(1,)):
+    def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
+            duration_sec=None):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid argument 1 (not positive)')
@@ -2094,6 +2095,12 @@ class LLRPROSpec(dict):
                 },
             },
         }
+
+        if duration_sec is not None:
+            self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
+                'AISpecStopTriggerType': 'Duration',
+                'DurationTriggerValue': duration_sec * 1000,
+            }
 
     def __repr__(self):
         return llrp_data2xml(self)

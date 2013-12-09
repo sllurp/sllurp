@@ -172,14 +172,14 @@ class LLRPReaderThread (Thread):
     def addCallback (self, eventName, eventCb):
         self.callbacks[eventName].append(eventCb)
 
-    def start_inventory (self):
+    def start_inventory (self, duration=None):
         "Start the reader inventorying."
         if not self.protocol:
             return
         if not self.rospec:
             # create an ROSpec, which defines the reader's inventorying
             # behavior, and start running it on the reader
-            self.rospec = LLRPROSpec(1)
+            self.rospec = LLRPROSpec(1, duration_sec=duration)
             logging.debug('ROSpec: {}'.format(self.rospec))
 
         r = self.rospec['ROSpec']
