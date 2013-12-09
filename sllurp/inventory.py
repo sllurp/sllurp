@@ -26,6 +26,8 @@ def main():
             help='number of seconds for which to inventory (default 10)')
     parser.add_argument('-d', '--debug', action='store_true',
             help='show debugging output')
+    parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
+            dest='every_n', metavar='N', help='issue a TagReport every N tags')
     args = parser.parse_args()
 
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
@@ -42,7 +44,7 @@ def main():
     time.sleep(3)
 
     logging.info('Will run inventory for {} seconds'.format(args.time))
-    reader.start_inventory(duration=args.time)
+    reader.start_inventory(duration=args.time, report_every_n_tags=args.every_n)
     time.sleep(args.time + 3)
     reader.stop_inventory()
     time.sleep(1)

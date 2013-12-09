@@ -2043,7 +2043,7 @@ class LLRPdCapabilities(dict):
 
 class LLRPROSpec(dict):
     def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
-            duration_sec=None):
+            duration_sec=None, report_every_n_tags=None):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid argument 1 (not positive)')
@@ -2120,6 +2120,9 @@ class LLRPROSpec(dict):
                 'AISpecStopTriggerType': 'Duration',
                 'DurationTriggerValue': duration_sec * 1000,
             }
+
+        if report_every_n_tags is not None:
+            self['ROSpec']['ROReportSpec']['N'] = report_every_n_tags
 
     def __repr__(self):
         return llrp_data2xml(self)
