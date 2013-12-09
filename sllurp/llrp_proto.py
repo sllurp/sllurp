@@ -2061,7 +2061,7 @@ class LLRPROSpec(dict):
                         'RFTransmitter': {
                             'HopTableId': 1,
                             'ChannelIndex': 0,
-                            'TransmitPower': 81,
+                            'TransmitPower': 91,
                         },
                         'C1G2InventoryCommand': {
                             'TagInventoryStateAware': False,
