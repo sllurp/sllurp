@@ -2069,8 +2069,8 @@ class LLRPROSpec(dict):
             'AISpec': {
                 'AntennaIDs': ' '.join(map(str, antennas)),
                 'AISpecStopTrigger': {
-                    'AISpecStopTriggerType': 'Null',
-                    'DurationTriggerValue': 0,
+                    'AISpecStopTriggerType': 'Duration',
+                    'DurationTriggerValue': 500,
                 },
                 'InventoryParameterSpec': {
                     'InventoryParameterSpecID': 1,
@@ -2116,8 +2116,8 @@ class LLRPROSpec(dict):
         }
 
         if duration_sec is not None:
-            self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
-                'AISpecStopTriggerType': 'Duration',
+            self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
+                'ROSpecStopTriggerType': 'Duration',
                 'DurationTriggerValue': duration_sec * 1000,
             }
 
