@@ -175,11 +175,13 @@ class LLRPReaderThread (Thread):
     def addCallback (self, eventName, eventCb):
         self.callbacks[eventName].append(eventCb)
 
-    def start_inventory (self, duration=None, delay=0,
-                         report_every_n_tags=None):
+    def start_inventory (self, delay=1, duration=None, report_every_n_tags=None):
         "Start the reader inventorying."
         if not self.protocol:
-            return
+            time.sleep(delay)
+            if not self.protocol:
+                logging.error('no connection after {} seconds'.format(delay))
+                return
         if not self.rospec:
             # create an ROSpec, which defines the reader's inventorying
             # behavior, and start running it on the reader
@@ -189,9 +191,6 @@ class LLRPReaderThread (Thread):
 
         r = self.rospec['ROSpec']
         roSpecId = r['ROSpecID']
-
-        if delay:
-            time.sleep(delay)
 
         # add an ROspec
         self.protocol.sendLLRPMessage(LLRPMessage(msgdict={
