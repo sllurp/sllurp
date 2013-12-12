@@ -41,10 +41,9 @@ def main():
     reader.setDaemon(True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
-    time.sleep(3)
-
     logging.info('Will run inventory for {} seconds'.format(args.time))
-    reader.start_inventory(duration=args.time, report_every_n_tags=args.every_n)
+    reader.start_inventory(delay=3, duration=args.time,
+            report_every_n_tags=args.every_n)
     time.sleep(args.time + 3)
     reader.stop_inventory()
     time.sleep(1)
