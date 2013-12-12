@@ -12,6 +12,7 @@ import copy
 from util import *
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol, ClientCreator
+from twisted.internet.error import ReactorAlreadyRunning
 
 LLRP_PORT = 5084
 
@@ -165,9 +166,11 @@ class LLRPReaderThread (Thread):
         logging.debug('Will connect to {}:{}'.format(self.host, self.port))
         cc = ClientCreator(reactor, LLRPClient)
         whenConnected = cc.connectTCP(self.host, self.port)
-        #reactor.run(installSignalHandlers=0)
         whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)
-        reactor.run(False)
+        try:
+            reactor.run(False)
+        except ReactorAlreadyRunning:
+            pass
 
     def addCallback (self, eventName, eventCb):
         self.callbacks[eventName].append(eventCb)
