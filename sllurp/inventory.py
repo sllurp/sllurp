@@ -28,6 +28,8 @@ def main():
             help='show debugging output')
     parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
             dest='every_n', metavar='N', help='issue a TagReport every N tags')
+    parser.add_argument('-a', '--antennas', default='1',
+            help='comma-separated list of antennas to enable')
     args = parser.parse_args()
 
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
@@ -36,13 +38,16 @@ def main():
     logging.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
     logging.getLogger('llrpc').setLevel(logLevel)
 
+    enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
+
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port)
     reader.setDaemon(True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
     logging.info('Will run inventory for {} seconds'.format(args.time))
-    reader.start_inventory(duration=args.time, report_every_n_tags=args.every_n)
+    reader.start_inventory(duration=args.time, report_every_n_tags=args.every_n,
+            antennas=enabled_antennas)
     time.sleep(args.time + 3)
     reader.stop_inventory()
     time.sleep(1)

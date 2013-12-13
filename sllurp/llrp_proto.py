@@ -2075,26 +2075,7 @@ class LLRPROSpec(dict):
                 'InventoryParameterSpec': {
                     'InventoryParameterSpecID': 1,
                     'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
-                    'AntennaConfiguration': [{
-                        'AntennaID': 1,
-                        'RFTransmitter': {
-                            'HopTableId': 1,
-                            'ChannelIndex': 0,
-                            'TransmitPower': 91,
-                        },
-                        'C1G2InventoryCommand': {
-                            'TagInventoryStateAware': False,
-                            'C1G2RFControl': {
-                                'ModeIndex': 2,
-                                'Tari': 0,
-                            },
-                            'C1G2SingulationControl': {
-                                'Session': 0,
-                                'TagPopulation': 4,
-                                'TagTransitTime': 0,
-                            },
-                        },
-                    }],
+                    'AntennaConfiguration': [],
                 },
             },
             'ROReportSpec': {
@@ -2114,6 +2095,30 @@ class LLRPROSpec(dict):
                 },
             },
         }
+
+        # patch up per-antenna config
+        for antid in antennas:
+            self['ROSpec']['AISpec']['InventoryParameterSpec']\
+                ['AntennaConfiguration'].append({
+                    'AntennaID': antid,
+                    'RFTransmitter': {
+                        'HopTableId': 1,
+                        'ChannelIndex': 0,
+                        'TransmitPower': 91,
+                    },
+                    'C1G2InventoryCommand': {
+                        'TagInventoryStateAware': False,
+                        'C1G2RFControl': {
+                            'ModeIndex': 2,
+                            'Tari': 0,
+                        },
+                        'C1G2SingulationControl': {
+                            'Session': 0,
+                            'TagPopulation': 4,
+                            'TagTransitTime': 0
+                        }
+                    }
+                })
 
         if duration_sec is not None:
             self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
