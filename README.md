@@ -43,7 +43,7 @@ fetch the current ROSpec), ssh to the reader and
     show rfid llrp rospec 0
 
 You can dump the reader's entire configuration, including the current ROSpec,
-to a set of files by running `bin/get_reader_config.sh`.
+to a set of files by running `bin/get_reader_config`.
 
 ## Contributing
 
