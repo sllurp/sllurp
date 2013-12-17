@@ -9,7 +9,7 @@ import logging
 
 logLevel = logging.WARNING
 logging.basicConfig(level=logLevel, format='%(asctime)s: %(levelname)s: %(message)s')
-logging.getLogger('llrpc').setLevel(logLevel)
+logging.getLogger('sllurp').setLevel(logLevel)
 
 def randhex (numdigits):
     """Return a string with numdigits hexadecimal digits."""

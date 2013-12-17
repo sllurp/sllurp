@@ -19,7 +19,7 @@ def main():
     logging.basicConfig(level=logLevel,
             format='%(asctime)s: %(levelname)s: %(message)s')
     logging.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
-    logging.getLogger('llrpc').setLevel(logLevel)
+    logging.getLogger('sllurp').setLevel(logLevel)
 
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port)

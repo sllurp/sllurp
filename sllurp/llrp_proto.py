@@ -53,7 +53,7 @@ __all__ = [
 # Setup logging
 #
 
-logger = logging.getLogger("llrpc")
+logger = logging.getLogger('sllurp')
 logger.setLevel(logging.DEBUG)
 
 # Create console handler and set level to debug
