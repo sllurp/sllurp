@@ -9,7 +9,8 @@ import logging
 
 logLevel = logging.WARNING
 logging.basicConfig(level=logLevel, format='%(asctime)s: %(levelname)s: %(message)s')
-logging.getLogger('sllurp').setLevel(logLevel)
+logger = logging.getLogger('sllurp')
+logger.setLevel(logLevel)
 
 def randhex (numdigits):
     """Return a string with numdigits hexadecimal digits."""
@@ -120,7 +121,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self.assertEqual(len(self._r), 3982)
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = mock_conn(self._binr)
-        logging.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
+        logger.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
         self._client = sllurp.llrp.LLRPClient()
         self._client.addEventCallbacks({
                     'RO_ACCESS_REPORT': [self.tagcb]

@@ -16,10 +16,12 @@ def main():
     args = parser.parse_args()
 
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logging.basicConfig(level=logLevel,
-            format='%(asctime)s: %(levelname)s: %(message)s')
-    logging.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
-    logging.getLogger('sllurp').setLevel(logLevel)
+    logger.setLevel(logLevel)
+    sHandler = logging.StreamHandler()
+    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
+    sHandler.setFormatter(logging.Formatter(logFormat))
+    logger.addHandler(sHandler)
+    logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port)
