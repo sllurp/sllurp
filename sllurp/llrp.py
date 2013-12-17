@@ -181,7 +181,7 @@ class LLRPReaderThread (Thread):
         if not self.protocol:
             time.sleep(delay)
             if not self.protocol:
-                logging.error('no connection after {} seconds'.format(delay))
+                logging.error('no LLRP connection after {} seconds'.format(delay))
                 return
         if not self.rospec:
             # create an ROSpec, which defines the reader's inventorying
