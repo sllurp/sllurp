@@ -22,6 +22,9 @@ To connect to a reader and perform EPC Gen 2 inventory for 10 seconds:
 
 Run `bin/inventory -h` to see options.
 
+If the reader gets into a funny state because you're debugging against it, you
+can stop all ROSpecs by running `bin/reset`.
+
 ## Reader API
 
 Interactions with the reader are brokered by a `llrp.LLRPReaderThread` object;
@@ -35,15 +38,29 @@ expose interesting events to programs.
  * `start_inventory()`: Starts the reader performing inventory.
  * `stop_inventory()`: Cleanly stops the active inventory operation.
 
-## Handy Commands
+## Logging
+
+sllurp logs under the name `sllurp`, so if you wish to log its output, you can
+do this the application that imports sllurp:
+
+    sllurp_logger = logging.getLogger('sllurp')
+    sllurp_logger.setLevel(logging.DEBUG)
+    sllurp_logger.setHandler(logging.FileHandler('sllurp.log'))
+    # or .setHandler(logging.StreamHandler()) to log to stderr...
+
+## Handy Reader Commands
 
 To see what inventory settings an Impinj reader is currently using (i.e., to
 fetch the current ROSpec), ssh to the reader and
 
-    show rfid llrp rospec 0
+    > show rfid llrp rospec 0
 
 You can dump the reader's entire configuration, including the current ROSpec,
 to a set of files by running `bin/get_reader_config`.
+
+The "nuclear option" for resetting a reader is:
+
+    > reboot
 
 ## Contributing
 
