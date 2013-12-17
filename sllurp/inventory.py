@@ -8,12 +8,13 @@ import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
 
 tagsSeen = 0
+logger = logging.getLogger('sllurp')
 
 def tagSeenCallback (llrpMsg):
     """Function to run each time the reader reports seeing one or more tags."""
     global tagsSeen
     tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
-    logging.info('Saw tag(s): {}'.format(pprint.pformat(tags)))
+    logger.info('Saw tag(s): {}'.format(pprint.pformat(tags)))
     for tag in tags:
         tagsSeen += tag['TagSeenCount'][0]
 
@@ -33,10 +34,12 @@ def main():
     args = parser.parse_args()
 
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logging.basicConfig(level=logLevel,
-            format='%(asctime)s: %(levelname)s: %(message)s')
-    logging.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
-    logging.getLogger('sllurp').setLevel(logLevel)
+    logger.setLevel(logLevel)
+    sHandler = logging.StreamHandler()
+    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
+    sHandler.setFormatter(logging.Formatter(logFormat))
+    logger.addHandler(sHandler)
+    logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
 
@@ -45,7 +48,7 @@ def main():
     reader.setDaemon(True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
-    logging.info('Will run inventory for {} seconds'.format(args.time))
+    logger.info('Will run inventory for {} seconds'.format(args.time))
     reader.start_inventory(duration=args.time, report_every_n_tags=args.every_n,
             antennas=enabled_antennas)
     time.sleep(args.time + 3)
@@ -55,7 +58,7 @@ def main():
     reader.disconnect()
     reader.join()
 
-    logging.info('Total # of tags seen by callback: {}'.format(tagsSeen))
+    logger.info('Total # of tags seen by callback: {}'.format(tagsSeen))
 
 if __name__ == '__main__':
     main()

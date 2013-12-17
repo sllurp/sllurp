@@ -54,19 +54,6 @@ __all__ = [
 #
 
 logger = logging.getLogger('sllurp')
-logger.setLevel(logging.DEBUG)
-
-# Create console handler and set level to debug
-log = logging.StreamHandler()
-log.setLevel(logging.INFO)
-
-# Create formatter
-formatter = logging.Formatter('%(name)s[%(process)d]: ' \
-            '%(filename)s[%(lineno) 4d]: %(message)s')
-log.setFormatter(formatter)
-
-# Add log to logger
-logger.addHandler(log)
 
 #
 # Local functions

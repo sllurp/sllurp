@@ -16,6 +16,8 @@ from twisted.internet.error import ReactorAlreadyRunning
 
 LLRP_PORT = 5084
 
+logger = logging.getLogger('sllurp')
+
 class LLRPMessage:
     hdr_fmt = '!HI'
     hdr_len = struct.calcsize(hdr_fmt) # == 6 bytes
@@ -42,7 +44,7 @@ class LLRPMessage:
         if self.msgdict is None:
             raise LLRPError('No message dict to serialize.')
         name = self.msgdict.keys()[0]
-        logging.debug('serializing {} command'.format(name))
+        logger.debug('serializing {} command'.format(name))
         ver = self.msgdict[name]['Ver'] & BITMASK(3)
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
         msgid = self.msgdict[name]['ID']
@@ -56,8 +58,8 @@ class LLRPMessage:
                 (ver << 10) | msgtype,
                 len(data) + self.full_hdr_len,
                 msgid) + data
-        logging.debug('serialized bytes: {}'.format(hexlify(self.msgbytes)))
-        logging.debug('done serializing {} command'.format(name))
+        logger.debug('serialized bytes: {}'.format(hexlify(self.msgbytes)))
+        logger.debug('done serializing {} command'.format(name))
 
     def deserialize (self):
         """Turns a sequence of bytes into a message dictionary.  Any leftover
@@ -72,7 +74,7 @@ class LLRPMessage:
         msgtype = msgtype & BITMASK(10)
         try:
             name = Message_Type2Name[msgtype]
-            logging.debug('deserializing {} command'.format(name))
+            logger.debug('deserializing {} command'.format(name))
             decoder = Message_struct[name]['decode']
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
@@ -85,13 +87,13 @@ class LLRPMessage:
             self.msgdict[name]['Ver'] = ver
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
-            logging.debug('done deserializing {} command'.format(name))
+            logger.debug('done deserializing {} command'.format(name))
         except LLRPError as e:
-            logging.warning('Problem with {} message format: {}'.format(name, e))
+            logger.warning('Problem with {} message format: {}'.format(name, e))
             return ''
         if length < len(data):
             remainder = data[length:]
-            logging.debug('{} bytes of data remaining'.format(len(remainder)))
+            logger.debug('{} bytes of data remaining'.format(len(remainder)))
             return remainder
         return ''
 
@@ -107,31 +109,31 @@ class LLRPClient (Protocol):
     eventCallbacks = {}
 
     def connectionMade(self):
-        logging.debug('socket connected')
+        logger.debug('socket connected')
 
     def connectionLost(self, reason):
-        logging.debug('socket closed: {}'.format(reason))
+        logger.debug('socket closed: {}'.format(reason))
 
     def addEventCallbacks (self, callbacks):
         self.eventCallbacks = callbacks.copy()
 
     def dataReceived (self, data):
-        logging.debug('Got {} bytes from reader: {}'.format(len(data),
+        logger.debug('Got {} bytes from reader: {}'.format(len(data),
                     data.encode('hex')))
         try:
             while data:
                 lmsg = LLRPMessage(msgbytes=data)
-                logging.debug('LLRPMessage received: {}'.format(lmsg))
+                logger.debug('LLRPMessage received: {}'.format(lmsg))
                 msgName = lmsg.getName()
                 if msgName in self.eventCallbacks:
                     for fn in self.eventCallbacks[msgName]:
                         fn(lmsg)
-                logging.debug('remaining bytes: {}'.format(len(lmsg.remainder)))
+                logger.debug('remaining bytes: {}'.format(len(lmsg.remainder)))
                 if not lmsg.remainder:
                     break
                 data = lmsg.remainder # remaining bytes
         except LLRPError as err:
-            logging.warn('Failed to decode LLRPMessage: {}'.format(err))
+            logger.warn('Failed to decode LLRPMessage: {}'.format(err))
 
     def sendLLRPMessage (self, llrp_msg):
         reactor.callFromThread(self.sendMessage, llrp_msg.msgbytes)
@@ -154,16 +156,16 @@ class LLRPReaderThread (Thread):
         self.port = port
 
     def cbConnected (self, connectedProtocol):
-        logging.info('Connected to {}:{}'.format(self.host, self.port))
+        logger.info('Connected to {}:{}'.format(self.host, self.port))
         self.protocol = connectedProtocol
         self.protocol.addEventCallbacks(self.callbacks)
 
     def ebConnectError (self, reason):
-        logging.debug('Connection error: {}'.format(reason))
+        logger.debug('Connection error: {}'.format(reason))
         pass
 
     def run (self):
-        logging.debug('Will connect to {}:{}'.format(self.host, self.port))
+        logger.debug('Will connect to {}:{}'.format(self.host, self.port))
         cc = ClientCreator(reactor, LLRPClient)
         whenConnected = cc.connectTCP(self.host, self.port)
         whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)
@@ -181,7 +183,7 @@ class LLRPReaderThread (Thread):
         if not self.protocol:
             time.sleep(delay)
             if not self.protocol:
-                logging.error('no LLRP connection after {} seconds'.format(delay))
+                logger.error('no LLRP connection after {} seconds'.format(delay))
                 return
         if not self.rospec:
             # create an ROSpec, which defines the reader's inventorying
@@ -189,7 +191,7 @@ class LLRPReaderThread (Thread):
             self.rospec = LLRPROSpec(1, duration_sec=duration,
                     report_every_n_tags=report_every_n_tags,
                     antennas=antennas)
-            logging.debug('ROSpec: {}'.format(self.rospec))
+            logger.debug('ROSpec: {}'.format(self.rospec))
 
         r = self.rospec['ROSpec']
         roSpecId = r['ROSpecID']
@@ -234,7 +236,7 @@ class LLRPReaderThread (Thread):
                 'ROSpecID': 0
             }}))
 
-        logging.debug('waiting 3 seconds reader to delete all ROSpecs...')
+        logger.debug('waiting 3 seconds reader to delete all ROSpecs...')
         time.sleep(3)
 
     def stop_inventory (self):
@@ -273,9 +275,9 @@ class LLRPReaderThread (Thread):
                 'ROSpecID': roSpecId
             }}))
 
-        logging.debug('waiting 3 seconds for inventory to stop...')
+        logger.debug('waiting 3 seconds for inventory to stop...')
         time.sleep(3)
 
     def disconnect (self):
-        logging.debug('stopping reactor')
+        logger.debug('stopping reactor')
         reactor.callFromThread(reactor.stop)
