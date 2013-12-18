@@ -9,6 +9,7 @@ from sllurp.llrp_proto import LLRPROSpec
 
 tagsSeen = 0
 logger = logging.getLogger('sllurp')
+logger.propagate = False
 
 def tagSeenCallback (llrpMsg):
     """Function to run each time the reader reports seeing one or more tags."""
@@ -31,14 +32,21 @@ def main():
             dest='every_n', metavar='N', help='issue a TagReport every N tags')
     parser.add_argument('-a', '--antennas', default='1',
             help='comma-separated list of antennas to enable')
+    parser.add_argument('-l', '--logfile')
     args = parser.parse_args()
 
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
     logger.setLevel(logLevel)
-    sHandler = logging.StreamHandler()
     logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
-    sHandler.setFormatter(logging.Formatter(logFormat))
-    logger.addHandler(sHandler)
+    formatter = logging.Formatter(logFormat)
+    if args.logfile:
+        fHandler = logging.FileHandler(args.logfile)
+        fHandler.setFormatter(formatter)
+        logger.addHandler(fHandler)
+    else:
+        sHandler = logging.StreamHandler()
+        sHandler.setFormatter(formatter)
+        logger.addHandler(sHandler)
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
