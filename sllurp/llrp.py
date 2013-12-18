@@ -111,16 +111,50 @@ class LLRPMessage:
         return ret
 
 class LLRPClient (Protocol):
-    eventCallbacks = {}
+    STATE_DISCONNECTED = 1
+    STATE_CONNECTED = 2
+    STATE_INVENTORYING = 3
+
+    def __init__ (self):
+        self.state = LLRPClient.STATE_DISCONNECTED
+        self.eventCallbacks = {
+            'READER_EVENT_NOTIFICATION': [self.readerEventCallback]
+        }
+
+    def readerEventCallback (self, llrpMsg):
+        """Function to handle ReaderEventNotification messages from the reader."""
+        logger.info('got READER_EVENT_NOTIFICATION')
+        d = llrpMsg.msgdict['READER_EVENT_NOTIFICATION']\
+                ['ReaderEventNotificationData']
+
+        # figure out whether the connection was successful
+        try:
+            status = d['ConnectionAttemptEvent']['Status']
+            if status == 'Success':
+                self.state = LLRPClient.STATE_CONNECTED
+            else:
+                logger.fatal('Could not start session on reader: ' \
+                        '{}'.format(status))
+                self.transport.loseConnection()
+        except KeyError:
+            pass
+
+        # figure out whether there was an AntennaEvent
+        try:
+            antev = d['AntennaEvent']
+            # TODO: reconcile antenna events against list of antennas
+        except KeyError:
+            pass
 
     def connectionMade(self):
         logger.debug('socket connected')
 
     def connectionLost(self, reason):
         logger.debug('socket closed: {}'.format(reason))
+        self.state = LLRPClient.STATE_DISCONNECTED
 
     def addEventCallbacks (self, callbacks):
-        self.eventCallbacks = callbacks.copy()
+        self.eventCallbacks.update(callbacks)
 
     def dataReceived (self, data):
         logger.debug('Got {} bytes from reader: {}'.format(len(data),
@@ -182,6 +216,7 @@ class LLRPReaderThread (Thread):
     def addCallback (self, eventName, eventCb):
         self.callbacks[eventName].append(eventCb)
 
+    # XXX move this to LLRPClient
     def start_inventory (self, delay=1, duration=None, report_every_n_tags=None,
             antennas=(1,)):
         "Start the reader inventorying."
