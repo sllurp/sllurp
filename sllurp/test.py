@@ -7,8 +7,9 @@ import sllurp.llrp_errors
 import binascii
 import logging
 
-logLevel = logging.WARNING
-logging.basicConfig(level=logLevel, format='%(asctime)s: %(levelname)s: %(message)s')
+logLevel = logging.DEBUG
+logging.basicConfig(level=logLevel,
+        format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
 logger = logging.getLogger('sllurp')
 logger.setLevel(logLevel)
 
@@ -54,6 +55,14 @@ class TestROSpec (unittest.TestCase):
         self.assertNotEqual(rospec_str, '')
     def tearDown (self):
         pass
+
+class TestReaderEventNotification (unittest.TestCase):
+    def test_decode (self):
+        data = binascii.unhexlify( \
+                '043f0000002149d79d3c00f600170080000c0004edc2172a821400ff0007' \
+                '000002')
+        client = sllurp.llrp.LLRPClient()
+        client.dataReceived(data)
 
 class TestDecodeROAccessReport (unittest.TestCase):
     _r = """

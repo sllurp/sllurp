@@ -1379,6 +1379,10 @@ def decode_ReaderEventNotificationData(data):
     if ret:
         par['ConnectionAttemptEvent'] = ret
 
+    ret, body = decode('AntennaEvent')(body)
+    if ret:
+        par['AntennaEvent'] = ret
+
     return par, body
 
 Message_struct['ReaderEventNotificationData'] = {
@@ -1398,6 +1402,39 @@ Message_struct['ReaderEventNotificationData'] = {
         'ConnectionCloseEvent'
     ],
     'decode': decode_ReaderEventNotificationData
+}
+
+# 16.2.7.6.9 AntennaEvent Parameter
+def decode_AntennaEvent(data):
+    logger.debug(func())
+    par = {}
+
+    if len(data) == 0:
+        return None, data
+
+    header = data[0 : par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['AntennaEvent']['type']:
+        return (None, data)
+    body = data[par_header_len : length]
+    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
+
+    # Decode fields
+    (event_type, antenna_id) = struct.unpack('!BH', body)
+    par['EventType'] = event_type and 'Connected' or 'Disconnected'
+    par['AntennaID'] = antenna_id
+
+    return par, data[length : ]
+
+Message_struct['AntennaEvent'] = {
+    'type': 255,
+    'fields': [
+        'Type',
+        'EventType',
+        'AntennaID'
+    ],
+    'decode': decode_AntennaEvent
 }
 
 # 16.2.7.6.10 ConnectionAttemptEvent Parameter
