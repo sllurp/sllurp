@@ -103,7 +103,12 @@ class LLRPMessage:
         return self.msgdict.keys()[0]
 
     def __repr__ (self):
-        return llrp_data2xml(self.msgdict)
+        try:
+            ret = llrp_data2xml(self.msgdict)
+        except TypeError as te:
+            logger.exception(te)
+            ret = ''
+        return ret
 
 class LLRPClient (Protocol):
     eventCallbacks = {}
