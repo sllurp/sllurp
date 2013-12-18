@@ -272,7 +272,8 @@ class LLRPClient (Protocol):
                 lmsg = LLRPMessage(msgbytes=data)
                 data = self.handleMessage(lmsg)
         except LLRPError as err:
-            logger.warn('Failed to decode LLRPMessage: {}'.format(err))
+            logger.warn('Failed to decode LLRPMessage: {}.  Will not decode' \
+                    ' {} remaining bytes'.format(err, len(data)))
 
     def startInventory (self, duration=None, report_every_n_tags=None,
             antennas=(1,)):
