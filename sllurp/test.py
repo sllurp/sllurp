@@ -7,7 +7,7 @@ import sllurp.llrp_errors
 import binascii
 import logging
 
-logLevel = logging.DEBUG
+logLevel = logging.WARNING
 logging.basicConfig(level=logLevel,
         format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
 logger = logging.getLogger('sllurp')
