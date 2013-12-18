@@ -137,6 +137,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
                 })
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
+        self._client.state = sllurp.llrp.LLRPClient.STATE_INVENTORYING
         self._client.dataReceived(self._binr)
         self.assertEqual(self._tags_seen, 45)
     def tearDown (self):

@@ -117,9 +117,8 @@ class LLRPClient (Protocol):
 
     def __init__ (self):
         self.state = LLRPClient.STATE_DISCONNECTED
-        self.eventCallbacks = {
-            'READER_EVENT_NOTIFICATION': [self.readerEventCallback]
-        }
+        e = self.eventCallbacks = defaultdict(list)
+        e['READER_EVENT_NOTIFICATION'].append(self.readerEventCallback)
 
     def readerEventCallback (self, llrpMsg):
         """Function to handle ReaderEventNotification messages from the reader."""
@@ -164,7 +163,11 @@ class LLRPClient (Protocol):
                 lmsg = LLRPMessage(msgbytes=data)
                 logger.debug('LLRPMessage received: {}'.format(lmsg))
                 msgName = lmsg.getName()
-                if msgName in self.eventCallbacks:
+                if msgName == 'RO_ACCESS_REPORT' and \
+                            self.state != LLRPClient.STATE_INVENTORYING:
+                    logger.debug('ignoring RO_ACCESS_REPORT because not' \
+                            ' currently inventorying')
+                else:
                     for fn in self.eventCallbacks[msgName]:
                         fn(lmsg)
                 logger.debug('remaining bytes: {}'.format(len(lmsg.remainder)))
