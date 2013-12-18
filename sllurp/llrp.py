@@ -269,6 +269,7 @@ class LLRPReaderThread (Thread):
                     'ID':   0,
                     'ROSpecID': roSpecId
                 }}))
+        self.protocol.state = LLRPClient.STATE_INVENTORYING
 
     def delete_all_rospecs (self):
         """Delete all active ROSpecs."""
