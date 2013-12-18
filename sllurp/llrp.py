@@ -175,7 +175,8 @@ class LLRPClient (Protocol):
                     break
                 data = lmsg.remainder # remaining bytes
         except LLRPError as err:
-            logger.warn('Failed to decode LLRPMessage: {}'.format(err))
+            logger.warn('Failed to decode LLRPMessage: {}.  Will not decode' \
+                    ' {} remaining bytes'.format(err, len(data)))
 
     def sendLLRPMessage (self, llrp_msg):
         reactor.callFromThread(self.sendMessage, llrp_msg.msgbytes)
