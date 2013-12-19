@@ -371,9 +371,12 @@ class LLRPReaderThread (Thread):
         whenConnected = cc.connectTCP(self.host, self.port)
         whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)
         try:
-            reactor.run(False)
-        except ReactorAlreadyRunning:
+            if self.inventory_params['standalone']:
+                reactor.run(False)
+        except KeyError:
             pass
+        except ReactorAlreadyRunning:
+            logger.warn('standalone=True but reactor was already running')
 
     def start_inventory (self):
         if not self.protocol:
