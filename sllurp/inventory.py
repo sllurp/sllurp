@@ -52,15 +52,13 @@ def main():
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
 
     # spawn a thread to talk to the reader
-    reader = llrp.LLRPReaderThread(args.host, args.port)
+    reader = llrp.LLRPReaderThread(args.host, args.port, duration=args.time,
+            report_every_n_tags=args.every_n, antennas=enabled_antennas)
     reader.setDaemon(True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
     logger.info('Will run inventory for {} seconds'.format(args.time))
-    reader.start_inventory(duration=args.time, report_every_n_tags=args.every_n,
-            antennas=enabled_antennas)
     time.sleep(args.time + 3)
-    reader.stop_inventory()
     time.sleep(1)
 
     reader.disconnect()

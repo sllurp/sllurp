@@ -34,11 +34,12 @@ def main():
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
     # spawn a thread to talk to the reader
-    reader = llrp.LLRPReaderThread(args.host, args.port)
+    reader = llrp.LLRPReaderThread(args.host, args.port,
+            start_inventory=False, disconnect_when_done=True)
     reader.setDaemon(True)
+    reader.addCallback('READER_EVENT_NOTIFICATION', reader.stop_inventory)
     reader.start()
-    time.sleep(3)
-    reader.delete_all_rospecs()
+    time.sleep(1)
     reader.disconnect()
     reader.join()
 

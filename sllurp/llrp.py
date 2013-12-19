@@ -118,30 +118,25 @@ class LLRPClient (Protocol):
     STATE_SENT_ENABLE_ROSPEC = 5
     STATE_SENT_DELETE_ROSPEC = 6
     STATE_INVENTORYING = 7
+    STATE_STOPPING_POLITELY = 8
 
-    def __init__ (self):
+    def __init__ (self, duration=None, report_every_n_tags=None, antennas=(1,),
+            start_inventory=True, disconnect_when_done=True):
         self.state = LLRPClient.STATE_DISCONNECTED
         e = self.eventCallbacks = defaultdict(list)
         e['READER_EVENT_NOTIFICATION'].append(self.readerEventCallback)
         self.rospec = None
+        self.report_every_n_tags = report_every_n_tags
+        self.antennas = antennas
+        self.duration = duration
+        self.start_inventory = start_inventory
+        self.disconnect_when_done = disconnect_when_done
 
     def readerEventCallback (self, llrpMsg):
         """Function to handle ReaderEventNotification messages from the reader."""
         logger.info('got READER_EVENT_NOTIFICATION')
         d = llrpMsg.msgdict['READER_EVENT_NOTIFICATION']\
                 ['ReaderEventNotificationData']
-
-        # figure out whether the connection was successful
-        try:
-            status = d['ConnectionAttemptEvent']['Status']
-            if status == 'Success':
-                self.state = LLRPClient.STATE_CONNECTED
-            else:
-                logger.fatal('Could not start session on reader: ' \
-                        '{}'.format(status))
-                self.transport.loseConnection()
-        except KeyError:
-            pass
 
         # figure out whether there was an AntennaEvent
         try:
@@ -184,10 +179,25 @@ class LLRPClient (Protocol):
         # in DISCONNECTED, CONNECTING, and CONNECTED states, expect only
         # READER_EVENT_NOTIFICATION messages.
         if self.state in (LLRPClient.STATE_DISCONNECTED,
-                LLRPClient.STATE_CONNECTING,
-                LLRPClient.STATE_CONNECTED):
-            if msgName != 'READER_EVENT_NOTIFICATION':
-                logging.error('unexpected message {} while' \
+                LLRPClient.STATE_CONNECTING):
+            if msgName == 'READER_EVENT_NOTIFICATION':
+                d = lmsg.msgdict['READER_EVENT_NOTIFICATION']\
+                        ['ReaderEventNotificationData']
+                # figure out whether the connection was successful
+                try:
+                    status = d['ConnectionAttemptEvent']['Status']
+                    if status == 'Success':
+                        self.state = LLRPClient.STATE_CONNECTED
+                        if self.start_inventory:
+                            self.startInventory()
+                    else:
+                        logger.fatal('Could not start session on reader: ' \
+                                '{}'.format(status))
+                        self.transport.loseConnection()
+                except KeyError:
+                    pass
+            else:
+                logger.error('unexpected message {} while' \
                         ' connecting'.format(msgName))
                 stop = True
 
@@ -203,7 +213,7 @@ class LLRPClient (Protocol):
                             'Ver':  1,
                             'Type': 24,
                             'ID':   0,
-                            'ROSpecID': roSpecId
+                            'ROSpecID': self.roSpecId
                         }}))
                     self.state = LLRPClient.STATE_SENT_ENABLE_ROSPEC
                 else:
@@ -213,7 +223,7 @@ class LLRPClient (Protocol):
                     stop = True
                     self.stopPolitely()
             else:
-                logging.error('unexpected response {} ' \
+                logger.error('unexpected response {} ' \
                         ' when adding ROSpec'.format(msgName))
                 stop = True
 
@@ -224,7 +234,12 @@ class LLRPClient (Protocol):
             if msgName == 'ENABLE_ROSPEC_RESPONSE':
                 d = lmsg.msgdict['ENABLE_ROSPEC_RESPONSE']
                 if d['LLRPStatus']['StatusCode'] == 'Success':
+                    logger.info('successfully enabled ROSpec; starting' \
+                            ' inventory.')
                     self.state = LLRPClient.STATE_INVENTORYING
+                    if self.duration:
+                        reactor.callFromThread(reactor.callLater, self.duration,
+                                self.stopPolitely)
                 else:
                     logger.warn('ENABLE_ROSPEC failed with status {}: {}' \
                             .format(d['LLRPStatus']['StatusCode'],
@@ -232,29 +247,36 @@ class LLRPClient (Protocol):
                     stop = True
                     self.stopPolitely()
             else:
-                logging.error('unexpected response {} ' \
+                logger.error('unexpected response {} ' \
                         ' when enabling ROSpec'.format(msgName))
                 stop = True
 
         elif self.state == LLRPClient.STATE_INVENTORYING:
             if msgName not in ('RO_ACCESS_REPORT', 'READER_EVENT_NOTIFICATION'):
-                logging.error('unexpected message {} while' \
+                logger.error('unexpected message {} while' \
                         ' inventorying'.format(msgName))
                 stop = True
 
-        elif self.state == LLRPClient.STATE_SENT_DELETE_ROSPEC:
+        elif self.state in (LLRPClient.STATE_SENT_DELETE_ROSPEC,
+                LLRPClient.STATE_STOPPING_POLITELY):
             if msgName == 'DELETE_ROSPEC_RESPONSE':
                 d = lmsg.msgdict['DELETE_ROSPEC_RESPONSE']
                 if d['LLRPStatus']['StatusCode'] == 'Success':
-                    self.state = LLRPClient.STATE_INVENTORYING
+                    self.state = LLRPClient.STATE_DISCONNECTED
+                    if self.disconnect_when_done:
+                        self.transport.loseConnection()
                 else:
-                    logger.warn('ENABLE_ROSPEC failed with status {}: {}' \
+                    logger.warn('DELETE_ROSPEC failed with status {}: {}' \
                             .format(d['LLRPStatus']['StatusCode'],
                                 d['LLRPStatus']['ErrorDescription']))
                     stop = True
-                    self.stopPolitely()
+                    logger.info('disconnecting')
+
+                    # no use trying to stop politely if DELETE_ROSPEC has
+                    # already failed...
+                    self.transport.loseConnection()
             else:
-                logging.error('unexpected response {} ' \
+                logger.error('unexpected response {} ' \
                         ' when deleting ROSpec'.format(msgName))
                 stop = True
 
@@ -275,28 +297,11 @@ class LLRPClient (Protocol):
             logger.warn('Failed to decode LLRPMessage: {}.  Will not decode' \
                     ' {} remaining bytes'.format(err, len(data)))
 
-    def startInventory (self, duration=None, report_every_n_tags=None,
-            antennas=(1,)):
-        "Start the reader inventorying."
-
-        # inventory is possible only when properly connected
-        if self.state != LLRPClient.STATE_CONNECTED:
-            return
-
-        if duration:
-            reactor.callFromThread(reactor.callLater, duration,
-                    self.stopPolitely)
-
+    def startInventory (self):
         if not self.rospec:
-            # create an ROSpec, which defines the reader's inventorying
-            # behavior, and start running it on the reader
-            self.rospec = LLRPROSpec(1, duration_sec=duration,
-                    report_every_n_tags=report_every_n_tags,
-                    antennas=antennas)
-            logger.debug('ROSpec: {}'.format(self.rospec))
-
+            self.create_rospec()
         r = self.rospec['ROSpec']
-        roSpecId = r['ROSpecID']
+        self.roSpecId = r['ROSpecID']
 
         # add an ROspec
         self.sendLLRPMessage(LLRPMessage(msgdict={
@@ -304,10 +309,20 @@ class LLRPClient (Protocol):
                 'Ver':  1,
                 'Type': 20,
                 'ID':   0,
-                'ROSpecID': roSpecId,
+                'ROSpecID': self.roSpecId,
                 'ROSpec': r,
             }}))
         self.state = LLRPClient.STATE_SENT_ADD_ROSPEC
+
+    def create_rospec (self):
+        if self.rospec:
+            return
+        # create an ROSpec, which defines the reader's inventorying
+        # behavior, and start running it on the reader
+        self.rospec = LLRPROSpec(1, duration_sec=self.duration,
+                report_every_n_tags=self.report_every_n_tags,
+                antennas=self.antennas)
+        logger.debug('ROSpec: {}'.format(self.rospec))
 
     def stopPolitely (self):
         """Delete all active ROSpecs."""
@@ -335,10 +350,11 @@ class LLRPReaderThread (Thread):
     protocol = None
     callbacks = defaultdict(list)
 
-    def __init__ (self, host, port=LLRP_PORT):
+    def __init__ (self, host, port=LLRP_PORT, **kwargs):
         super(LLRPReaderThread, self).__init__()
         self.host = host
         self.port = port
+        self.inventory_params = dict(kwargs)
 
     def cbConnected (self, connectedProtocol):
         logger.info('Connected to {}:{}'.format(self.host, self.port))
@@ -351,7 +367,7 @@ class LLRPReaderThread (Thread):
 
     def run (self):
         logger.debug('Will connect to {}:{}'.format(self.host, self.port))
-        cc = ClientCreator(reactor, LLRPClient)
+        cc = ClientCreator(reactor, LLRPClient, **self.inventory_params)
         whenConnected = cc.connectTCP(self.host, self.port)
         whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)
         try:
@@ -359,12 +375,20 @@ class LLRPReaderThread (Thread):
         except ReactorAlreadyRunning:
             pass
 
+    def start_inventory (self):
+        if not self.protocol:
+            logger.warn('start_inventory called on disconnected client')
+            return
+        self.protocol.startInventory()
+
+    def stop_inventory (self, _):
+        if not self.protocol:
+            logger.warn('stop_inventory called on disconnected client')
+            return
+        self.protocol.stopPolitely()
+
     def addCallback (self, eventName, eventCb):
         self.callbacks[eventName].append(eventCb)
-
-    def start_inventory (self, **kwargs):
-        if self.protocol:
-            self.protocol.startInventory(args, **kwargs)
 
     def disconnect (self):
         logger.debug('stopping reactor')
