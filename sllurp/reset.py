@@ -35,13 +35,10 @@ def main():
 
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port,
-            start_inventory=False, disconnect_when_done=True)
-    reader.setDaemon(True)
+            start_inventory=False, disconnect_when_done=True,
+            standalone=True)
     reader.addCallback('READER_EVENT_NOTIFICATION', reader.stop_inventory)
     reader.start()
-    time.sleep(1)
-    reader.disconnect()
-    reader.join()
 
 if __name__ == '__main__':
     main()

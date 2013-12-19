@@ -53,17 +53,12 @@ def main():
 
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port, duration=args.time,
-            report_every_n_tags=args.every_n, antennas=enabled_antennas)
-    reader.setDaemon(True)
+            report_every_n_tags=args.every_n, antennas=enabled_antennas,
+            start_inventory=True, disconnect_when_done=True, standalone=True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
-    logger.info('Will run inventory for {} seconds'.format(args.time))
-    time.sleep(args.time + 3)
-    time.sleep(1)
 
-    reader.disconnect()
     reader.join()
-
     logger.info('Total # of tags seen by callback: {}'.format(tagsSeen))
 
 if __name__ == '__main__':

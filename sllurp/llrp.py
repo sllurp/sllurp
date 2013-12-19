@@ -121,7 +121,7 @@ class LLRPClient (Protocol):
     STATE_STOPPING_POLITELY = 8
 
     def __init__ (self, duration=None, report_every_n_tags=None, antennas=(1,),
-            start_inventory=True, disconnect_when_done=True):
+            start_inventory=True, disconnect_when_done=True, standalone=False):
         self.state = LLRPClient.STATE_DISCONNECTED
         e = self.eventCallbacks = defaultdict(list)
         e['READER_EVENT_NOTIFICATION'].append(self.readerEventCallback)
@@ -131,6 +131,7 @@ class LLRPClient (Protocol):
         self.duration = duration
         self.start_inventory = start_inventory
         self.disconnect_when_done = disconnect_when_done
+        self.standalone = standalone
 
     def readerEventCallback (self, llrpMsg):
         """Function to handle ReaderEventNotification messages from the reader."""
@@ -151,6 +152,8 @@ class LLRPClient (Protocol):
     def connectionLost(self, reason):
         logger.debug('socket closed: {}'.format(reason))
         self.state = LLRPClient.STATE_DISCONNECTED
+        if self.standalone:
+            reactor.callFromThread(reactor.stop)
 
     def addEventCallbacks (self, callbacks):
         self.eventCallbacks.update(callbacks)
