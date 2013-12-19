@@ -1224,7 +1224,7 @@ def decode_TagReportData(data):
     # Decode parameters
     ret, body = decode('EPCData')(body)
     if ret:
-        logger.debug('got EPCData; won't try EPC-96')
+        logger.debug("got EPCData; won't try EPC-96")
         par['EPCData'] = ret
     else:
         logger.debug('failed to decode EPCData; trying EPC-96')
