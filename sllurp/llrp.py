@@ -261,7 +261,7 @@ class LLRPClient (Protocol):
             if msgName == 'DELETE_ROSPEC_RESPONSE':
                 d = lmsg.msgdict['DELETE_ROSPEC_RESPONSE']
                 if d['LLRPStatus']['StatusCode'] == 'Success':
-                    logger.info('reader acknowledges disconnection')
+                    logger.info('reader finished inventory')
                     self.state = LLRPClient.STATE_DISCONNECTED
                     if self.disconnect_when_done:
                         self.transport.loseConnection()
