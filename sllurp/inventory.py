@@ -3,6 +3,7 @@ import argparse
 import logging
 import pprint
 import time
+from twisted.internet import reactor
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
@@ -55,10 +56,22 @@ def main():
     reader = llrp.LLRPReaderThread(args.host, args.port, duration=args.time,
             report_every_n_tags=args.every_n, antennas=enabled_antennas,
             start_inventory=True, disconnect_when_done=True, standalone=True)
+    reader.setDaemon(True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
 
-    reader.join()
+    # check every 0.1 seconds whether thread is done with its work (or whether
+    # the user has pressed ^C)
+    try:
+        while reader.isAlive():
+            reader.join(0.1)
+    except KeyboardInterrupt:
+        logger.fatal('interrupted; stopping inventory')
+        reader.stop_inventory(None)
+        # wait 1 second between stopping inventory and stopping reactor
+        reactor.callFromThread(reactor.callLater, 1, reactor.stop)
+        reader.join(1.5)
+
     logger.info('total # of tags seen by callback: {}'.format(tagsSeen))
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@ from __future__ import print_function
 import argparse
 import time
 import logging
+from twisted.internet import reactor
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
@@ -37,8 +38,18 @@ def main():
     reader = llrp.LLRPReaderThread(args.host, args.port,
             start_inventory=False, disconnect_when_done=True,
             standalone=True)
+    reader.setDaemon(True)
     reader.addCallback('READER_EVENT_NOTIFICATION', reader.stop_inventory)
     reader.start()
+
+    # check every 0.1 seconds whether thread is done with its work (or whether
+    # the user has pressed ^C)
+    try:
+        while reader.isAlive():
+            reader.join(0.1)
+    except KeyboardInterrupt:
+        logger.fatal('interrupted')
+        reactor.callFromThread(reactor.stop)
 
 if __name__ == '__main__':
     main()
