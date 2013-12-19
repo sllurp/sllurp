@@ -149,11 +149,10 @@ class LLRPClient (Protocol):
         logger.debug('socket connected')
 
     def connectionLost(self, reason):
-        logger.debug('socket closed: {}'.format(reason))
+        logger.debug('reader disconnected: {}'.format(reason))
         self.state = LLRPClient.STATE_DISCONNECTED
         if self.standalone:
             reactor.callFromThread(reactor.stop)
-        logger.info('disconnected')
 
     def addEventCallbacks (self, callbacks):
         self.eventCallbacks.update(callbacks)
@@ -262,6 +261,7 @@ class LLRPClient (Protocol):
             if msgName == 'DELETE_ROSPEC_RESPONSE':
                 d = lmsg.msgdict['DELETE_ROSPEC_RESPONSE']
                 if d['LLRPStatus']['StatusCode'] == 'Success':
+                    logger.info('reader acknowledges disconnection')
                     self.state = LLRPClient.STATE_DISCONNECTED
                     if self.disconnect_when_done:
                         self.transport.loseConnection()
@@ -326,6 +326,7 @@ class LLRPClient (Protocol):
 
     def stopPolitely (self):
         """Delete all active ROSpecs."""
+        logger.info('stopping politely')
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'DELETE_ROSPEC': {
                 'Ver':  1,
