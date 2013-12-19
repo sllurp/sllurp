@@ -15,7 +15,7 @@ def tagSeenCallback (llrpMsg):
     """Function to run each time the reader reports seeing one or more tags."""
     global tagsSeen
     tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
-    logger.info('Saw tag(s): {}'.format(pprint.pformat(tags)))
+    logger.info('saw tag(s): {}'.format(pprint.pformat(tags)))
     for tag in tags:
         tagsSeen += tag['TagSeenCount'][0]
 
@@ -59,7 +59,7 @@ def main():
     reader.start()
 
     reader.join()
-    logger.info('Total # of tags seen by callback: {}'.format(tagsSeen))
+    logger.info('total # of tags seen by callback: {}'.format(tagsSeen))
 
 if __name__ == '__main__':
     main()

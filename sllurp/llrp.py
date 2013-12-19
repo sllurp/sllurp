@@ -154,6 +154,7 @@ class LLRPClient (Protocol):
         self.state = LLRPClient.STATE_DISCONNECTED
         if self.standalone:
             reactor.callFromThread(reactor.stop)
+        logger.info('disconnected')
 
     def addEventCallbacks (self, callbacks):
         self.eventCallbacks.update(callbacks)
@@ -290,7 +291,7 @@ class LLRPClient (Protocol):
         return ret
 
     def dataReceived (self, data):
-        logger.debug('Got {} bytes from reader: {}'.format(len(data),
+        logger.debug('got {} bytes from reader: {}'.format(len(data),
                     data.encode('hex')))
         try:
             while data:
@@ -360,16 +361,16 @@ class LLRPReaderThread (Thread):
         self.inventory_params = dict(kwargs)
 
     def cbConnected (self, connectedProtocol):
-        logger.info('Connected to {}:{}'.format(self.host, self.port))
+        logger.info('connected to {}:{}'.format(self.host, self.port))
         self.protocol = connectedProtocol
         self.protocol.addEventCallbacks(self.callbacks)
 
     def ebConnectError (self, reason):
-        logger.debug('Connection error: {}'.format(reason))
+        logger.debug('connection error: {}'.format(reason))
         pass
 
     def run (self):
-        logger.debug('Will connect to {}:{}'.format(self.host, self.port))
+        logger.debug('will connect to {}:{}'.format(self.host, self.port))
         cc = ClientCreator(reactor, LLRPClient, **self.inventory_params)
         whenConnected = cc.connectTCP(self.host, self.port)
         whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)

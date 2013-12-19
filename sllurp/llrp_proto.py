@@ -1215,22 +1215,19 @@ def decode_TagReportData(data):
         return None, data
 
     header = data[0 : par_header_len]
-    logger.debug('TagReportData header: {}'.format(header.encode('hex')))
     msgtype, length = struct.unpack(par_header, header)
-    logger.debug('TagReportData msgtype, length: {}, {}'.format(msgtype, length))
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['TagReportData']['type']:
         return (None, data)
     body = data[par_header_len : length]
-    logger.debug('TagReportData body: {}'.format(body.encode('hex')))
 
     # Decode parameters
     ret, body = decode('EPCData')(body)
     if ret:
-        logger.debug("Got EPCData; won't try EPC-96")
+        logger.debug('got EPCData; won't try EPC-96')
         par['EPCData'] = ret
     else:
-        logger.debug('Failed to decode EPCData; trying EPC-96')
+        logger.debug('failed to decode EPCData; trying EPC-96')
         ret, body = decode('EPC-96')(body)
         if ret:
             par['EPC-96'] = ret['EPC']
@@ -1481,9 +1478,9 @@ def decode_LLRPStatus(data):
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['LLRPStatus']['type']:
-        logger.debug('Got msgtype={0}, expected {1}'.format(msgtype,
+        logger.debug('got msgtype={0}, expected {1}'.format(msgtype,
                     Message_struct['LLRPStatus']['type']))
-        logger.debug('Note length={}'.format(length))
+        logger.debug('note length={}'.format(length))
         return (None, data)
     body = data[par_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
