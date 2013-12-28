@@ -34,6 +34,8 @@ def main():
     parser.add_argument('-a', '--antennas', default='1',
             help='comma-separated list of antennas to enable')
     parser.add_argument('-l', '--logfile')
+    parser.add_argument('-r', '--reconnect', action='store_true',
+            default=False, help='reconnect on connection failure or loss')
     args = parser.parse_args()
 
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
@@ -55,7 +57,8 @@ def main():
     # spawn a thread to talk to the reader
     reader = llrp.LLRPReaderThread(args.host, args.port, duration=args.time,
             report_every_n_tags=args.every_n, antennas=enabled_antennas,
-            start_inventory=True, disconnect_when_done=True, standalone=True)
+            start_inventory=True, disconnect_when_done=True, standalone=True,
+            reconnect=args.reconnect)
     reader.setDaemon(True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()

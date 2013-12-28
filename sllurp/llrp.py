@@ -153,7 +153,10 @@ class LLRPClient (Protocol):
         logger.debug('reader disconnected: {}'.format(reason))
         self.state = LLRPClient.STATE_DISCONNECTED
         if self.standalone:
-            reactor.callFromThread(reactor.stop)
+            try:
+                reactor.callFromThread(reactor.stop)
+            except ReactorNotRunning:
+                pass
 
     def addEventCallbacks (self, callbacks):
         self.eventCallbacks.update(callbacks)
@@ -344,30 +347,43 @@ class LLRPClient (Protocol):
         self.transport.write(msg)
 
 class LLRPClientFactory (ClientFactory):
-    def __init__ (self, parent, callbacks, **kwargs):
+    def __init__ (self, parent, callbacks, reconnect=False, timeout=3,
+            **kwargs):
+        self.parent = parent
         self.callbacks = callbacks
         self.client_args = kwargs
+        self.timeout_seconds = timeout
+        self.reconnect = reconnect
+        self.standalone = kwargs['standalone']
 
     def startedConnecting(self, connector):
         logger.info('connecting...')
 
     def buildProtocol(self, addr):
-        c = LLRPClient(**self.client_args)
-        c.addEventCallbacks(self.callbacks)
-        return c
+        proto = LLRPClient(**self.client_args)
+        proto.addEventCallbacks(self.callbacks)
+        self.parent.protocol = proto
+        return proto
 
     def clientConnectionLost(self, connector, reason):
         logger.info('lost connection: {}'.format(reason))
         ClientFactory.clientConnectionLost(self, connector, reason)
+        if self.reconnect:
+            reactor.callFromThread(time.sleep, self.timeout_seconds)
+            connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
         logger.info('connection failed: {}'.format(reason))
         ClientFactory.clientConnectionFailed(self, connector, reason)
-
-class LLRPReconnectingClientFactory (ReconnectingClientFactory,
-        LLRPClientFactory):
-    """TODO: fix me."""
-    pass
+        if self.reconnect:
+            reactor.callFromThread(time.sleep, self.timeout_seconds)
+            connector.connect()
+        else:
+            if self.standalone:
+                try:
+                    reactor.callFromThread(reactor.stop)
+                except ReactorNotRunning:
+                    pass
 
 class LLRPReaderThread (Thread):
     """ Thread object that connects input and output message queues to a
@@ -377,17 +393,23 @@ class LLRPReaderThread (Thread):
     port = None
     callbacks = defaultdict(list)
 
-    def __init__ (self, host, port=LLRP_PORT, **kwargs):
+    def __init__ (self, host, port=LLRP_PORT, reconnect=False,
+            connect_timeout=3, **kwargs):
         super(LLRPReaderThread, self).__init__()
         self.host = host
         self.port = port
         self.inventory_params = dict(kwargs)
+        self.protocol = None
+        self.reconnect = reconnect
+        self.connect_timeout = connect_timeout
 
     def run (self):
         logger.debug('will connect to {}:{}'.format(self.host, self.port))
         client_factory = LLRPClientFactory(self, self.callbacks,
+                reconnect=self.reconnect, timeout=self.connect_timeout,
                 **self.inventory_params)
-        reactor.connectTCP(self.host, self.port, client_factory)
+        reactor.connectTCP(self.host, self.port, client_factory,
+                timeout=self.connect_timeout)
         try:
             if self.inventory_params['standalone']:
                 reactor.run(False)
@@ -413,4 +435,7 @@ class LLRPReaderThread (Thread):
 
     def disconnect (self):
         logger.debug('stopping reactor')
-        reactor.callFromThread(reactor.stop)
+        try:
+            reactor.callFromThread(reactor.stop)
+        except ReactorNotRunning:
+            pass
