@@ -11,7 +11,8 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
 import copy
 from util import *
 from twisted.internet import reactor
-from twisted.internet.protocol import Protocol, ClientCreator
+from twisted.internet.protocol import Protocol, ClientCreator, \
+         ClientFactory, ReconnectingClientFactory
 from twisted.internet.error import ReactorAlreadyRunning
 
 LLRP_PORT = 5084
@@ -342,13 +343,38 @@ class LLRPClient (Protocol):
     def sendMessage (self, msg):
         self.transport.write(msg)
 
+class LLRPClientFactory (ClientFactory):
+    def __init__ (self, parent, callbacks, **kwargs):
+        self.callbacks = callbacks
+        self.client_args = kwargs
+
+    def startedConnecting(self, connector):
+        logger.info('connecting...')
+
+    def buildProtocol(self, addr):
+        c = LLRPClient(**self.client_args)
+        c.addEventCallbacks(self.callbacks)
+        return c
+
+    def clientConnectionLost(self, connector, reason):
+        logger.info('lost connection: {}'.format(reason))
+        ClientFactory.clientConnectionLost(self, connector, reason)
+
+    def clientConnectionFailed(self, connector, reason):
+        logger.info('connection failed: {}'.format(reason))
+        ClientFactory.clientConnectionFailed(self, connector, reason)
+
+class LLRPReconnectingClientFactory (ReconnectingClientFactory,
+        LLRPClientFactory):
+    """TODO: fix me."""
+    pass
+
 class LLRPReaderThread (Thread):
     """ Thread object that connects input and output message queues to a
         socket."""
     rospec = None
     host = None
     port = None
-    protocol = None
     callbacks = defaultdict(list)
 
     def __init__ (self, host, port=LLRP_PORT, **kwargs):
@@ -357,20 +383,11 @@ class LLRPReaderThread (Thread):
         self.port = port
         self.inventory_params = dict(kwargs)
 
-    def cbConnected (self, connectedProtocol):
-        logger.info('connected to {}:{}'.format(self.host, self.port))
-        self.protocol = connectedProtocol
-        self.protocol.addEventCallbacks(self.callbacks)
-
-    def ebConnectError (self, reason):
-        logger.debug('connection error: {}'.format(reason))
-        pass
-
     def run (self):
         logger.debug('will connect to {}:{}'.format(self.host, self.port))
-        cc = ClientCreator(reactor, LLRPClient, **self.inventory_params)
-        whenConnected = cc.connectTCP(self.host, self.port)
-        whenConnected.addCallbacks(self.cbConnected, self.ebConnectError)
+        client_factory = LLRPClientFactory(self, self.callbacks,
+                **self.inventory_params)
+        reactor.connectTCP(self.host, self.port, client_factory)
         try:
             if self.inventory_params['standalone']:
                 reactor.run(False)
