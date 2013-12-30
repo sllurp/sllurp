@@ -51,6 +51,10 @@ sllurp is the only part of your application that relies on Twisted for network
 communication, pass `standalone=True` to the `LLRPReaderThread` constructor to
 tell sllurp that it has sole control over the Twisted `reactor` object.
 
+Note that you can also skip the `LLRPReaderThread` and use the
+`LLRPClientFactory` directly with your own Twisted reactor.  See the
+implementation of the `LLRPReaderThread` for a guide.
+
 [Twisted]: http://twistedmatrix.com/
 
 ## Logging
