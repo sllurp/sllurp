@@ -1,4 +1,0 @@
-include *
-recursive-include clients *
-exclude MANIFEST .*
-prune .git
