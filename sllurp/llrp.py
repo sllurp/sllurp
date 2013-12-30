@@ -405,8 +405,7 @@ class LLRPReaderThread (Thread):
     def run (self):
         logger.debug('will connect to {}:{}'.format(self.host, self.port))
         client_factory = LLRPClientFactory(self, self.callbacks,
-                reconnect=self.reconnect, timeout=self.connect_timeout,
-                **self.inventory_params)
+                reconnect=self.reconnect, **self.inventory_params)
         reactor.connectTCP(self.host, self.port, client_factory,
                 timeout=self.connect_timeout)
         try:
