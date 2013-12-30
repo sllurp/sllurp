@@ -11,8 +11,7 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
 import copy
 from util import *
 from twisted.internet import reactor
-from twisted.internet.protocol import Protocol, ClientCreator, \
-         ClientFactory, ReconnectingClientFactory
+from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.error import ReactorAlreadyRunning
 
 LLRP_PORT = 5084
