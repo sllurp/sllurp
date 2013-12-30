@@ -147,6 +147,7 @@ class LLRPClient (Protocol):
 
     def connectionMade(self):
         logger.debug('socket connected')
+        self.transport.setTcpKeepAlive(True)
 
     def connectionLost(self, reason):
         logger.debug('reader disconnected: {}'.format(reason))
