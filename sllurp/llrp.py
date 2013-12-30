@@ -347,13 +347,12 @@ class LLRPClient (Protocol):
         self.transport.write(msg)
 
 class LLRPClientFactory (ClientFactory):
-    def __init__ (self, parent, callbacks, reconnect=False, timeout=3,
-            **kwargs):
+    def __init__ (self, parent, callbacks, reconnect=False, **kwargs):
         self.parent = parent
         self.callbacks = callbacks
         self.client_args = kwargs
-        self.timeout_seconds = timeout
         self.reconnect = reconnect
+        self.reconnect_delay = 1.0 # seconds
         self.standalone = kwargs['standalone']
 
     def startedConnecting(self, connector):
@@ -369,14 +368,14 @@ class LLRPClientFactory (ClientFactory):
         logger.info('lost connection: {}'.format(reason))
         ClientFactory.clientConnectionLost(self, connector, reason)
         if self.reconnect:
-            reactor.callFromThread(time.sleep, self.timeout_seconds)
+            reactor.callFromThread(time.sleep, self.reconnect_delay)
             connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
         logger.info('connection failed: {}'.format(reason))
         ClientFactory.clientConnectionFailed(self, connector, reason)
         if self.reconnect:
-            reactor.callFromThread(time.sleep, self.timeout_seconds)
+            reactor.callFromThread(time.sleep, self.reconnect_delay)
             connector.connect()
         else:
             if self.standalone:
