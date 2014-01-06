@@ -13,10 +13,14 @@ logger = logging.getLogger('sllurp')
 logger.propagate = False
 
 def tagSeenCallback (llrpMsg):
-    """Function to run each time the reader reports seeing one or more tags."""
+    """Function to run each time the reader reports seeing tags."""
     global tagsSeen
     tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
-    logger.info('saw tag(s): {}'.format(pprint.pformat(tags)))
+    if len(tags):
+        logger.info('saw tag(s): {}'.format(pprint.pformat(tags)))
+    else:
+        logger.info('no tags seen')
+        return
     for tag in tags:
         tagsSeen += tag['TagSeenCount'][0]
 
