@@ -2064,7 +2064,7 @@ class LLRPdCapabilities(dict):
 
 class LLRPROSpec(dict):
     def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
-            duration_sec=None, report_every_n_tags=None):
+            tx_power=91, duration_sec=None, report_every_n_tags=None):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid argument 1 (not positive)')
@@ -2125,7 +2125,7 @@ class LLRPROSpec(dict):
                     'RFTransmitter': {
                         'HopTableId': 1,
                         'ChannelIndex': 0,
-                        'TransmitPower': 91,
+                        'TransmitPower': tx_power,
                     },
                     'C1G2InventoryCommand': {
                         'TagInventoryStateAware': False,

@@ -120,12 +120,14 @@ class LLRPClient (Protocol):
     STATE_SENT_DELETE_ROSPEC = 7
 
     def __init__ (self, duration=None, report_every_n_tags=None, antennas=(1,),
-            start_inventory=True, disconnect_when_done=True, standalone=False):
+            tx_power=91, start_inventory=True, disconnect_when_done=True,
+            standalone=False):
         self.state = LLRPClient.STATE_DISCONNECTED
         e = self.eventCallbacks = defaultdict(list)
         e['READER_EVENT_NOTIFICATION'].append(self.readerEventCallback)
         self.rospec = None
         self.report_every_n_tags = report_every_n_tags
+        self.tx_power = tx_power
         self.antennas = antennas
         self.duration = duration
         self.start_inventory = start_inventory
@@ -325,7 +327,7 @@ class LLRPClient (Protocol):
         # behavior, and start running it on the reader
         self.rospec = LLRPROSpec(1, duration_sec=self.duration,
                 report_every_n_tags=self.report_every_n_tags,
-                antennas=self.antennas)
+                tx_power=self.tx_power, antennas=self.antennas)
         logger.debug('ROSpec: {}'.format(self.rospec))
 
     def stopPolitely (self):
