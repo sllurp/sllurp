@@ -25,6 +25,9 @@ Run `bin/inventory -h` to see options.
 If the reader gets into a funny state because you're debugging against it, you
 can stop all ROSpecs by running `bin/reset ip.add.re.ss`.
 
+(On Windows, substitute `bin\windows\inventory.bat` for the inventory script,
+and do the same for the reset script.)
+
 ## Reader API
 
 Interactions with the reader are brokered by a `llrp.LLRPReaderThread` object;
