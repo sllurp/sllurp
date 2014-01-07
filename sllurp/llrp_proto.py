@@ -262,10 +262,12 @@ ROReportTrigger_Name2Type = {
 
 # 15.2.1.1.2.1 UHFC1G2RFModeTableEntry
 ModeIndex_Name2Type = {
-    'FM0': 0,
-    'M2': 1,
+    ## TODO flesh out this table by looking at capabilities from different
+    ## readers
     'M4': 2,
-    'M8': 3
+    'M8': 3,
+    'FM0': 1000,
+    #'AutosetSingle': 1001
 }
 
 ModeIndex_Type2Name = reverse_dict(ModeIndex_Name2Type)
