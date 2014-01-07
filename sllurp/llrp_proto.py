@@ -260,6 +260,19 @@ ROReportTrigger_Name2Type = {
     'Upon_N_Tags_Or_End_Of_ROSpec': 2,
 }
 
+# 15.2.1.1.2.1 UHFC1G2RFModeTableEntry
+ModeIndex_Name2Type = {
+    'FM0': 0,
+    'M2': 1,
+    'M4': 2,
+    'M8': 3
+}
+
+ModeIndex_Type2Name = reverse_dict(ModeIndex_Name2Type)
+for m in ModeIndex_Name2Type:
+    i = ModeIndex_Name2Type[m]
+    ModeIndex_Type2Name[i] = m
+
 #
 # LLRP Messages
 #
@@ -2064,7 +2077,8 @@ class LLRPdCapabilities(dict):
 
 class LLRPROSpec(dict):
     def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
-            tx_power=91, duration_sec=None, report_every_n_tags=None):
+            tx_power=91, modulation='M4', tari=0,
+            duration_sec=None, report_every_n_tags=None):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid argument 1 (not positive)')
@@ -2130,8 +2144,8 @@ class LLRPROSpec(dict):
                     'C1G2InventoryCommand': {
                         'TagInventoryStateAware': False,
                         'C1G2RFControl': {
-                            'ModeIndex': 2,
-                            'Tari': 0,
+                            'ModeIndex': ModeIndex_Name2Type[modulation],
+                            'Tari': tari,
                         },
                         'C1G2SingulationControl': {
                             'Session': 0,

@@ -6,7 +6,7 @@ import time
 from twisted.internet import reactor
 
 import sllurp.llrp as llrp
-from sllurp.llrp_proto import LLRPROSpec
+from sllurp.llrp_proto import LLRPROSpec, ModeIndex_Name2Type
 
 tagsSeen = 0
 logger = logging.getLogger('sllurp')
@@ -39,6 +39,11 @@ def main():
             help='comma-separated list of antennas to enable')
     parser.add_argument('-X', '--tx-power', default=91, type=int,
             dest='tx_power', help='Transmit power (reader model dependent)')
+    parser.add_argument('-M', '--modulation', default='M4',
+            choices=sorted(ModeIndex_Name2Type.keys()),
+            help='modulation (default M4)')
+    parser.add_argument('-T', '--tari', default=0, type=int,
+            help='Tari value (default 0=auto)')
     parser.add_argument('-l', '--logfile')
     parser.add_argument('-r', '--reconnect', action='store_true',
             default=False, help='reconnect on connection failure or loss')
@@ -64,7 +69,8 @@ def main():
     reader = llrp.LLRPReaderThread(args.host, args.port, duration=args.time,
             report_every_n_tags=args.every_n, antennas=enabled_antennas,
             start_inventory=True, disconnect_when_done=True, standalone=True,
-            tx_power=args.tx_power, reconnect=args.reconnect)
+            tx_power=args.tx_power, modulation=args.modulation, tari=args.tari,
+            reconnect=args.reconnect)
     reader.setDaemon(True)
     reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
     reader.start()
