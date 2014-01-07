@@ -10,7 +10,7 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
          Message_Type2Name, llrp_data2xml, LLRPMessageDict
 import copy
 from util import *
-from twisted.internet import reactor
+from twisted.internet import reactor, task
 from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.error import ReactorAlreadyRunning
 
@@ -344,6 +344,16 @@ class LLRPClient (Protocol):
                 'ROSpecID': 0
             }}))
         self.state = LLRPClient.STATE_SENT_DELETE_ROSPEC
+
+    def pause (self, duration_seconds):
+        """Pause an inventory operation for a set amount of time."""
+        if self.state != LLRPClient.STATE_INVENTORYING:
+            logger.debug('cannot pause() if not inventorying; ignoring')
+            return
+        logger.info('pausing for {} seconds'.format(duration_seconds))
+        self.stopPolitely()
+        d = task.deferLater(reactor, duration_seconds, reactor.callFromThread,
+                self.startInventory)
 
     def sendLLRPMessage (self, llrp_msg):
         reactor.callFromThread(self.sendMessage, llrp_msg.msgbytes)
