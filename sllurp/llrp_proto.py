@@ -264,6 +264,7 @@ ROReportTrigger_Name2Type = {
 ModeIndex_Name2Type = {
     ## TODO flesh out this table by looking at capabilities from different
     ## readers
+    'WISP5': 1,
     'M4': 2,
     'M8': 3,
     'FM0': 1000,
