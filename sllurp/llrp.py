@@ -179,6 +179,7 @@ class LLRPClient (Protocol):
             return ret
 
         run_callbacks = True
+        bail = False
 
         #######
         # LLRP client state machine follows.  Beware: gets thorny.  Note the
@@ -202,12 +203,14 @@ class LLRPClient (Protocol):
                     else:
                         logger.fatal('Could not start session on reader: ' \
                                 '{}'.format(status))
+                        bail = True
                         self.transport.loseConnection()
                 except KeyError:
                     pass
             else:
                 logger.error('unexpected message {} while' \
                         ' connecting'.format(msgName))
+                bail = True
                 run_callbacks = False
 
         # in state SENT_ADD_ROSPEC, expect only ADD_ROSPEC_RESPONSE; respond to
@@ -234,6 +237,7 @@ class LLRPClient (Protocol):
             else:
                 logger.error('unexpected response {} ' \
                         ' when adding ROSpec'.format(msgName))
+                bail = True
                 run_callbacks = False
 
         # in state SENT_ENABLE_ROSPEC, expect only ENABLE_ROSPEC_RESPONSE;
@@ -257,12 +261,14 @@ class LLRPClient (Protocol):
             else:
                 logger.error('unexpected response {} ' \
                         ' when enabling ROSpec'.format(msgName))
+                bail = True
                 run_callbacks = False
 
         elif self.state == LLRPClient.STATE_INVENTORYING:
             if msgName not in ('RO_ACCESS_REPORT', 'READER_EVENT_NOTIFICATION'):
                 logger.error('unexpected message {} while' \
                         ' inventorying'.format(msgName))
+                bail = True
                 run_callbacks = False
 
         elif self.state == LLRPClient.STATE_SENT_DELETE_ROSPEC:
@@ -286,11 +292,15 @@ class LLRPClient (Protocol):
             else:
                 logger.error('unexpected response {} ' \
                         ' when deleting ROSpec'.format(msgName))
+                bail = True
                 run_callbacks = False
 
         if run_callbacks:
             for fn in self.eventCallbacks[msgName]:
                 fn(lmsg)
+
+        if bail:
+            reactor.stop()
 
         return ret
 
