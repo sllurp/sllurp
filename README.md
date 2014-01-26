@@ -60,6 +60,15 @@ implementation of the `LLRPReaderThread` for a guide.
 
 [Twisted]: http://twistedmatrix.com/
 
+## Getting More Information From Tag Reports
+
+Edit `sllurp/llrp_proto.py` and configure the `ROSpec` in `LLRPROSpec.__init__`
+to your liking.  E.g., you can change
+`self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableLastSeenTimestamp']`
+to `True`.
+
+XXX Note: this hackish method will go away.
+
 ## Logging
 
 sllurp logs under the name `sllurp`, so if you wish to log its output, you can
