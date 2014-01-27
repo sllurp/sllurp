@@ -64,7 +64,7 @@ implementation of the `LLRPReaderThread` for a guide.
 
 Edit `sllurp/llrp_proto.py` and configure the `ROSpec` in `LLRPROSpec.__init__`
 to your liking.  E.g., you can change
-`self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableLastSeenTimestamp']`
+`self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableFirstSeenTimestamp']`
 to `True`.
 
 XXX Note: this hackish method will go away.
