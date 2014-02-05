@@ -200,7 +200,7 @@ class LLRPClient (Protocol):
                     status = d['ConnectionAttemptEvent']['Status']
                     if status == 'Success':
                         cn2t = Capability_Name2Type
-                        reqd = cn2t['General Device Capabilities']
+                        reqd = cn2t['All']
                         self.sendLLRPMessage(LLRPMessage(msgdict={
                             'GET_READER_CAPABILITIES': {
                                 'Ver':  1,
@@ -228,7 +228,7 @@ class LLRPClient (Protocol):
         elif self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
             if msgName == 'GET_READER_CAPABILITIES_RESPONSE':
                 d = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-                logger.info('Capabilities: (len {})'.format(len(d)))
+                logger.info('Capabilities: {}'.format(d))
                 self.state = LLRPClient.STATE_CONNECTED
                 if self.start_inventory:
                     self.startInventory()
