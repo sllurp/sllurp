@@ -7,7 +7,8 @@ import pprint
 import struct
 from threading import Thread, Condition
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
-         Message_Type2Name, llrp_data2xml, LLRPMessageDict
+         Message_Type2Name, Capability_Name2Type, \
+         llrp_data2xml, LLRPMessageDict
 import copy
 from util import *
 from twisted.internet import reactor, task
@@ -46,17 +47,13 @@ class LLRPMessage:
         name = self.msgdict.keys()[0]
         logger.debug('serializing {} command'.format(name))
         ver = self.msgdict[name]['Ver'] & BITMASK(3)
-        logger.debug('ver: {}'.format(ver))
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
-        logger.debug('msgtype: {}'.format(msgtype))
         msgid = self.msgdict[name]['ID']
-        logger.debug('msgid: {}'.format(msgid))
         try:
             encoder = Message_struct[name]['encode']
         except KeyError:
             raise LLRPError('Cannot find encoder for message type '
                     '{}'.format(name))
-        logger.debug('it got here: {}'.format(self.msgdict[name]))
         data = encoder(self.msgdict[name])
         self.msgbytes = struct.pack(self.full_hdr_fmt,
                 (ver << 10) | msgtype,
@@ -76,10 +73,6 @@ class LLRPMessage:
                 data[:self.full_hdr_len])
         ver = (msgtype >> 10) & BITMASK(3)
         msgtype = msgtype & BITMASK(10)
-        logger.debug('ver: {}'.format(ver))
-        logger.debug('msgtype: {}'.format(msgtype))
-        logger.debug('length: {}'.format(length))
-        logger.debug('msgid: {}'.format(msgid))
         try:
             name = Message_Type2Name[msgtype]
             logger.debug('deserializing {} command'.format(name))
@@ -87,9 +80,7 @@ class LLRPMessage:
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
                     '{}'.format(msgtype))
-        body = data[self.full_hdr_len:]
-        logger.debug('body: {}'.format(body.encode("hex")))
-        logger.debug('deserializing {} command'.format(name))
+        body = data[self.full_hdr_len:length]
         try:
             self.msgdict = {
                name: dict(decoder(body))
@@ -196,13 +187,6 @@ class LLRPClient (Protocol):
         # LLRP client state machine follows.  Beware: gets thorny.  Note the
         # order of the LLRPClient.STATE_* fields.
         #######
-        if self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
-            if msgName == 'GET_READER_CAPABILITIES_RESPONSE':
-                d = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-                logger.info(d)
-            else:
-                logger.debug('message returned is {}'.format(msgName))
-                logger.info('set the thing but didnt get a capability response')
 
         # in DISCONNECTED, CONNECTING, and CONNECTED states, expect only
         # READER_EVENT_NOTIFICATION messages.
@@ -215,9 +199,16 @@ class LLRPClient (Protocol):
                 try:
                     status = d['ConnectionAttemptEvent']['Status']
                     if status == 'Success':
-                        self.state = LLRPClient.STATE_CONNECTED
-                        if self.start_inventory:
-                            self.startInventory()
+                        cn2t = Capability_Name2Type
+                        reqd = cn2t['General Device Capabilities']
+                        self.sendLLRPMessage(LLRPMessage(msgdict={
+                            'GET_READER_CAPABILITIES': {
+                                'Ver':  1,
+                                'Type': 1,
+                                'ID':   0,
+                                'RequestedData': reqd
+                            }}))
+                        self.state = LLRPClient.STATE_SENT_GET_CAPABILITIES
                     else:
                         logger.fatal('Could not start session on reader: ' \
                                 '{}'.format(status))
@@ -228,6 +219,22 @@ class LLRPClient (Protocol):
             else:
                 logger.error('unexpected message {} while' \
                         ' connecting'.format(msgName))
+                bail = True
+                run_callbacks = False
+
+        # in state SENT_GET_CAPABILITIES, expect only GET_CAPABILITIES_RESPONSE;
+        # respond to this message by starting inventory if we're directed to do
+        # so and advancing to state CONNECTED.
+        elif self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
+            if msgName == 'GET_READER_CAPABILITIES_RESPONSE':
+                d = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
+                logger.info('Capabilities: (len {})'.format(len(d)))
+                self.state = LLRPClient.STATE_CONNECTED
+                if self.start_inventory:
+                    self.startInventory()
+            else:
+                logger.error('unexpected response {} ' \
+                        ' when getting capabilities'.format(msgName))
                 bail = True
                 run_callbacks = False
 
@@ -339,41 +346,16 @@ class LLRPClient (Protocol):
         r = self.rospec['ROSpec']
         self.roSpecId = r['ROSpecID']
 
-
-        # get capabilities
-        mes = msgdict={
-            'GET_READER_CAPABILITIES': {
+        # add an ROspec
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'ADD_ROSPEC': {
                 'Ver':  1,
-                'Type': 1,
+                'Type': 20,
                 'ID':   0,
-                'ROSpecID': 0,
-                'RequestedData': 1,
-            }}
-        self.sendLLRPMessage(LLRPMessage(mes))
-
-        # get capabilities
-        mes = msgdict={
-            'GET_READER_CAPABILITIES': {
-                'Ver':  1,
-                'Type': 1,
-                'ID':   0,
-                'ROSpecID': 0,
-                'RequestedData': 2,
-            }}
-        self.sendLLRPMessage(LLRPMessage(mes))
-
-        # get capabilities
-        mes = msgdict={
-            'GET_READER_CAPABILITIES': {
-                'Ver':  1,
-                'Type': 1,
-                'ID':   0,
-                'ROSpecID': 0,
-                'RequestedData': 3,
-            }}
-        self.sendLLRPMessage(LLRPMessage(mes))
-
-        self.state = LLRPClient.STATE_SENT_GET_CAPABILITIES
+                'ROSpecID': self.roSpecId,
+                'ROSpec': r,
+            }}))
+        self.state = LLRPClient.STATE_SENT_ADD_ROSPEC
 
     def create_rospec (self):
         if self.rospec:
