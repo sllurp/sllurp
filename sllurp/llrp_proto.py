@@ -326,9 +326,6 @@ def decode_GetReaderCapabilitiesResponse(data):
     if len(body) > 0:
         raise LLRPError('junk at end of message: ' + bin2dump(body))
 
-
-    
-
 Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
     'type': 11,
     'fields': [
@@ -2211,93 +2208,6 @@ def llrp_connect(connection, host, port = LLRP_PORT):
     if status != 'Success':
         raise LLRPResponseError(status)
 
-def llrp_delete_rospec(connection, rospec):
-    msgid = rospec['ROSpec']['ROSpecID']
-
-    msg = LLRPMessageDict()
-    msg['DELETE_ROSPEC'] = {
-        'Ver':  1,
-                'Type': Message_struct['DELETE_ROSPEC']['type'],
-                'ID':   0,
-        'ROSpecID' : msgid
-    }
-
-    logger.debug(msg)
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Check the server response
-    try:
-        (code, descr) = (ans['DELETE_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['DELETE_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
-def llrp_disable_rospec(connection, rospec):
-    msgid = rospec['ROSpec']['ROSpecID']
-
-    msg = LLRPMessageDict()
-    msg['DISABLE_ROSPEC'] = {
-        'Ver':  1,
-                'Type': Message_struct['DISABLE_ROSPEC']['type'],
-                'ID':   0,
-        'ROSpecID' : msgid
-    }
-
-    logger.debug(msg)
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Check the server response
-    try:
-        (code, descr) = (ans['DISABLE_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['DISABLE_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
-def llrp_enable_rospec(connection, rospec):
-    msgid = rospec['ROSpec']['ROSpecID']
-
-    msg = LLRPMessageDict()
-    msg['ENABLE_ROSPEC'] = {
-        'Ver':  1,
-        'Type': Message_struct['ENABLE_ROSPEC']['type'],
-        'ID':   0,
-        'ROSpecID' : msgid
-    }
-
-    logger.debug(msg)
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Check the server response
-    try:
-        (code, descr) = (ans['ENABLE_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['ENABLE_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
 def llrp_get_capabilities(connection, req):
     # Sanity checks
     if req not in Capability_Name2Type:
@@ -2677,24 +2587,6 @@ class LLRPROSpec(dict):
 
     def __repr__(self):
         return llrp_data2xml(self)
-
-    def add(self, connection):
-        llrp_add_rospec(connection, self)
-
-    def delete(self, connection):
-        llrp_delete_rospec(connection, self)
-
-    def disable(self, connection):
-        llrp_disable_rospec(connection, self)
-
-    def enable(self, connection):
-        llrp_enable_rospec(connection, self)
-
-    def start(self, connection):
-        llrp_start_rospec(connection, self)
-
-    def stop(self, connection):
-        llrp_stop_rospec(connection, self)
 
 class LLRPMessageDict(dict):
     def __repr__(self):
