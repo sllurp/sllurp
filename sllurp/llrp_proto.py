@@ -284,7 +284,6 @@ Message_struct = { }
 
 # 16.1.1 GET_READER_CAPABILITIES
 def encode_GetReaderCapabilities(msg):
-    logger.debug('it got to the encode')
     req = msg['RequestedData']
     return struct.pack('!B', req)
 
@@ -321,10 +320,11 @@ def decode_GetReaderCapabilitiesResponse(data):
     if ret:
         msg['RegulatoryCapabilities'] = ret
 
-    return msg
     # Check the end of the message
     if len(body) > 0:
         raise LLRPError('junk at end of message: ' + bin2dump(body))
+
+    return msg
 
 Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
     'type': 11,
@@ -1995,7 +1995,6 @@ def decode_LLRPStatus(data):
     header = data[0 : par_header_len]
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
-    logger.debug('message type: {}'.format(msgtype))
     if msgtype != Message_struct['LLRPStatus']['type']:
         logger.debug('got msgtype={0}, expected {1}'.format(msgtype,
                     Message_struct['LLRPStatus']['type']))

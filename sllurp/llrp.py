@@ -392,6 +392,8 @@ class LLRPClient (Protocol):
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'DELETE_ROSPEC': {
                 'Ver':  1,
+                'Type': 21,
+                'ID':   0,
                 'ROSpecID': 0
             }}))
         self.state = LLRPClient.STATE_SENT_DELETE_ROSPEC
