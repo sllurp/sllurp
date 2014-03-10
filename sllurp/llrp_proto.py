@@ -240,12 +240,35 @@ for m in ConnEvent_Name2Type:
     i = ConnEvent_Name2Type[m]
     ConnEvent_Type2Name[i] = m
 
-# 14.1.1 Error messages
+# http://www.gs1.org/gsmp/kc/epcglobal/llrp/llrp_1_0_1-standard-20070813.pdf
+# Section 14.1.1 Error messages
 Error_Name2Type = {
-    'Success':              0,
-    'ParameterError':           100,
-    'FieldError':               101,
-    'DeviceError':              401,
+    'Success'                : 0,
+    'ParameterError'         : 100,
+    'FieldError'             : 101,
+    'UnexpectedParameter'    : 102,
+    'MissingParameter'       : 103,
+    'DuplicateParameter'     : 104,
+    'OverflowParameter'      : 105,
+    'OverflowField'          : 106,
+    'UnknownParameter'       : 107,
+    'UnknownField'           : 108,
+    'UnsupportedMessage'     : 109,
+    'UnsupportedVersion'     : 110,
+    'UnsupportedParameter'   : 111,
+    'P_ParameterError'       : 200,
+    'P_FieldError'           : 201,
+    'P_UnexpectedParameter'  : 202,
+    'P_MissingParameter'     : 203,
+    'P_DuplicateParameter'   : 204,
+    'P_OverflowParameter'    : 205,
+    'P_OverflowField'        : 206,
+    'P_UnknownParameter'     : 207,
+    'P_UnknownField'         : 208,
+    'P_UnsupportedParameter' : 209,
+    'A_Invalid'              : 300,
+    'A_OutOfRange'           : 301,
+    'DeviceError'            : 401,
 }
 
 Error_Type2Name = reverse_dict(Error_Name2Type)
@@ -1507,7 +1530,7 @@ def decode_LLRPStatus(data):
     try:
         par['StatusCode'] = Error_Type2Name[code]
     except KeyError:
-        logger.warning('Unknown field code {}'.format(hex(code)))
+        logger.warning('Unknown field code {}'.format(code))
     par['ErrorDescription'] = body[offset : offset + n]
 
     # Decode parameters
