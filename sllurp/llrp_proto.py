@@ -819,6 +819,10 @@ def decode_UHFBandCapabilities(data):
     if ret:
         par['FrequencyInformation'] = ret
 
+    ret, body = decode('UHFRFModeTable')(body)
+    if ret:
+        par['UHFRFModeTable'] = ret
+
     ret, body = decode('RFSurveyFrequencyCapabilities')(body)
     if ret:
         par['RFSurveyFrequencyCapabilities'] = ret
@@ -987,6 +991,90 @@ Message_struct['FixedFrequencyTable'] = {
     'decode': decode_FrequencyInformation
 }
 
+def decode_UHFRFModeTable (data):
+    logger.debug(func())
+    par = {}
+    if len(data) == 0:
+        return None, data
+    header = data[0 : par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+
+    if msgtype != Message_struct['UHFRFModeTable']['type']:
+        return (None, data)
+
+    body = data[par_header_len : length]
+    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
+
+    # Decode fields
+    i = 0
+    ret, body = decode('UHFC1G2RFModeTableEntry')(body)
+    while ret:
+        par['UHFC1G2RFModeTableEntry' + str(i)] = ret
+        ret, body = decode('UHFC1G2RFModeTableEntry')(body)
+        i += 1
+
+    return par, data[length : ]
+
+Message_struct['UHFRFModeTable'] = {
+    'type': 328,
+    'fields': [
+        'Type',
+        'UHFC1G2RFModeTableEntry'
+    ],
+    'decode': decode_UHFRFModeTable
+}
+
+def decode_UHFC1G2RFModeTableEntry (data):
+    logger.debug(func())
+    par = {}
+    if len(data) == 0:
+        return None, data
+    header = data[0 : par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+
+    if msgtype != Message_struct['UHFC1G2RFModeTableEntry']['type']:
+        return (None, data)
+
+    body = data[par_header_len : length]
+    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
+
+    # Decode fields
+    (par['ModeIdentifier'],
+     RC,
+     par['Mod'],
+     par['FLM'],
+     par['M'],
+     par['BDR'],
+     par['PIE'],
+     par['MinTari'],
+     par['MaxTari'],
+     par['StepTari']) = struct.unpack('!IBBBBIIIII', body)
+
+    # parse RC
+    par['R'] = RC >> 7
+    par['C'] = (RC >> 6) & 1
+
+    return par, data[length : ]
+
+Message_struct['UHFC1G2RFModeTableEntry'] = {
+    'type': 329,
+    'fields': [
+        'Type',
+        'ModeIdentifier',
+        'Mod',
+        'FLM',
+        'M',
+        'BDR',
+        'PIE',
+        'MinTari',
+        'MaxTari',
+        'StepTari'
+    ],
+    'decode': decode_UHFC1G2RFModeTableEntry
+}
+
 def decode_RFSurveyFrequencyCapabilities(data):
     logger.debug(func())
     par = {}
@@ -995,16 +1083,16 @@ def decode_RFSurveyFrequencyCapabilities(data):
     header = data[0 : par_header_len]
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
-    
+
     if msgtype != Message_struct['RFSurveyFrequencyCapabilities']['type']:
         return (None, data)
-    
+
     body = data[par_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
 
     # Decode fields
     (par['MinimumFrequency'],
-      par['MaximumFrequency']) = struct.unpack('!II', body)
+     par['MaximumFrequency']) = struct.unpack('!II', body)
 
     return par, data[length : ]
 
