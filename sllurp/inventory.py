@@ -27,7 +27,7 @@ def tagSeenCallback (llrpMsg):
 def main():
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader')
-    parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
+    parser.add_argument('-p', '--port', default=llrp.LLRP_PORT, type=int,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
     parser.add_argument('-t', '--time', default=10, type=float,
             help='number of seconds for which to inventory (default 10)')

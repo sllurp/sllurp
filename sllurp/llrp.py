@@ -411,7 +411,10 @@ class LLRPClientFactory (ClientFactory):
     def buildProtocol(self, addr):
         proto = LLRPClient(**self.client_args)
         proto.addEventCallbacks(self.callbacks)
-        self.parent.protocol = proto
+        try:
+            self.parent.protocols.append(proto)
+        except AttributeError:
+            self.parent.protocol = proto
         return proto
 
     def clientConnectionLost(self, connector, reason):
