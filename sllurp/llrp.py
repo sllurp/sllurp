@@ -39,6 +39,7 @@ class LLRPMessage:
             self.msgbytes = copy.copy(msgbytes)
             if not msgdict:
                 self.remainder = self.deserialize()
+        self.peername = None
 
     def serialize (self):
         if self.msgdict is None:
@@ -135,6 +136,7 @@ class LLRPClient (Protocol):
         self.start_inventory = start_inventory
         self.disconnect_when_done = disconnect_when_done
         self.standalone = standalone
+        self.peername = None
 
     def readerEventCallback (self, llrpMsg):
         """Function to handle ReaderEventNotification messages from the reader."""
@@ -152,9 +154,11 @@ class LLRPClient (Protocol):
     def connectionMade(self):
         logger.debug('socket connected')
         self.transport.setTcpKeepAlive(True)
+        self.peername = self.transport.getHandle().getpeername()
 
     def connectionLost(self, reason):
         logger.debug('reader disconnected: {}'.format(reason))
+        self.peername = None
         self.state = LLRPClient.STATE_DISCONNECTED
         if self.standalone:
             try:
@@ -297,6 +301,7 @@ class LLRPClient (Protocol):
 
         if run_callbacks:
             for fn in self.eventCallbacks[msgName]:
+                lmsg.peername = self.peername
                 fn(lmsg)
 
         if bail:
