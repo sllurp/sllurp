@@ -7,7 +7,7 @@
 # -----------------------------------------------------------------------------------------------------------------------------------------
 
 param (
-    [Parameter(Mandatory=$true)] [string]$reader_ip = "10.150.8.106",
+    [Parameter(Mandatory=$true)] [string]$reader_ip,
     [int]$reader_port = 22,
     [string]$reader_username = "root",
     [string]$reader_password = "impinj",
