@@ -15,7 +15,6 @@ setup(
     author_email = 'ransford@cs.washington.edu',
     url = 'https://github.com/ransford/sllurp',
     license = 'GPLv3',
-
     classifiers = [
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
