@@ -1,9 +1,9 @@
 # sllurp
 
-This repository began in August 2013 as a snapshot of the dormant
-[LLRPyC project][]'s [code][] on SourceForge.  It has been violently updated to
-work with Impinj Speedway readers (and probably still other readers), and to
-provide a simple callback-based API to clients.
+This repository began in August 2013 as a snapshot of the dormant [LLRPyC
+project][]'s [code][] on SourceForge.  It has been updated to work with Impinj
+Speedway readers (and probably still other readers), and to provide a simple
+callback-based API to clients.
 
 [LLRPyC project]: http://wiki.enneenne.com/index.php/LLRPyC
 [code]: http://sourceforge.net/projects/llrpyc/
