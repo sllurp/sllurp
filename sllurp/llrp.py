@@ -180,10 +180,11 @@ class LLRPClient (Protocol):
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
         if max(self.antennas) > gdc['MaxNumberOfAntennaSupported']:
+            reqd  = ','.join(map(str, self.antennas))
             avail = ','.join(map(str,
-                        range(gdc['MaxNumberOfAntennaSupported'])))
+                        range(1, gdc['MaxNumberOfAntennaSupported']+1)))
             raise LLRPError('Invalid antenna set specified: requested={},' \
-                    ' available={}'.format(self.antennas, avail))
+                    ' available={}'.format(reqd, avail))
 
         # check requested Tx power
         logger.info('requested tx_power: {}'.format(self.tx_power))
