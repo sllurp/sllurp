@@ -123,7 +123,7 @@ class LLRPClient (Protocol):
     STATE_SENT_GET_CAPABILITIES = 8
 
     def __init__ (self, duration=None, report_every_n_tags=None, antennas=(1,),
-            tx_power=91, modulation='M4', tari=0, start_inventory=True,
+            tx_power=0, modulation='M4', tari=0, start_inventory=True,
             disconnect_when_done=True, standalone=False):
         self.state = LLRPClient.STATE_DISCONNECTED
         e = self.eventCallbacks = defaultdict(list)
@@ -139,6 +139,7 @@ class LLRPClient (Protocol):
         self.disconnect_when_done = disconnect_when_done
         self.standalone = standalone
         self.peername = None
+        self.tx_power_table = []
 
     def readerEventCallback (self, llrpMsg):
         """Function to handle ReaderEventNotification messages from the reader."""
@@ -170,6 +171,38 @@ class LLRPClient (Protocol):
 
     def addEventCallbacks (self, callbacks):
         self.eventCallbacks.update(callbacks)
+
+    def parseCapabilities (self, capdict):
+        def find_p (p, arr):
+            m = p(arr)
+            for idx, val in enumerate(arr):
+                if val == m: return idx
+        # check requested antenna set
+        gdc = capdict['GeneralDeviceCapabilities']
+        if max(self.antennas) > gdc['MaxNumberOfAntennaSupported']:
+            avail = ','.join(map(str,
+                        range(gdc['MaxNumberOfAntennaSupported'])))
+            raise LLRPError('Invalid antenna set specified: requested={},' \
+                    ' available={}'.format(self.antennas, avail))
+
+        # check requested Tx power
+        logger.info('requested tx_power: {}'.format(self.tx_power))
+        bandtbl = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
+        bandtbl = {k: v for k, v in bandtbl.items() \
+            if k.startswith('TransmitPowerLevelTableEntry')}
+        self.tx_power_table = [0,] * (len(bandtbl) + 1)
+        for k, v in bandtbl.items():
+            idx = v['Index']
+            self.tx_power_table[idx] = v['TransmitPowerValue']
+        if self.tx_power == 0:
+            # tx_power = 0 means max power
+            self.tx_power = find_p(max, self.tx_power_table)
+        elif self.tx_power > len(self.tx_power_table):
+            raise LLRPError('Invalid tx_power: requested={},' \
+                    ' available={}'.format(self.tx_power,
+                        find_p(max, self.tx_power_table)))
+        logger.info('set tx_power: {} ({} dBm)'.format(self.tx_power,
+                    self.tx_power_table[self.tx_power] / 100.0))
 
     def handleMessage (self, lmsg):
         """Implements the LLRP client state machine."""
@@ -232,7 +265,13 @@ class LLRPClient (Protocol):
         elif self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
             if msgName == 'GET_READER_CAPABILITIES_RESPONSE':
                 d = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-                logger.info('Capabilities: {}'.format(d))
+                logger.debug('Capabilities: {}'.format(pprint.pformat(d)))
+                try:
+                    self.parseCapabilities(d)
+                except LLRPError as err:
+                    logger.fatal('Capabilities mismatch: {}'.format(err))
+                    bail = True
+                    run_callbacks = False
                 self.state = LLRPClient.STATE_CONNECTED
                 if self.start_inventory:
                     self.startInventory()

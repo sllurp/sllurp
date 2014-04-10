@@ -37,8 +37,8 @@ def main():
             dest='every_n', metavar='N', help='issue a TagReport every N tags')
     parser.add_argument('-a', '--antennas', default='1',
             help='comma-separated list of antennas to enable')
-    parser.add_argument('-X', '--tx-power', default=91, type=int,
-            dest='tx_power', help='Transmit power (reader model dependent)')
+    parser.add_argument('-X', '--tx-power', default=0, type=int,
+            dest='tx_power', help='Transmit power (default 0=max power)')
     parser.add_argument('-M', '--modulation', default='M4',
             choices=sorted(ModeIndex_Name2Type.keys()),
             help='modulation (default M4)')
