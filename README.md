@@ -10,10 +10,9 @@ callback-based API to clients.
 
 ## Quick Start
 
-Make sure you have the prerequisite Python modules installed.  Use the `pip`
-package manager to load the requirements:
-
-    pip install -r requirements.txt
+Install a version of [Twisted][] appropriate for your Python installation.  For
+Windows users, choose the appropriate `.exe` installer at the Twisted website,
+and install [zope.interface][] with the same parameters.
 
 To connect to a reader and perform EPC Gen 2 inventory for 10 seconds:
 
@@ -27,6 +26,9 @@ can stop all ROSpecs by running `bin/reset ip.add.re.ss`.
 
 (On Windows, substitute `bin\windows\inventory.bat` for the inventory script,
 and do the same for the reset script.)
+
+[Twisted]: http://twistedmatrix.com/
+[zope.interface]: https://pypi.python.org/pypi/zope.interface#download
 
 ## Reader API
 
