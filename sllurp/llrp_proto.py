@@ -343,9 +343,8 @@ def decode_GetReaderCapabilitiesResponse(data):
     if ret:
         msg['RegulatoryCapabilities'] = ret
 
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+    if len(body):
+        msg['AirProtocolLLRPCapabilities'] = body
 
     return msg
 
