@@ -76,7 +76,7 @@ def main():
     cli_wrapper = MyProtoWrapper()
     cli_factory = llrp.LLRPClientFactory(cli_wrapper, duration=args.time,
             report_every_n_tags=args.every_n, antennas=enabled_antennas,
-            start_inventory=True, disconnect_when_done=True, standalone=True,
+            start_inventory=True, disconnect_when_done=True,
             tx_power=args.tx_power, modulation=args.modulation, tari=args.tari,
             reconnect=args.reconnect)
     cli_factory.addTagReportCallback(tagSeenCallback)

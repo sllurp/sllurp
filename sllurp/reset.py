@@ -41,8 +41,7 @@ def main ():
 
     cli_wrapper = MyProtoWrapper()
     cli_factory = llrp.LLRPClientFactory(cli_wrapper,
-            start_inventory=False, disconnect_when_done=True,
-            standalone=True)
+            start_inventory=False, disconnect_when_done=True)
     cli_factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED,
             cli_wrapper.stop_all)
 

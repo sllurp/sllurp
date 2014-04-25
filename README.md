@@ -32,33 +32,26 @@ and do the same for the reset script.)
 
 ## Reader API
 
-Interactions with the reader are brokered by a `llrp.LLRPReaderThread` object;
-see `sllurp/inventory.py` for an example.  The `llrp.LLRPReaderThread` class
-provides a simple API to expose interesting events to programs.
+sllurp relies on Twisted for network interaction with the reader.  To make a
+connection, create an `LLRPClientFactory` and hand it to Twisted:
 
-The flow is as follows:
+```python
+# Minimal example; see inventory.py for more.
+from sllurp import llrp
+from twisted.internet import reactor
+import logging
 
-1. Create an `llrp.LLRPReaderThread` with configuration options set as
-   necessary.
-2. Create and add callbacks for the events you care about, such as
-   `RO_ACCESS_REPORT` which reports tag reads.
-3. Start the reader thread.  By default, the reader thread will begin
-   inventorying (looking for tags) immediately; see `sllurp/reset.py` for an
-   example of how to avoid automatically inventorying.
-4. `join` the reader thread from your application to wait for it to complete
-   its inventory operation.  By default, the reader thread will exit when all
-   inventory operations are complete.
+logger = logging.getLogger('sllurp')
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
+logger.propagate = False
 
-sllurp uses the asynchronous networking library [Twisted][] to simplify its
-communications with readers.  This introduces a few extra complexities related
-to Twisted's assumption that it runs the main loop of the application.  If
-sllurp is the only part of your application that relies on Twisted for network
-communication, pass `standalone=True` to the `LLRPReaderThread` constructor to
-tell sllurp that it has sole control over the Twisted `reactor` object.
-
-Note that you can also skip the `LLRPReaderThread` and use the
-`LLRPClientFactory` directly with your own Twisted reactor.  See the
-implementation of the `LLRPReaderThread` for a guide.
+host = 's2'
+wrapper = llrp.ProtocolWrapper()
+factory = llrp.LLRPClientFactory(wrapper)
+reactor.connectTCP(host, llrp.LLRP_PORT, factory)
+reactor.run()
+```
 
 [Twisted]: http://twistedmatrix.com/
 
