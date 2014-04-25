@@ -12,7 +12,8 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
 import copy
 from util import *
 from twisted.internet import reactor, task
-from twisted.internet.protocol import Protocol, ClientFactory
+from twisted.internet.protocol import ClientFactory
+from twisted.protocols.basic import LineReceiver
 from twisted.internet.error import ReactorAlreadyRunning
 
 LLRP_PORT = 5084
@@ -26,7 +27,6 @@ class LLRPMessage:
     full_hdr_len = struct.calcsize(full_hdr_fmt) # == 10 bytes
     msgdict = None
     msgbytes = None
-    remainder = None
 
     def __init__ (self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
@@ -37,9 +37,9 @@ class LLRPMessage:
             if not msgbytes:
                 self.serialize()
         if msgbytes:
-            self.msgbytes = copy.copy(msgbytes)
+            self.msgbytes = msgbytes
             if not msgdict:
-                self.remainder = self.deserialize()
+                self.deserialize()
         self.peername = None
 
     def serialize (self):
@@ -64,12 +64,10 @@ class LLRPMessage:
         logger.debug('done serializing {} command'.format(name))
 
     def deserialize (self):
-        """Turns a sequence of bytes into a message dictionary.  Any leftover
-        data in the sequence is returned as the remainder."""
+        """Turns a sequence of bytes into a message dictionary."""
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
         data = ''.join(self.msgbytes)
-        remainder = ''
         msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
                 data[:self.full_hdr_len])
         ver = (msgtype >> 10) & BITMASK(3)
@@ -93,10 +91,6 @@ class LLRPMessage:
         except LLRPError as e:
             logger.warning('Problem with {} message format: {}'.format(name, e))
             return ''
-        if length < len(data):
-            remainder = data[length:]
-            logger.debug('{} bytes of data remaining'.format(len(remainder)))
-            return remainder
         return ''
 
     def getName (self):
@@ -112,7 +106,7 @@ class LLRPMessage:
             ret = ''
         return ret
 
-class LLRPClient (Protocol):
+class LLRPClient (LineReceiver):
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
     STATE_CONNECTED = 3
@@ -125,6 +119,7 @@ class LLRPClient (Protocol):
     def __init__ (self, duration=None, report_every_n_tags=None, antennas=(1,),
             tx_power=0, modulation='M4', tari=0, start_inventory=True,
             disconnect_when_done=True):
+        self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
         self.rospec = None
         self.report_every_n_tags = report_every_n_tags
@@ -137,6 +132,10 @@ class LLRPClient (Protocol):
         self.disconnect_when_done = disconnect_when_done
         self.peername = None
         self.tx_power_table = []
+
+        # for partial data transfers
+        self.expectingRemainingBytes = 0
+        self.partialData = ''
 
         # state-change callbacks: STATE_* -> [list of callables]
         self.__state_callbacks = {}
@@ -230,13 +229,11 @@ class LLRPClient (Protocol):
         logger.debug('LLRPMessage received: {}'.format(lmsg))
         msgName = lmsg.getName()
         lmsg.peername = self.peername
-        ret = lmsg.remainder
-        logger.debug('remaining bytes: {}'.format(len(ret)))
 
         if msgName == 'RO_ACCESS_REPORT' and \
                     self.state != LLRPClient.STATE_INVENTORYING:
             logger.debug('ignoring RO_ACCESS_REPORT because not inventorying')
-            return ret
+            return
 
         newstate = None
         run_callbacks = True
@@ -397,18 +394,45 @@ class LLRPClient (Protocol):
         if bail:
             reactor.stop()
 
-        return ret
-
-    def dataReceived (self, data):
+    def rawDataReceived (self, data):
         logger.debug('got {} bytes from reader: {}'.format(len(data),
                     data.encode('hex')))
-        try:
-            while data:
-                lmsg = LLRPMessage(msgbytes=data)
-                data = self.handleMessage(lmsg)
-        except LLRPError as err:
-            logger.warn('Failed to decode LLRPMessage: {}.  Will not decode' \
-                    ' {} remaining bytes'.format(err, len(data)))
+
+        if self.expectingRemainingBytes:
+            if len(data) >= self.expectingRemainingBytes:
+                data = self.partialData + data
+                self.partialData = ''
+                self.expectingRemainingBytes -= len(data)
+            else:
+                # still not enough; wait until next time
+                self.partialData += data
+                self.expectingRemainingBytes -= len(data)
+                return
+
+        while data:
+            # parse the message header to grab its length
+            msg_type, msg_len, message_id = \
+                struct.unpack(LLRPMessage.full_hdr_fmt,
+                              data[:LLRPMessage.full_hdr_len])
+            logger.debug('expect {} bytes (have {})'.format(msg_len, len(data)))
+
+            if len(data) < msg_len:
+                # got too few bytes
+                self.partialData = data
+                self.expectingRemainingBytes = msg_len - len(data)
+                break
+            else:
+                # got at least the right number of bytes
+                self.expectingRemainingBytes = 0
+                try:
+                    lmsg = LLRPMessage(msgbytes=data[:msg_len])
+                    self.handleMessage(lmsg)
+                    data = data[msg_len:]
+                except LLRPError as err:
+                    logger.warn('Failed to decode LLRPMessage: {}.  ' \
+                            'Will not decode {} remaining bytes'.format(err,
+                                len(data)))
+                    break
 
     def startInventory (self):
         if not self.rospec:

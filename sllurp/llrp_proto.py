@@ -998,6 +998,7 @@ def decode_UHFRFModeTable (data):
     header = data[0 : par_header_len]
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
+    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
 
     if msgtype != Message_struct['UHFRFModeTable']['type']:
         return (None, data)
@@ -1032,12 +1033,12 @@ def decode_UHFC1G2RFModeTableEntry (data):
     header = data[0 : par_header_len]
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
+    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
 
     if msgtype != Message_struct['UHFC1G2RFModeTableEntry']['type']:
         return (None, data)
 
     body = data[par_header_len : length]
-    logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
 
     # Decode fields
     (par['ModeIdentifier'],
