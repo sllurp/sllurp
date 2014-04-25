@@ -132,9 +132,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self._mock_conn = mock_conn(self._binr)
         logger.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
         self._client = sllurp.llrp.LLRPClient()
-        self._client.addEventCallbacks({
-                    'RO_ACCESS_REPORT': [self.tagcb]
-                })
+        self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
         self._client.state = sllurp.llrp.LLRPClient.STATE_INVENTORYING
