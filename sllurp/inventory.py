@@ -12,6 +12,11 @@ tagsSeen = 0
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
+class MyProtoWrapper (llrp.ProtocolWrapper):
+    def stop_all (self, _):
+        for p in self.protocols:
+            p.stopPolitely()
+
 def tagSeenCallback (llrpMsg):
     """Function to run each time the reader reports seeing tags."""
     global tagsSeen
@@ -23,6 +28,9 @@ def tagSeenCallback (llrpMsg):
         return
     for tag in tags:
         tagsSeen += tag['TagSeenCount'][0]
+
+def disconnected (llrpMsg):
+    logger.info('total # of tags seen by callback: {}'.format(tagsSeen))
 
 def main():
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
@@ -65,29 +73,18 @@ def main():
 
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
 
-    # spawn a thread to talk to the reader
-    reader = llrp.LLRPReaderThread(args.host, args.port, duration=args.time,
+    cli_wrapper = MyProtoWrapper()
+    cli_factory = llrp.LLRPClientFactory(cli_wrapper, duration=args.time,
             report_every_n_tags=args.every_n, antennas=enabled_antennas,
             start_inventory=True, disconnect_when_done=True, standalone=True,
             tx_power=args.tx_power, modulation=args.modulation, tari=args.tari,
             reconnect=args.reconnect)
-    reader.setDaemon(True)
-    reader.addCallback('RO_ACCESS_REPORT', tagSeenCallback)
-    reader.start()
+    cli_factory.addTagReportCallback(tagSeenCallback)
+    cli_factory.addStateCallback(llrp.LLRPClient.STATE_DISCONNECTED,
+            disconnected)
 
-    # check every 0.1 seconds whether thread is done with its work (or whether
-    # the user has pressed ^C)
-    try:
-        while reader.isAlive():
-            reader.join(0.1)
-    except KeyboardInterrupt:
-        logger.fatal('interrupted; stopping inventory')
-        reader.stop_inventory(None)
-        # wait 1 second between stopping inventory and stopping reactor
-        reactor.callFromThread(reactor.callLater, 1, reactor.stop)
-        reader.join(1.5)
-
-    logger.info('total # of tags seen by callback: {}'.format(tagsSeen))
+    reactor.connectTCP(args.host, args.port, cli_factory, timeout=3)
+    reactor.run()
 
 if __name__ == '__main__':
     main()

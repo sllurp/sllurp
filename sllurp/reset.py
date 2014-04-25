@@ -10,7 +10,12 @@ from sllurp.llrp_proto import LLRPROSpec
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
-def main():
+class MyProtoWrapper (llrp.ProtocolWrapper):
+    def stop_all (self, _):
+        for p in self.protocols:
+            p.stopPolitely()
+
+def main ():
     parser = argparse.ArgumentParser(description='Reset RFID Reader')
     parser.add_argument('host', help='hostname or IP address of RFID reader')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
@@ -34,22 +39,15 @@ def main():
         logger.addHandler(sHandler)
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
-    # spawn a thread to talk to the reader
-    reader = llrp.LLRPReaderThread(args.host, args.port,
+    cli_wrapper = MyProtoWrapper()
+    cli_factory = llrp.LLRPClientFactory(cli_wrapper,
             start_inventory=False, disconnect_when_done=True,
             standalone=True)
-    reader.setDaemon(True)
-    reader.addCallback('READER_EVENT_NOTIFICATION', reader.stop_inventory)
-    reader.start()
+    cli_factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED,
+            cli_wrapper.stop_all)
 
-    # check every 0.1 seconds whether thread is done with its work (or whether
-    # the user has pressed ^C)
-    try:
-        while reader.isAlive():
-            reader.join(0.1)
-    except KeyboardInterrupt:
-        logger.fatal('interrupted')
-        reactor.callFromThread(reactor.stop)
+    reactor.connectTCP(args.host, args.port, cli_factory, timeout=3)
+    reactor.run()
 
 if __name__ == '__main__':
     main()
