@@ -557,7 +557,7 @@ class LLRPClientFactory (ClientFactory):
         return proto
 
     def clientConnectionLost(self, connector, reason):
-        logger.info('lost connection: {}'.format(reason))
+        logger.info('lost connection: {}'.format(reason.getErrorMessage()))
         ClientFactory.clientConnectionLost(self, connector, reason)
         if self.reconnect:
             reactor.callFromThread(time.sleep, self.reconnect_delay)
@@ -568,7 +568,7 @@ class LLRPClientFactory (ClientFactory):
                 self.onFinish.callback(None)
 
     def clientConnectionFailed(self, connector, reason):
-        logger.info('connection failed: {}'.format(reason))
+        logger.info('connection failed: {}'.format(reason.getErrorMessage()))
         ClientFactory.clientConnectionFailed(self, connector, reason)
         if self.reconnect:
             reactor.callFromThread(time.sleep, self.reconnect_delay)
