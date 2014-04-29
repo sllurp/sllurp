@@ -3,23 +3,23 @@ import argparse
 import logging
 import pprint
 import time
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec, ModeIndex_Name2Type
 
-tagsSeen = 0
+tagReport = 0
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
-class MyProtoWrapper (llrp.ProtocolWrapper):
-    def stop_all (self, _):
-        for p in self.protocols:
-            p.stopPolitely()
+def politeShutdown (factory):
+    logger.info('shutting down')
+    logger.info('total # of tags seen: {}'.format(tagReport))
+    return factory.politeShutdown()
 
-def tagSeenCallback (llrpMsg):
+def tagReportCallback (llrpMsg):
     """Function to run each time the reader reports seeing tags."""
-    global tagsSeen
+    global tagReport
     tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
         logger.info('saw tag(s): {}'.format(pprint.pformat(tags)))
@@ -27,14 +27,12 @@ def tagSeenCallback (llrpMsg):
         logger.info('no tags seen')
         return
     for tag in tags:
-        tagsSeen += tag['TagSeenCount'][0]
-
-def disconnected (llrpMsg):
-    logger.info('total # of tags seen by callback: {}'.format(tagsSeen))
+        tagReport += tag['TagSeenCount'][0]
 
 def main():
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
-    parser.add_argument('host', help='hostname or IP address of RFID reader')
+    parser.add_argument('host', help='hostname or IP address of RFID reader',
+            nargs='*')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT, type=int,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
     parser.add_argument('-t', '--time', default=10, type=float,
@@ -73,17 +71,31 @@ def main():
 
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
 
-    cli_wrapper = MyProtoWrapper()
-    cli_factory = llrp.LLRPClientFactory(cli_wrapper, duration=args.time,
-            report_every_n_tags=args.every_n, antennas=enabled_antennas,
-            start_inventory=True, disconnect_when_done=True,
-            tx_power=args.tx_power, modulation=args.modulation, tari=args.tari,
-            reconnect=args.reconnect)
-    cli_factory.addTagReportCallback(tagSeenCallback)
-    cli_factory.addStateCallback(llrp.LLRPClient.STATE_DISCONNECTED,
-            disconnected)
+    # d.callback will be called when all connections have terminated normally.
+    # use d.addCallback(<callable>) to define end-of-program behavior.
+    d = defer.Deferred()
 
-    reactor.connectTCP(args.host, args.port, cli_factory, timeout=3)
+    fac = llrp.LLRPClientFactory(onFinish=d,
+            duration=args.time,
+            report_every_n_tags=args.every_n,
+            antennas=enabled_antennas,
+            disconnect_when_done=True,
+            tx_power=args.tx_power,
+            modulation=args.modulation,
+            tari=args.tari,
+            start_inventory=True,
+            reconnect=args.reconnect)
+
+    # tagReportCallback will be called every time the reader sends a TagReport
+    # message (i.e., when it has "seen" tags).
+    fac.addTagReportCallback(tagReportCallback)
+
+    for host in args.host:
+        reactor.connectTCP(host, args.port, fac, timeout=3)
+
+    # catch ctrl-C and stop inventory before disconnecting
+    reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)
+
     reactor.run()
 
 if __name__ == '__main__':

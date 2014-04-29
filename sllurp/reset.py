@@ -2,7 +2,7 @@ from __future__ import print_function
 import argparse
 import time
 import logging
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import LLRPROSpec
@@ -10,14 +10,17 @@ from sllurp.llrp_proto import LLRPROSpec
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
-class MyProtoWrapper (llrp.ProtocolWrapper):
-    def stop_all (self, _):
-        for p in self.protocols:
-            p.stopPolitely()
+def stopProtocol (proto, _):
+    return proto.stopPolitely()
+
+def shutdown (_):
+    logger.info('shutting down')
+    reactor.stop()
 
 def main ():
     parser = argparse.ArgumentParser(description='Reset RFID Reader')
-    parser.add_argument('host', help='hostname or IP address of RFID reader')
+    parser.add_argument('host', help='hostname or IP address of RFID reader',
+            nargs='*')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
     parser.add_argument('-d', '--debug', action='store_true',
@@ -39,13 +42,18 @@ def main ():
         logger.addHandler(sHandler)
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
-    cli_wrapper = MyProtoWrapper()
-    cli_factory = llrp.LLRPClientFactory(cli_wrapper,
-            start_inventory=False, disconnect_when_done=True)
-    cli_factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED,
-            cli_wrapper.stop_all)
+    # a Deferred to call when all connections have closed
+    d = defer.Deferred()
+    d.addCallback(shutdown)
 
-    reactor.connectTCP(args.host, args.port, cli_factory, timeout=3)
+    factory = llrp.LLRPClientFactory(start_inventory=False, onFinish=d)
+
+    # when each protocol connects, stop it politely
+    factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED, stopProtocol)
+
+    for host in args.host:
+        reactor.connectTCP(host, args.port, factory, timeout=3)
+
     reactor.run()
 
 if __name__ == '__main__':
