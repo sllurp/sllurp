@@ -10,7 +10,7 @@ from sllurp.llrp_proto import LLRPROSpec
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
-def stopProtocol (proto, _):
+def stopProtocol (proto):
     return proto.stopPolitely()
 
 def shutdown (_):

@@ -12,9 +12,11 @@ tagReport = 0
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
-def politeShutdown (factory):
-    logger.info('shutting down')
+def finish (_):
     logger.info('total # of tags seen: {}'.format(tagReport))
+    reactor.stop()
+
+def politeShutdown (factory):
     return factory.politeShutdown()
 
 def tagReportCallback (llrpMsg):
@@ -74,6 +76,7 @@ def main():
     # d.callback will be called when all connections have terminated normally.
     # use d.addCallback(<callable>) to define end-of-program behavior.
     d = defer.Deferred()
+    d.addCallback(finish)
 
     fac = llrp.LLRPClientFactory(onFinish=d,
             duration=args.time,

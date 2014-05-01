@@ -172,23 +172,24 @@ class LLRPClient (LineReceiver):
         self.partialData = ''
 
         # state-change callbacks: STATE_* -> [list of callables]
-        self.__state_callbacks = {}
+        self._state_callbacks = {}
         for _, st_num in LLRPClient.getStates():
-            self.__state_callbacks[st_num] = []
+            self._state_callbacks[st_num] = []
 
         # message callbacks (including tag reports):
         # msg_name -> [list of callables]
-        self.__message_callbacks = defaultdict(list)
+        self._message_callbacks = defaultdict(list)
 
-        # Deferreds to call on state changes
-        # state -> [list of Deferreds]
-        self.__deferreds = defaultdict(list)
+        # Deferreds to fire during state machine machinations
+        self._deferreds = defaultdict(list)
+
+        self._rospecs = []
 
     def addStateCallback (self, state, cb):
-        self.__state_callbacks[state].append(cb)
+        self._state_callbacks[state].append(cb)
 
     def addMessageCallback (self, msg_type, cb):
-        self.__message_callbacks[msg_type].append(cb)
+        self._message_callbacks[msg_type].append(cb)
 
     def connectionMade (self):
         self.transport.setTcpKeepAlive(True)
@@ -196,41 +197,21 @@ class LLRPClient (LineReceiver):
         logger.info('connected to {}'.format(self.peername))
         self.factory.protocols.add(self)
 
-    @classmethod
-    def getStates (_):
-        state_names = [st for st in dir(LLRPClient) if st.startswith('STATE_')]
-        for state_name in state_names:
-            state_num = getattr(LLRPClient, state_name)
-            yield state_name, state_num
-
-    @classmethod
-    def getStateName (_, state):
-        try:
-            return [st_name for st_name, st_num in LLRPClient.getStates() \
-                    if st_num == state][0]
-        except IndexError:
-            raise LLRPError('unknown state {}'.format(state))
-
-    def setState (self, newstate, onComplete=None, triggering_msg=None,
-            run_callbacks=True, next_state=None, deferred=None):
+    def setState (self, newstate, onComplete=None):
+        assert newstate is not None
         logger.debug('state change: {} -> {}'.format(\
                     LLRPClient.getStateName(self.state),
                     LLRPClient.getStateName(newstate)))
 
-        # fire callbacks on any Deferreds that were waiting for this state
-        for d in self.__deferreds[newstate]:
-            d.callback(newstate)
-
-        if next_state and deferred:
-            nname = LLRPClient.getStateName(next_state)
-            logger.debug('will fire callback in state {}'.format(nname))
-            self.__deferreds[next_state].append(deferred)
-
         self.state = newstate
 
-        if run_callbacks:
-            for fn in self.__state_callbacks[newstate]:
-                fn(self, triggering_msg)
+        for fn in self._state_callbacks[newstate]:
+            fn(self)
+
+    def _setState_wrapper (self, _, *args, **kwargs):
+        """Version of setState suitable for calling via a Deferred callback.
+           XXX this is a gross hack."""
+        self.setState(args[0], **kwargs)
 
     def connectionLost (self, reason):
         self.factory.protocols.remove(self)
@@ -250,7 +231,7 @@ class LLRPClient (LineReceiver):
                     ' available={}'.format(reqd, avail))
 
         # check requested Tx power
-        logger.info('requested tx_power: {}'.format(self.tx_power))
+        logger.debug('requested tx_power: {}'.format(self.tx_power))
         bandtbl = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
         bandtbl = {k: v for k, v in bandtbl.items() \
             if k.startswith('TransmitPowerLevelTableEntry')}
@@ -265,8 +246,21 @@ class LLRPClient (LineReceiver):
             raise LLRPError('Invalid tx_power: requested={},' \
                     ' available={}'.format(self.tx_power,
                         find_p(max, self.tx_power_table)))
-        logger.info('set tx_power: {} ({} dBm)'.format(self.tx_power,
+        logger.debug('set tx_power: {} ({} dBm)'.format(self.tx_power,
                     self.tx_power_table[self.tx_power] / 100.0))
+
+    def processDeferreds (self, msgName, isSuccess):
+        deferreds = self._deferreds[msgName]
+        if not deferreds:
+            return
+        logger.debug('running {} Deferreds for {}; ' \
+                'isSuccess={}'.format(len(deferreds), msgName, isSuccess))
+        for d in deferreds:
+            if isSuccess:
+                d.callback(self.state)
+            else:
+                d.errback(self.state)
+        del self._deferreds[msgName]
 
     def handleMessage (self, lmsg):
         """Implements the LLRP client state machine."""
@@ -274,14 +268,18 @@ class LLRPClient (LineReceiver):
         msgName = lmsg.getName()
         lmsg.peername = self.peername
 
+        # call per-message callbacks
+        logger.debug('starting message callbacks for {}'.format(msgName))
+        for fn in self._message_callbacks[msgName]:
+            fn(lmsg)
+        logger.debug('done with message callbacks for {}'.format(msgName))
+
         if msgName == 'RO_ACCESS_REPORT' and \
                     self.state != LLRPClient.STATE_INVENTORYING:
             logger.debug('ignoring RO_ACCESS_REPORT because not inventorying')
             return
 
-        newstate = None
-        run_callbacks = True
-        bail = False
+        logger.debug('in handleMessage({}), there are {} Deferreds'.format(msgName, len(self._deferreds[msgName])))
 
         #######
         # LLRP client state machine follows.  Beware: gets thorny.  Note the
@@ -290,155 +288,126 @@ class LLRPClient (LineReceiver):
 
         # in DISCONNECTED, CONNECTING, and CONNECTED states, expect only
         # READER_EVENT_NOTIFICATION messages.
-        if self.state in (LLRPClient.STATE_IDLE,
-                LLRPClient.STATE_DISCONNECTED,
-                LLRPClient.STATE_CONNECTING):
-            if msgName == 'READER_EVENT_NOTIFICATION':
-                d = lmsg.msgdict['READER_EVENT_NOTIFICATION']\
-                        ['ReaderEventNotificationData']
-                # figure out whether the connection was successful
-                try:
-                    status = d['ConnectionAttemptEvent']['Status']
-                    if status == 'Success':
-                        cn2t = Capability_Name2Type
-                        reqd = cn2t['All']
-                        self.sendLLRPMessage(LLRPMessage(msgdict={
-                            'GET_READER_CAPABILITIES': {
-                                'Ver':  1,
-                                'Type': 1,
-                                'ID':   0,
-                                'RequestedData': reqd
-                            }}))
-                        newstate = LLRPClient.STATE_SENT_GET_CAPABILITIES
-                    else:
-                        logger.fatal('Could not start session on reader: ' \
-                                '{}'.format(status))
-                        bail = True
-                except KeyError:
-                    pass
-            else:
+        if self.state in (LLRPClient.STATE_DISCONNECTED,
+                LLRPClient.STATE_CONNECTING, LLRPClient.STATE_CONNECTED):
+            if msgName != 'READER_EVENT_NOTIFICATION':
                 logger.error('unexpected message {} while' \
                         ' connecting'.format(msgName))
-                bail = True
-                run_callbacks = False
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['ReaderEventNotificationData']\
+                         ['ConnectionAttemptEvent']['Status']
+                logger.fatal('Could not start session on reader: ' \
+                        '{}'.format(status))
+                return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
+            # a Deferred to call when we get GET_READER_CAPABILITIES_RESPONSE
+            d = defer.Deferred()
+            d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
+            d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
+            self.send_GET_READER_CAPABILITIES(onCompletion=d)
 
         # in state SENT_GET_CAPABILITIES, expect only GET_CAPABILITIES_RESPONSE;
         # respond to this message by advancing to state CONNECTED.
         elif self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
-            if msgName == 'GET_READER_CAPABILITIES_RESPONSE':
-                d = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-                logger.debug('Capabilities: {}'.format(pprint.pformat(d)))
-                try:
-                    self.parseCapabilities(d)
-                except LLRPError as err:
-                    logger.fatal('Capabilities mismatch: {}'.format(err))
-                    bail = True
-                    run_callbacks = False
-                newstate = LLRPClient.STATE_CONNECTED
-
-                if self.start_inventory:
-                    self.startInventory()
-            else:
+            if msgName != 'GET_READER_CAPABILITIES_RESPONSE':
                 logger.error('unexpected response {} ' \
                         ' when getting capabilities'.format(msgName))
-                bail = True
-                run_callbacks = False
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error {} getting capabilities: {}'.format(status,
+                            err))
+                return
+
+            caps = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
+            logger.debug('Capabilities: {}'.format(pprint.pformat(caps)))
+            try:
+                self.parseCapabilities(caps)
+            except LLRPError as err:
+                logger.fatal('capabilities mismatch: {}'.format(err))
+                raise err
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
+            # XXX use chainDeferred above instead?
+            if self.start_inventory:
+                self.startInventory()
 
         # in state SENT_ADD_ROSPEC, expect only ADD_ROSPEC_RESPONSE; respond to
         # favorable ADD_ROSPEC_RESPONSE by enabling the added ROSpec and
         # advancing to state SENT_ENABLE_ROSPEC.
         elif self.state == LLRPClient.STATE_SENT_ADD_ROSPEC:
-            if msgName == 'ADD_ROSPEC_RESPONSE':
-                d = lmsg.msgdict['ADD_ROSPEC_RESPONSE']
-                if d['LLRPStatus']['StatusCode'] == 'Success':
-                    self.sendLLRPMessage(LLRPMessage(msgdict={
-                        'ENABLE_ROSPEC': {
-                            'Ver':  1,
-                            'Type': 24,
-                            'ID':   0,
-                            'ROSpecID': self.roSpecId
-                        }}))
-                    newstate = LLRPClient.STATE_SENT_ENABLE_ROSPEC
-                else:
-                    logger.warn('ADD_ROSPEC failed with status {}: {}' \
-                            .format(d['LLRPStatus']['StatusCode'],
-                                d['LLRPStatus']['ErrorDescription']))
-                    bail = True
-                    run_callbacks = False
-            else:
+            if msgName != 'ADD_ROSPEC_RESPONSE':
                 logger.error('unexpected response {} ' \
                         ' when adding ROSpec'.format(msgName))
-                bail = True
-                run_callbacks = False
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error {} adding ROSpec: {}'.format(status, err))
+                return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
 
         # in state SENT_ENABLE_ROSPEC, expect only ENABLE_ROSPEC_RESPONSE;
         # respond to favorable ENABLE_ROSPEC_RESPONSE by starting the enabled
         # ROSpec and advancing to state INVENTORYING.
         elif self.state == LLRPClient.STATE_SENT_ENABLE_ROSPEC:
-            if msgName == 'ENABLE_ROSPEC_RESPONSE':
-                d = lmsg.msgdict['ENABLE_ROSPEC_RESPONSE']
-                if d['LLRPStatus']['StatusCode'] == 'Success':
-                    logger.info('starting inventory')
-                    newstate = LLRPClient.STATE_INVENTORYING
-
-                    # XXX use Deferred properly for duration
-                    if self.duration:
-                        reactor.callFromThread(reactor.callLater, self.duration,
-                                self.stopPolitely)
-                else:
-                    logger.warn('ENABLE_ROSPEC failed with status {}: {}' \
-                            .format(d['LLRPStatus']['StatusCode'],
-                                d['LLRPStatus']['ErrorDescription']))
-                    run_callbacks = False
-                    self.stopPolitely()
-            else:
+            if msgName != 'ENABLE_ROSPEC_RESPONSE':
                 logger.error('unexpected response {} ' \
                         ' when enabling ROSpec'.format(msgName))
-                bail = True
-                run_callbacks = False
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.error('DELETE_ROSPEC failed with status {}: {}' \
+                        .format(status, err))
+                logger.fatal('Error {} enabling ROSpec: {}'.format(status, err))
+                return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
 
         elif self.state == LLRPClient.STATE_INVENTORYING:
             if msgName not in ('RO_ACCESS_REPORT', 'READER_EVENT_NOTIFICATION'):
                 logger.error('unexpected message {} while' \
                         ' inventorying'.format(msgName))
-                bail = True
-                run_callbacks = False
+                return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
 
         elif self.state == LLRPClient.STATE_SENT_DELETE_ROSPEC:
-            if msgName == 'DELETE_ROSPEC_RESPONSE':
-                d = lmsg.msgdict['DELETE_ROSPEC_RESPONSE']
-                if d['LLRPStatus']['StatusCode'] == 'Success':
-                    logger.info('reader finished inventory')
-                    newstate = LLRPClient.STATE_IDLE
-                    self.transport.loseConnection()
-                else:
-                    logger.warn('DELETE_ROSPEC failed with status {}: {}' \
-                            .format(d['LLRPStatus']['StatusCode'],
-                                d['LLRPStatus']['ErrorDescription']))
-                    run_callbacks = False
-                    logger.info('disconnecting')
-
-                    # no use trying to stop politely if DELETE_ROSPEC has
-                    # already failed...
-                    bail = True
-            else:
+            if msgName != 'DELETE_ROSPEC_RESPONSE':
                 logger.error('unexpected response {} ' \
                         ' when deleting ROSpec'.format(msgName))
-                bail = True
-                run_callbacks = False
 
-        # call state-change callbacks
-        if newstate:
-            self.setState(newstate, triggering_msg=lmsg,
-                    run_callbacks=run_callbacks)
+            if lmsg.isSuccess():
+                logger.info('reader finished inventory')
+                self.setState(LLRPClient.STATE_DISCONNECTED)
 
-        # call other callbacks
-        if run_callbacks:
-            for fn in self.__message_callbacks[msgName]:
-                fn(self, lmsg)
+            else:
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.error('DELETE_ROSPEC failed with status {}: {}' \
+                        .format(status, err))
+                logger.info('disconnecting')
 
-        if bail:
+            self.processDeferreds(msgName, lmsg.isSuccess())
             self.transport.loseConnection()
+
+        else:
+            logger.warn('message {} received in unknown state!'.format(msgName))
+
+        if self._deferreds[msgName]:
+            logger.error('there should NOT be Deferreds left for {},' \
+                    ' but there are!'.format(msgName))
+
 
     def rawDataReceived (self, data):
         logger.debug('got {} bytes from reader: {}'.format(len(data),
@@ -480,38 +449,79 @@ class LLRPClient (LineReceiver):
                                 len(data)))
                     break
 
-    def startInventory (self):
-        if not self.rospec:
-            self.create_rospec()
-        r = self.rospec['ROSpec']
-        self.roSpecId = r['ROSpecID']
+    def panic (self, failure, *args):
+        logger.error('panic(): {}'.format(args))
+        logger.error(failure.getErrorMessage())
+        logger.error(failure.getTraceback())
 
-        # add an ROspec
+    def send_GET_READER_CAPABILITIES (self, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'GET_READER_CAPABILITIES': {
+                'Ver':  1,
+                'Type': 1,
+                'ID':   0,
+                'RequestedData': Capability_Name2Type['All']
+            }}))
+        self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
+        self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(onCompletion)
+
+    def send_ADD_ROSPEC (self, rospec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'ADD_ROSPEC': {
                 'Ver':  1,
                 'Type': 20,
                 'ID':   0,
-                'ROSpecID': self.roSpecId,
-                'ROSpec': r,
+                'ROSpecID': rospec['ROSpecID'],
+                'ROSpec': rospec,
             }}))
+        self.setState(LLRPClient.STATE_SENT_ADD_ROSPEC)
+        self._deferreds['ADD_ROSPEC_RESPONSE'].append(onCompletion)
+
+    def send_ENABLE_ROSPEC (self, _, rospec, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'ENABLE_ROSPEC': {
+                'Ver':  1,
+                'Type': 24,
+                'ID':   0,
+                'ROSpecID': rospec['ROSpecID']
+            }}))
+        self.setState(LLRPClient.STATE_SENT_ENABLE_ROSPEC)
+        self._deferreds['ENABLE_ROSPEC_RESPONSE'].append(onCompletion)
+
+    def startInventory (self, *args):
+        """Add a ROSpec to the reader and enable it."""
+        if self.state == LLRPClient.STATE_INVENTORYING:
+            logger.warn('ignoring startInventory() while already inventorying')
+            return None
+
+        rospec = self.getROSpec()['ROSpec']
+        self._rospecs.append(rospec)
+
+        started = defer.Deferred()
+        started.addCallback(self._setState_wrapper,
+                LLRPClient.STATE_INVENTORYING)
+        if self.duration:
+            task.deferLater(reactor, self.duration, self.stopPolitely)
+        started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
+
         d = defer.Deferred()
-        self.setState(LLRPClient.STATE_SENT_ADD_ROSPEC,
-                next_state=LLRPClient.STATE_INVENTORYING, deferred=d)
-        return d
+        d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
+        d.addErrback(self.panic, 'ADD_ROSPEC failed')
 
-    def create_rospec (self):
-        if self.rospec:
-            return
-        # create an ROSpec, which defines the reader's inventorying
-        # behavior, and start running it on the reader
-        self.rospec = LLRPROSpec(1, duration_sec=self.duration,
-                report_every_n_tags=self.report_every_n_tags,
-                tx_power=self.tx_power, modulation=self.modulation,
-                tari=self.tari, antennas=self.antennas)
-        logger.debug('ROSpec: {}'.format(self.rospec))
+        self.send_ADD_ROSPEC(rospec, onCompletion=d)
 
-    def stopPolitely (self):
+        #return started
+
+    def getROSpec (self):
+        # create an ROSpec to define the reader's inventorying behavior
+        rospec = LLRPROSpec(1, duration_sec=self.duration,
+                            report_every_n_tags=self.report_every_n_tags,
+                            tx_power=self.tx_power, modulation=self.modulation,
+                            tari=self.tari, antennas=self.antennas)
+        logger.debug('ROSpec: {}'.format(rospec))
+        return rospec
+
+    def stopPolitely (self, *args):
         """Delete all active ROSpecs.  Return a Deferred that will be called
            when the DELETE_ROSPEC_RESPONSE comes back."""
         logger.info('stopping politely')
@@ -522,9 +532,12 @@ class LLRPClient (LineReceiver):
                 'ID':   0,
                 'ROSpecID': 0
             }}))
+        self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
+
         d = defer.Deferred()
-        self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC,
-                next_state=LLRPClient.STATE_IDLE, deferred=d)
+        d.addCallback(self._setState_wrapper, LLRPClient.STATE_DISCONNECTED)
+
+        self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
         return d
 
     def pause (self, duration_seconds):
@@ -535,7 +548,7 @@ class LLRPClient (LineReceiver):
             return
         logger.info('pausing for {} seconds'.format(duration_seconds))
         self.stopPolitely()
-        d = task.deferLater(reactor, duration_seconds, reactor.callFromThread,
+        return task.deferLater(reactor, duration_seconds, reactor.callFromThread,
                 self.startInventory)
 
     def sendLLRPMessage (self, llrp_msg):
@@ -548,17 +561,16 @@ class LLRPClientFactory (ClientFactory):
         self.client_args = kwargs
         self.reconnect = reconnect
         self.reconnect_delay = 1.0 # seconds
-        self.doneDeferreds = []
         self.onFinish = onFinish
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
-        self.__state_callbacks = {}
+        self._state_callbacks = {}
         for _, st_num in LLRPClient.getStates():
-            self.__state_callbacks[st_num] = []
+            self._state_callbacks[st_num] = []
 
         # message callbacks to pass to connected clients
-        self.__message_callbacks = defaultdict(list)
+        self._message_callbacks = defaultdict(list)
 
         self.protocols = set()
 
@@ -566,22 +578,22 @@ class LLRPClientFactory (ClientFactory):
         logger.info('connecting...')
 
     def addStateCallback (self, state, cb):
-        assert state in self.__state_callbacks
-        self.__state_callbacks[state].append(cb)
+        assert state in self._state_callbacks
+        self._state_callbacks[state].append(cb)
 
     def addTagReportCallback (self, cb):
-        self.__message_callbacks['RO_ACCESS_REPORT'].append(cb)
+        self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
     def buildProtocol(self, _):
         proto = LLRPClient(factory=self, **self.client_args)
 
         # register state-change callbacks with new client
-        for state, cbs in self.__state_callbacks.items():
+        for state, cbs in self._state_callbacks.items():
             for cb in cbs:
                 proto.addStateCallback(state, cb)
 
         # register message callbacks with new client
-        for msg_type, cbs in self.__message_callbacks.items():
+        for msg_type, cbs in self._message_callbacks.items():
             for cb in cbs:
                 proto.addMessageCallback(msg_type, cb)
 
@@ -595,7 +607,6 @@ class LLRPClientFactory (ClientFactory):
             connector.connect()
         elif not self.protocols:
             if self.onFinish:
-                logger.debug('about to onFinish from clientConnectionLost')
                 self.onFinish.callback(None)
 
     def clientConnectionFailed(self, connector, reason):
@@ -606,7 +617,6 @@ class LLRPClientFactory (ClientFactory):
             connector.connect()
         elif not self.protocols:
             if self.onFinish:
-                logger.debug('about to onFinish from clientConnectionFailed')
                 try:
                     self.onFinish.callback(None)
                 except defer.AlreadyCalledError:
