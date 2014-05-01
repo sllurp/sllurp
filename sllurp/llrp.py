@@ -93,6 +93,23 @@ class LLRPMessage:
             return ''
         return ''
 
+    def isSuccess (self):
+        if not self.msgdict:
+            return False
+        success = False
+        msgName = self.getName()
+        md = self.msgdict[msgName]
+
+        try:
+            if msgName == 'READER_EVENT_NOTIFICATION':
+                return md['ReaderEventNotificationData']\
+                    ['ConnectionAttemptEvent']['Status'] == 'Success'
+            elif 'LLRPStatus' in md:
+                return md['LLRPStatus']['StatusCode'] == 'Success'
+        except KeyError as KE:
+            logger.error('failed to parse status from {}: {}'.format(msgName,
+                        KE))
+
     def getName (self):
         if not self.msgdict:
             return None
