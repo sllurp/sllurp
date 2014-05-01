@@ -132,7 +132,21 @@ class LLRPClient (LineReceiver):
     STATE_INVENTORYING = 6
     STATE_SENT_DELETE_ROSPEC = 7
     STATE_SENT_GET_CAPABILITIES = 8
-    STATE_IDLE = 9
+
+    @classmethod
+    def getStates (_):
+        state_names = [st for st in dir(LLRPClient) if st.startswith('STATE_')]
+        for state_name in state_names:
+            state_num = getattr(LLRPClient, state_name)
+            yield state_name, state_num
+
+    @classmethod
+    def getStateName (_, state):
+        try:
+            return [st_name for st_name, st_num in LLRPClient.getStates() \
+                    if st_num == state][0]
+        except IndexError:
+            raise LLRPError('unknown state {}'.format(state))
 
     def __init__ (self, factory, duration=None, report_every_n_tags=None,
             antennas=(1,), tx_power=0, modulation='M4', tari=0,
