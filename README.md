@@ -1,5 +1,8 @@
 # sllurp
 
+**IMPORTANT:** This is beta-quality software that changes frequently.  Use at
+your own risk.
+
 This repository began in August 2013 as a snapshot of the dormant [LLRPyC
 project][]'s [code][] on SourceForge.  It has been updated to work with Impinj
 Speedway readers (and probably still other readers), and to provide a simple
