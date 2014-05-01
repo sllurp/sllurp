@@ -10,6 +10,8 @@ from sllurp.llrp_proto import LLRPROSpec
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
+args = None
+
 def stopProtocol (proto):
     return proto.stopPolitely()
 
@@ -17,7 +19,8 @@ def shutdown (_):
     logger.info('shutting down')
     reactor.stop()
 
-def main ():
+def parse_args ():
+    global args
     parser = argparse.ArgumentParser(description='Reset RFID Reader')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
             nargs='*')
@@ -28,6 +31,7 @@ def main ():
     parser.add_argument('-l', '--logfile')
     args = parser.parse_args()
 
+def init_logging ():
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
     logger.setLevel(logLevel)
     logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
@@ -41,6 +45,10 @@ def main ():
         sHandler.setFormatter(formatter)
         logger.addHandler(sHandler)
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
+
+def main ():
+    parse_args()
+    init_logging()
 
     # a Deferred to call when all connections have closed
     d = defer.Deferred()

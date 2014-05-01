@@ -12,6 +12,8 @@ tagReport = 0
 logger = logging.getLogger('sllurp')
 logger.propagate = False
 
+args = None
+
 def finish (_):
     logger.info('total # of tags seen: {}'.format(tagReport))
     reactor.stop()
@@ -31,7 +33,8 @@ def tagReportCallback (llrpMsg):
     for tag in tags:
         tagReport += tag['TagSeenCount'][0]
 
-def main():
+def parse_args ():
+    global args
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
             nargs='*')
@@ -57,6 +60,7 @@ def main():
             default=False, help='reconnect on connection failure or loss')
     args = parser.parse_args()
 
+def init_logging ():
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
     logger.setLevel(logLevel)
     logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
@@ -70,6 +74,10 @@ def main():
         sHandler.setFormatter(formatter)
         logger.addHandler(sHandler)
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
+
+def main ():
+    parse_args()
+    init_logging()
 
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
 
