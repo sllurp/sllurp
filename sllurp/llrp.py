@@ -5,7 +5,6 @@ import socket
 import logging
 import pprint
 import struct
-from threading import Thread, Condition
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
          Message_Type2Name, Capability_Name2Type, \
          llrp_data2xml, LLRPMessageDict
@@ -553,8 +552,7 @@ class LLRPClient (LineReceiver):
             return
         logger.info('pausing for {} seconds'.format(duration_seconds))
         self.stopPolitely()
-        return task.deferLater(reactor, duration_seconds, reactor.callFromThread,
-                self.startInventory)
+        return task.deferLater(reactor, duration_seconds, self.startInventory)
 
     def sendLLRPMessage (self, llrp_msg):
         assert isinstance(llrp_msg, LLRPMessage)
@@ -608,7 +606,7 @@ class LLRPClientFactory (ClientFactory):
         logger.info('lost connection: {}'.format(reason.getErrorMessage()))
         ClientFactory.clientConnectionLost(self, connector, reason)
         if self.reconnect:
-            reactor.callFromThread(time.sleep, self.reconnect_delay)
+            time.sleep(self.reconnect_delay)
             connector.connect()
         elif not self.protocols:
             if self.onFinish:
@@ -618,7 +616,7 @@ class LLRPClientFactory (ClientFactory):
         logger.info('connection failed: {}'.format(reason.getErrorMessage()))
         ClientFactory.clientConnectionFailed(self, connector, reason)
         if self.reconnect:
-            reactor.callFromThread(time.sleep, self.reconnect_delay)
+            time.sleep(self.reconnect_delay)
             connector.connect()
         elif not self.protocols:
             if self.onFinish:
