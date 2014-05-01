@@ -2487,56 +2487,6 @@ def wait_for_message(connection):
 
     return msg
 
-class ReaderThread(Thread):
-    keep_running = False
-
-    def __init__(self, connection):
-        Thread.__init__(self)
-        self.connection = connection
-        self.keep_running = True
-
-    def run(self):
-        connection = self.connection
-        events = [
-            'RO_ACCESS_REPORT',
-            'READER_EVENT_NOTIFICATION',
-            'ADD_ROSPEC_RESPONSE',
-            'START_ROSPEC_RESPONSE',
-            'ENABLE_ROSPEC_RESPONSE',
-            'DELETE_ROSPEC_RESPONSE',
-            'STOP_ROSPEC_RESPONSE',
-            'GET_READER_CAPABILITIES_RESPONSE',
-            'CLOSE_CONNECTION_RESPONSE',
-        ]
-
-        while self.keep_running:
-            # Wait for a server message
-            while True:
-                try:
-                    msg = recv_message(connection)
-                    #logger.debug('got message via recv_message')
-                except:
-                    return
-
-                # Before returning data to the caller we should check
-                # for remote server's events
-                if msg.keys()[0] in events:
-                    connection.event_cb(connection, msg)
-                else:
-                    print 'unrecognized msg: %s' % msg
-
-                break
-
-            connection.msg_cond.acquire()
-
-            connection.messages.append(msg)
-
-            connection.msg_cond.notifyAll()
-            connection.msg_cond.release()
-
-    def stop(self):
-        self.keep_running = False
-
 class LLRPdCapabilities(dict):
     def __init__(self):
         self['LLRPdCapabilities'] = { }
