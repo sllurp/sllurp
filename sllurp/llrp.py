@@ -109,6 +109,7 @@ class LLRPMessage:
         except KeyError as KE:
             logger.error('failed to parse status from {}: {}'.format(msgName,
                         KE))
+            return False
 
     def getName (self):
         if not self.msgdict:
@@ -296,8 +297,12 @@ class LLRPClient (LineReceiver):
                 return
 
             if not lmsg.isSuccess():
-                status = lmsg.msgdict[msgName]['ReaderEventNotificationData']\
-                         ['ConnectionAttemptEvent']['Status']
+                try:
+                    status = lmsg.msgdict[msgName]\
+                             ['ReaderEventNotificationData']\
+                             ['ConnectionAttemptEvent']['Status']
+                except KeyError:
+                    status = '(unknown status)'
                 logger.fatal('Could not start session on reader: ' \
                         '{}'.format(status))
                 return
