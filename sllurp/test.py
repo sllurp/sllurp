@@ -45,6 +45,8 @@ class mock_conn (object):
     stream = None
     def __init__ (self, mybytes):
         self.stream = mock_stream(mybytes)
+    def write (self, mybytes):
+        pass
 
 class TestROSpec (unittest.TestCase):
     def setUp (self):
@@ -58,10 +60,10 @@ class TestROSpec (unittest.TestCase):
 
 class TestReaderEventNotification (unittest.TestCase):
     def test_decode (self):
-        data = binascii.unhexlify( \
-                '043f0000002149d79d3c00f600170080000c0004edc2172a821400ff0007' \
-                '000002')
-        client = sllurp.llrp.LLRPClient()
+        data = binascii.unhexlify('043f000000200ab288c900f600160080000c0004f8' \
+                '535baadaff010000060000')
+        client = sllurp.llrp.LLRPClient(self, start_inventory=False)
+        client.transport = mock_conn('')
         client.dataReceived(data)
 
 class TestDecodeROAccessReport (unittest.TestCase):
@@ -131,7 +133,8 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = mock_conn(self._binr)
         logger.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
-        self._client = sllurp.llrp.LLRPClient()
+        self._client = sllurp.llrp.LLRPClient(self, start_inventory=False)
+        self._client.transport = mock_conn('')
         self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
