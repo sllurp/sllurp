@@ -91,6 +91,20 @@ The "nuclear option" for resetting a reader is:
 
     > reboot
 
+## If You Find a Bug
+
+Start an issue on this GitHub project!
+
+Bug reports are most useful when they're accompanied by verbose error messages.
+Turn sllurp's log level up to DEBUG, which you can do by specifying the `-d`
+command-line option if you're using the `inventory` or `reset` scripts.  You
+can log to a logfile with the `-l [filename]` option.  Or simply put this at
+the beginning of your own code:
+
+    import logger
+    sllurp_logger = logging.getLogger('sllurp')
+    sllurp_logger.setLevel(logging.DEBUG)
+
 ## Contributing
 
 Want to contribute?  Here are some areas that need improvement:
