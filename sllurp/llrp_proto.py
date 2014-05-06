@@ -1338,16 +1338,14 @@ def decode_PerAntennaAirProtocol(data):
     fmt = '!HH'
     fmt_len = struct.calcsize(fmt)
 
-    id_fmt = '!H'
-    id_fmt_len = struct.calcsize(id_fmt)
     # Decode fields
     (par['AntennaID'],
-     par['NumProtocols']) = struct.unpack(fmt, body)
+     par['NumProtocols']) = struct.unpack(fmt, body[:fmt_len])
     body = body[fmt_len : ]
     num = int(par['NumProtocols'])
-    for x in range(1, num + 1):
-       par['ProtocolID' + str(x)] = struct.unpack(id_fmt, body)
-       body = body[id_fmt_len : ]
+    id_fmt = '!B'
+    for i in xrange(num):
+        par['ProtocolID{}'.format(i+1)] = struct.unpack(id_fmt, body[i])[0]
 
     return par, data[length : ]
 
