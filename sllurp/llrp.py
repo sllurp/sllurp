@@ -150,7 +150,7 @@ class LLRPClient (LineReceiver):
 
     def __init__ (self, factory, duration=None, report_every_n_tags=None,
             antennas=(1,), tx_power=0, modulation='M4', tari=0,
-            start_inventory=True, disconnect_when_done=True):
+            start_inventory=True, disconnect_when_done=True, tag_content_selector={}):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -164,6 +164,7 @@ class LLRPClient (LineReceiver):
         self.peername = None
         self.tx_power_table = []
         self.start_inventory = start_inventory
+        self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
 
@@ -521,7 +522,8 @@ class LLRPClient (LineReceiver):
         rospec = LLRPROSpec(1, duration_sec=self.duration,
                             report_every_n_tags=self.report_every_n_tags,
                             tx_power=self.tx_power, modulation=self.modulation,
-                            tari=self.tari, antennas=self.antennas)
+                            tari=self.tari, antennas=self.antennas,
+                            tag_content_selector=self.tag_content_selector)
         logger.debug('ROSpec: {}'.format(rospec))
         return rospec
 
