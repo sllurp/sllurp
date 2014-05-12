@@ -4,6 +4,7 @@
 #
 # Copyright (C) 2009 Rodolfo Giometti <giometti@linux.it>
 # Copyright (C) 2009 CAEN RFID <support.rfid@caen.it>
+# Copyright (C) 2013, 2014 Benjamin Ransford <ransford@cs.washington.edu>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -38,12 +39,9 @@ from llrp_errors import *
 
 __all__ = [
     # Class
-    "LLRPdConnection",
     "LLRPdCapabilities",
     "LLRPROSpec",
-
-    # Commands
-    "llrp_set_logging",
+    "LLRPMessageDict",
 
     # Misc
     "func",
@@ -2399,9 +2397,6 @@ def llrp_data2xml(msg):
     for p in msg:
         ans += __llrp_data2xml(msg[p], p)
     return ans[ : -1]
-
-def llrp_set_logging(level):
-    log.setLevel(level)
 
 def llrp_start_rospec(connection, rospec):
     msgid = rospec['ROSpec']['ROSpecID']
