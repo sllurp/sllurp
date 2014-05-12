@@ -2555,7 +2555,7 @@ class LLRPdCapabilities(dict):
 class LLRPROSpec(dict):
     def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
             tx_power=91, modulation='M4', tari=0,
-            duration_sec=None, report_every_n_tags=None):
+            duration_sec=None, report_every_n_tags=None, tag_content_selector={}):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid argument 1 (not positive)')
@@ -2564,6 +2564,21 @@ class LLRPROSpec(dict):
         if not state in ROSpecState_Name2Type:
             raise LLRPError('invalid argument 3 (not [%s])' %
                     ROSpecState_Name2Type.keys())
+
+        tagReportContentSelector = {
+            'EnableROSpecID': False,
+            'EnableSpecIndex': False,
+            'EnableInventoryParameterSpecID': False,
+            'EnableAntennaID': True,
+            'EnableChannelIndex': False,
+            'EnablePeakRRSI': True,
+            'EnableFirstSeenTimestamp': False,
+            'EnableLastSeenTimestamp': True,
+            'EnableTagSeenCount': True,
+            'EnableAccessSpecID': False,
+        }
+        if tag_content_selector:
+            tagReportContentSelector.update(tag_content_selector)
 
         self['ROSpec'] = {
             'ROSpecID': msgid,
@@ -2593,18 +2608,7 @@ class LLRPROSpec(dict):
             'ROReportSpec': {
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'N': 1,
-                'TagReportContentSelector': {
-                    'EnableROSpecID': False,
-                    'EnableSpecIndex': False,
-                    'EnableInventoryParameterSpecID': False,
-                    'EnableAntennaID': True,
-                    'EnableChannelIndex': False,
-                    'EnablePeakRRSI': True,
-                    'EnableFirstSeenTimestamp': False,
-                    'EnableLastSeenTimestamp': True,
-                    'EnableTagSeenCount': True,
-                    'EnableAccessSpecID': False,
-                },
+                'TagReportContentSelector': tagReportContentSelector,
             },
         }
 

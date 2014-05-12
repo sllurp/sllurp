@@ -59,13 +59,22 @@ reactor.run()
 [Twisted]: http://twistedmatrix.com/
 
 ## Getting More Information From Tag Reports
+When initializing LLRPClientFactory, pass in tag_content_selector:
+```python
+llrp.LLRPClientFactory(tag_content_selector={
+    'EnableROSpecID': False,
+    'EnableSpecIndex': False,
+    'EnableInventoryParameterSpecID': False,
+    'EnableAntennaID': True,
+    'EnableChannelIndex': False,
+    'EnablePeakRRSI': True,
+    'EnableFirstSeenTimestamp': False,
+    'EnableLastSeenTimestamp': True,
+    'EnableTagSeenCount': True,
+    'EnableAccessSpecID': False,
+}
 
-Edit `sllurp/llrp_proto.py` and configure the `ROSpec` in `LLRPROSpec.__init__`
-to your liking.  E.g., you can change
-`self['ROSpec']['ROReportSpec']['TagReportContentSelector']['EnableFirstSeenTimestamp']`
-to `True`.
-
-XXX Note: this hackish method will go away.
+```
 
 ## Logging
 

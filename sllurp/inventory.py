@@ -95,7 +95,19 @@ def main ():
             modulation=args.modulation,
             tari=args.tari,
             start_inventory=True,
-            reconnect=args.reconnect)
+            reconnect=args.reconnect,
+            tag_content_selector={
+                'EnableROSpecID': False,
+                'EnableSpecIndex': False,
+                'EnableInventoryParameterSpecID': False,
+                'EnableAntennaID': True,
+                'EnableChannelIndex': False,
+                'EnablePeakRRSI': True,
+                'EnableFirstSeenTimestamp': False,
+                'EnableLastSeenTimestamp': True,
+                'EnableTagSeenCount': True,
+                'EnableAccessSpecID': False
+            })
 
     # tagReportCallback will be called every time the reader sends a TagReport
     # message (i.e., when it has "seen" tags).
