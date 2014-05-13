@@ -1419,6 +1419,122 @@ Message_struct['AccessSpec'] = {
     'encode': encode_AccessSpec
 }
 
+# 17.1.21 ADD_ACCESSSPEC
+def encode_AddAccessSpec (msg):
+    return encode('AccessSpec')(msg['AccessSpec'])
+
+# 17.1.21 ADD_ACCESSSPEC
+Message_struct['AddAccessSpec'] = {
+    'type': 40,
+    'fields': [
+        'Type',
+        'AccessSpec',
+    ],
+    'encode': encode_AddAccessSpec
+}
+
+# 17.1.22 ADD_ACCESSSPEC_RESPONSE
+def decode_AddAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_AddROSpecResponse(msg)
+
+# 17.1.22 ADD_ACCESSSPEC_RESPONSE
+Message_struct['ADD_ACCESSSPEC_RESPONSE'] = {
+    'type': 50,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_AddAccessSpecResponse
+}
+
+# 17.1.23 DELETE_ACCESSSPEC
+def encode_DeleteAccessSpec (msg):
+    return struct.pack('!I', msg['AccessSpecID'])
+
+# 17.1.23 DELETE_ACCESSSPEC
+Message_struct['DELETE_ACCESSSPEC'] = {
+    'type': 41,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'AccessSpecID'
+    ],
+    'encode': encode_DeleteAccessSpec
+}
+
+# 17.1.24 DELETE_ACCESSSPEC_RESPONSE
+def decode_DeleteAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_DeleteROSpecResponse(msg)
+
+# 17.1.24 DELETE_ACCESSSPEC_RESPONSE
+Message_struct['DELETE_ACCESSSPEC_RESPONSE'] = {
+    'type': 51,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_DeleteAccessSpecResponse
+}
+
+# 17.1.25 ENABLE_ACCESSSPEC
+def encode_EnableAccessSpec (msg):
+    return struct.pack('!I', msg['AccessSpecID'])
+
+# 17.1.25 ENABLE_ACCESSSPEC
+Message_struct['ENABLE_ACCESSSPEC'] = {
+    'type': 42,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'AccessSpecID'
+    ],
+    'encode': encode_EnableAccessSpec
+}
+
+# 17.1.26 ENABLE_ACCESSSPEC_RESPONSE
+def decode_EnableAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_EnableROSpecResponse(msg)
+
+# 17.1.26 ENABLE_ACCESSSPEC_RESPONSE
+Message_struct['ENABLE_ACCESSSPEC_RESPONSE'] = {
+    'type': 52,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_EnableAccessSpecResponse
+}
+
+# 17.1.27 DISABLE_ACCESSSPEC
+def encode_DisableAccessSpec (msg):
+    return struct.pack('!I', msg['AccessSpecID'])
+
+# 17.1.27 DISABLE_ACCESSSPEC
+Message_struct['DISABLE_ACCESSSPEC'] = {
+    'type': 43,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'AccessSpecID'
+    ],
+    'encode': encode_DisableAccessSpec
+}
+
+# 17.1.28 DISABLE_ACCESSSPEC_RESPONSE
+def decode_DisableAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_DisableROSpecResponse(msg)
+
+# 17.1.28 DISABLE_ACCESSSPEC_RESPONSE
+Message_struct['DISABLE_ACCESSSPEC_RESPONSE'] = {
+    'type': 53,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_DisableAccessSpecResponse
+}
+
 def encode_AccessSpecStopTrigger (par):
     msgtype = Message_struct['AccessSpecStopTrigger']['type']
     msg_header = '!HH'
