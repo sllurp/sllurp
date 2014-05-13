@@ -1424,7 +1424,7 @@ def encode_AddAccessSpec (msg):
     return encode('AccessSpec')(msg['AccessSpec'])
 
 # 17.1.21 ADD_ACCESSSPEC
-Message_struct['AddAccessSpec'] = {
+Message_struct['ADD_ACCESSSPEC'] = {
     'type': 40,
     'fields': [
         'Type',
@@ -1620,10 +1620,11 @@ def encode_C1G2TargetTag (par):
                 (par['M'] and (1<<5) or 0)))
     data += struct.pack('!H', int(par['Pointer']))
     data += struct.pack('!H', int(par['MaskBitCount']))
-    data += struct.pack('!H', int(par['TagMask']))
-    data += encode_bitstring(par['TagMask'], 10)
+    if int(par['MaskBitCount']):
+        data += encode_bitstring(par['TagMask'], 10)
     data += struct.pack('!H', int(par['DataBitCount']))
-    data += encode_bitstring(par['TagData'], 10)
+    if int(par['DataBitCount']):
+        data += encode_bitstring(par['TagData'], 10)
 
     data = struct.pack(msg_header, msgtype,
             len(data) + msg_header_len) + data

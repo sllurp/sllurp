@@ -6,7 +6,7 @@ import logging
 import pprint
 import struct
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
-         Message_Type2Name, Capability_Name2Type, \
+         Message_Type2Name, Capability_Name2Type, AirProtocol, \
          llrp_data2xml, LLRPMessageDict
 import copy
 from util import *
@@ -131,7 +131,8 @@ class LLRPClient (LineReceiver):
     STATE_SENT_ENABLE_ROSPEC = 5
     STATE_INVENTORYING = 6
     STATE_SENT_DELETE_ROSPEC = 7
-    STATE_SENT_GET_CAPABILITIES = 8
+    STATE_SENT_DELETE_ACCESSSPEC = 8
+    STATE_SENT_GET_CAPABILITIES = 9
 
     @classmethod
     def getStates (_):
@@ -150,11 +151,11 @@ class LLRPClient (LineReceiver):
 
     def __init__ (self, factory, duration=None, report_every_n_tags=None,
             antennas=(1,), tx_power=0, modulation='M4', tari=0,
-            start_inventory=True, disconnect_when_done=True, tag_content_selector={}):
+            start_inventory=True, disconnect_when_done=True,
+            tag_content_selector={}):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
-        self.rospec = None
         self.report_every_n_tags = report_every_n_tags
         self.tx_power = tx_power
         self.modulation = modulation
@@ -380,10 +381,18 @@ class LLRPClient (LineReceiver):
             self.processDeferreds(msgName, lmsg.isSuccess())
 
         elif self.state == LLRPClient.STATE_INVENTORYING:
-            if msgName not in ('RO_ACCESS_REPORT', 'READER_EVENT_NOTIFICATION'):
+            if msgName not in ('RO_ACCESS_REPORT', 'READER_EVENT_NOTIFICATION',
+                    'ADD_ACCESSSPEC_RESPONSE', 'ENABLE_ACCESSSPEC_RESPONSE'):
                 logger.error('unexpected message {} while' \
                         ' inventorying'.format(msgName))
                 return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
+        elif self.state == LLRPClient.STATE_SENT_DELETE_ACCESSSPEC:
+            if msgName != 'DELETE_ACCESSSPEC_RESPONSE':
+                logger.error('unexpected response {} ' \
+                        ' when deleting AccessSpec'.format(msgName))
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -493,6 +502,74 @@ class LLRPClient (LineReceiver):
         self.setState(LLRPClient.STATE_SENT_ENABLE_ROSPEC)
         self._deferreds['ENABLE_ROSPEC_RESPONSE'].append(onCompletion)
 
+    def send_ADD_ACCESSSPEC (self, accessSpec, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'ADD_ACCESSSPEC': {
+                'Ver':  1,
+                'Type': 40,
+                'ID':   0,
+                'AccessSpec': accessSpec,
+            }}))
+        self._deferreds['ADD_ACCESSSPEC_RESPONSE'].append(onCompletion)
+
+    def send_ENABLE_ACCESSSPEC (self, _, accessSpecID, onCompletion=None):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'ENABLE_ACCESSSPEC': {
+                'Ver':  1,
+                'Type': 42,
+                'ID':   0,
+                'AccessSpecID': accessSpecID,
+            }}))
+
+        if onCompletion:
+            self._deferreds['ENABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
+
+    def startAccess (self, wordCount=0, *args):
+        m = Message_struct['AccessSpec']
+        accessSpecID = 1
+        accessSpec = {
+            'Type': m['type'],
+            'AccessSpecID': accessSpecID,
+            'AntennaID': 0, # all antennas
+            'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
+            'C': False, # disabled by default
+            'ROSpecID': 0, # all ROSpecs
+            'AccessSpecStopTrigger': {
+                # stop after OperationCountValue accesses
+                'AccessSpecStopTriggerType': 1,
+                'OperationCountValue': 1,
+            },
+            'AccessCommand': {
+                'TagSpecParameter': {
+                    'C1G2TargetTag': { # XXX correct values?
+                        'MB': 0,
+                        'M': 0,
+                        'Pointer': 0,
+                        'MaskBitCount': 0,
+                        'TagMask': 0,
+                        'DataBitCount': 0,
+                        'TagData': 0
+                    }
+                },
+                'OpSpecParameter': {
+                    'OpSpecID': 0,
+                    'MB': 0,
+                    'WordPtr': 0,
+                    'WordCount': wordCount,
+                    'AccessPassword': 0
+                }
+            },
+            'AccessReportSpec': {
+                'AccessReportTrigger': 1 # report at end of access
+            }
+        }
+
+        d = defer.Deferred()
+        d.addCallback(self.send_ENABLE_ACCESSSPEC, accessSpecID)
+        d.addErrback(self.panic, 'ADD_ACCESSSPEC failed')
+
+        self.send_ADD_ACCESSSPEC(accessSpec, onCompletion=d)
+
     def startInventory (self, *args):
         """Add a ROSpec to the reader and enable it."""
         if self.state == LLRPClient.STATE_INVENTORYING:
@@ -532,6 +609,23 @@ class LLRPClient (LineReceiver):
            when the DELETE_ROSPEC_RESPONSE comes back."""
         logger.info('stopping politely')
         self.sendLLRPMessage(LLRPMessage(msgdict={
+            'DELETE_ACCESSSPEC': {
+                'Ver': 1,
+                'Type': 41,
+                'ID': 0,
+                'AccessSpecID': 0 # all AccessSpecs
+            }}))
+        self.setState(LLRPClient.STATE_SENT_DELETE_ACCESSSPEC)
+
+        d = defer.Deferred()
+        d.addCallback(self.stopAllROSpecs)
+        d.addErrback(self.panic, 'DELETE_ACCESSSPEC failed')
+
+        self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(d)
+        return d
+
+    def stopAllROSpecs (self, *args):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
             'DELETE_ROSPEC': {
                 'Ver':  1,
                 'Type': 21,
@@ -562,7 +656,8 @@ class LLRPClient (LineReceiver):
         self.transport.write(llrp_msg.msgbytes)
 
 class LLRPClientFactory (ClientFactory):
-    def __init__ (self, onFinish=None, reconnect=False, **kwargs):
+    def __init__ (self, onFinish=None, reconnect=False,
+            **kwargs):
         self.client_args = kwargs
         self.reconnect = reconnect
         self.reconnect_delay = 1.0 # seconds
