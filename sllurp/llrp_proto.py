@@ -99,69 +99,6 @@ def bin2dump(data, label=''):
 def dump(data, label):
     logger.debug(bin2dump(data, label))
 
-def recv_message(connection):
-    msg = LLRPMessageDict()
-    logger.debug('recv_message()')
-
-    # Try to read the message's header first.
-    data = connection.stream.recv(gen_header_len)
-    msgtype, length = struct.unpack(gen_header, data)
-
-    # Little sanity checks
-    ver = (msgtype >> 10) & BITMASK(3)
-    if (ver != VER_PROTO_V1) :
-        raise LLRPError('messages version %d are not supported' % ver)
-
-    # Then try to read the message's body.
-    length -= gen_header_len
-    data += connection.stream.recv(length)
-    dump(data, 'recv')
-
-    header = data[0 : msg_header_len]
-    msgtype, length, msgid = struct.unpack(msg_header, header)
-    msgtype = msgtype & BITMASK(10)
-    body = data[msg_header_len : length]
-    logger.debug('%s (msgtype=%d len=%d msgid=%d)' % (func(), msgtype, length, msgid))
-
-    # Decode message
-    try:
-       name = Message_Type2Name[msgtype]
-    except KeyError:
-       raise LLRPError('message msgtype %d is not supported' % msgtype)
-    data = decode(name)(body)
-
-    msg[name] = data
-    msg[name]['Ver'] = ver
-    msg[name]['Type'] = msgtype
-    msg[name]['ID'] = msgid
-    logger.debug(msg)
-
-    return msg
-
-def send_message(connection, msg):
-    logger.debug('%s' % func())
-    logger.debug(msg)
-
-    # Sanity checks
-    key = msg.keys()
-    if (len(key) != 1):
-        raise LLRPError('invalid message format')
-    name = key[0]
-
-    if name not in Message_struct:
-        raise LLRPError('invalid message %s' % name)
-    ver = msg[name]['Ver'] & BITMASK(3)
-    msgtype = msg[name]['Type'] & BITMASK(10)
-    msgid = msg[name]['ID']
-
-    data = encode(name)(msg[name])
-
-    data = struct.pack(msg_header, (ver << 10) | msgtype,
-                len(data) + msg_header_len, msgid) + data
-    dump(data, 'send')
-
-    connection.stream.send(data)
-
 #
 # LLRP defines & structs
 #
