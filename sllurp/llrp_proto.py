@@ -1564,7 +1564,11 @@ def encode_AccessCommand (par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = encode_C1G2TagSpec(par['TagSpecParameter'])
-    data += encode_C1G2Read(par['OpSpecParameter'])
+
+    if 'WriteData' in par['OpSpecParameter']:
+        data += encode_C1G2Write(par['OpSpecParameter'])
+    else:
+        data += encode_C1G2Read(par['OpSpecParameter'])
 
     data = struct.pack(msg_header, msgtype,
             len(data) + msg_header_len) + data
@@ -1672,6 +1676,37 @@ Message_struct['C1G2Read'] = {
         'AccessPassword'
     ],
     'encode': encode_C1G2Read
+}
+
+# 16.2.1.3.2.3 C1G2Write
+def encode_C1G2Write (par):
+    msgtype = Message_struct['C1G2Write']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!H', int(par['OpSpecID']))
+    data += struct.pack('!I', int(par['AccessPassword']))
+    data += struct.pack('!B', int(par['MB']) << 6)
+    data += struct.pack('!H', int(par['WordPtr']))
+    data += struct.pack('!H', int(par['WriteDataWordCount']))
+    data += par['WriteData']
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+    return data
+
+Message_struct['C1G2Write'] = {
+    'type': 342,
+    'fields': [
+        'Type',
+        'OpSpecID',
+        'MB',
+        'WordPtr',
+        'AccessPassword'
+        'WriteDataWordCount',
+        'WriteData'
+    ],
+    'encode': encode_C1G2Write
 }
 
 def encode_AccessReportSpec (par):
