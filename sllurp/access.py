@@ -19,7 +19,7 @@ def finish (_):
     reactor.stop()
 
 def access (proto):
-    return proto.startAccess(wordCount=8)
+    return proto.startAccess(wordCount=args.word_count)
 
 def politeShutdown (factory):
     return factory.politeShutdown()
@@ -49,11 +49,15 @@ def parse_args ():
             help='show debugging output')
     parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
             dest='every_n', metavar='N', help='issue a TagReport every N tags')
+    parser.add_argument('-X', '--tx-power', default=0, type=int,
+            dest='tx_power', help='Transmit power (default 0=max power)')
     parser.add_argument('-M', '--modulation', default='M4',
             choices=sorted(ModeIndex_Name2Type.keys()),
             help='modulation (default M4)')
     parser.add_argument('-T', '--tari', default=0, type=int,
             help='Tari value (default 0=auto)')
+    parser.add_argument('-w', '--word-count', default=8, type=int,
+            dest='word_count', help='WordCount parameter')
     parser.add_argument('-l', '--logfile')
     args = parser.parse_args()
 
@@ -85,6 +89,7 @@ def main ():
             modulation=args.modulation,
             tari=args.tari,
             start_inventory=True,
+            tx_power=args.tx_power,
             report_every_n_tags=args.every_n,
             tag_content_selector={
                 'EnableROSpecID': False,
