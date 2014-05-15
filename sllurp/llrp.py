@@ -535,15 +535,15 @@ class LLRPClient (LineReceiver):
             'C': False, # disabled by default
             'ROSpecID': 0, # all ROSpecs
             'AccessSpecStopTrigger': {
-                # stop after OperationCountValue accesses
-                'AccessSpecStopTriggerType': 1,
+                # 1 = stop after OperationCountValue accesses
+                'AccessSpecStopTriggerType': 0,
                 'OperationCountValue': 1,
             },
             'AccessCommand': {
                 'TagSpecParameter': {
                     'C1G2TargetTag': { # XXX correct values?
                         'MB': 0,
-                        'M': 0,
+                        'M': 1,
                         'Pointer': 0,
                         'MaskBitCount': 0,
                         'TagMask': 0,
@@ -555,8 +555,10 @@ class LLRPClient (LineReceiver):
                     'OpSpecID': 0,
                     'MB': 0,
                     'WordPtr': 0,
-                    'WordCount': wordCount,
-                    'AccessPassword': 0
+                    #'WordCount': wordCount,
+                    'AccessPassword': 0,
+                    'WriteDataWordCount': 1,
+                    'WriteData': '\xff\xff',
                 }
             },
             'AccessReportSpec': {
