@@ -556,7 +556,10 @@ def decode_ROAccessReport(data):
     # Decode parameters
     msg['TagReportData'] = [ ]
     while True:
-        ret, data = decode('TagReportData')(data)
+        try:
+            ret, data = decode('TagReportData')(data)
+        except TypeError: # XXX
+            break
         #print('len(ret) = {}'.format(len(ret)))
         #print('len(data) = {}'.format(len(data)))
         if ret:
