@@ -2,6 +2,8 @@ import struct
 import logging
 from llrp_errors import *
 
+logger = logging.getLogger('sllurp')
+
 tve_header = '!B'
 tve_header_len = struct.calcsize(tve_header)
 
@@ -28,14 +30,17 @@ def decode_tve_parameter (data):
     Given an array of bytes, tries to interpret a TVE parameter from the
     beginning of the array.  Returns the decoded data and the number of bytes it
     read."""
-    #logging.debug('TVE parameter bytes: {}'.format(data.encode('hex')))
+    #logger.debug('TVE parameter bytes: {}'.format(data.encode('hex')))
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
     (msgtype,) = struct.unpack(tve_header, data[:tve_header_len])
+    if not msgtype & 0b10000000:
+        # not a TV-encoded param
+        return None, 0
     msgtype = msgtype & 0x7f
     try:
         param_name, param_fmt = tve_param_formats[msgtype]
-        #logging.debug('found {} (type={})'.format(param_name, msgtype))
+        logger.debug('found {} (type={})'.format(param_name, msgtype))
     except KeyError as err:
         return None, 0
 
@@ -47,22 +52,6 @@ def decode_tve_parameter (data):
         return {param_name: unpacked}, end
     except struct.error:
         return None, 0
-
-def decode_tve_parameters (data):
-    """Decode a sequence of TVE-formatted parameters."""
-    params = {}
-
-    offset = 0
-    while offset < len(data):
-        try:
-            par, nbytes = decode_tve_parameter(data[offset:])
-            logging.debug(par)
-            params.update(par)
-            offset += nbytes
-        except LLRPError as err:
-            raise err
-
-    return params
 
 def decode_parameter (data):
     """Decode a single parameter."""

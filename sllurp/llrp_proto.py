@@ -551,14 +551,13 @@ def decode_ROAccessReport(data):
     msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
-    logger.debug('RO_ACCESS_REPORT bytes: {}'.format(data.encode('hex')))
-
     # Decode parameters
     msg['TagReportData'] = [ ]
     while True:
         try:
             ret, data = decode('TagReportData')(data)
         except TypeError: # XXX
+            logger.error('Unable to decode TagReportData')
             break
         #print('len(ret) = {}'.format(len(ret)))
         #print('len(data) = {}'.format(len(data)))
@@ -2124,7 +2123,6 @@ Message_struct['TagReportContentSelector'] = {
 def decode_TagReportData(data):
     par = {}
     logger.debug('%s' % func())
-    logger.debug('TagReportData bytes: {}'.format(data.encode('hex')))
 
     if len(data) == 0:
         return None, data
@@ -2146,11 +2144,24 @@ def decode_TagReportData(data):
         ret, body = decode('EPC-96')(body)
         if ret:
             par['EPC-96'] = ret['EPC']
+            logger.debug('EPC-96: {}'.format(ret['EPC']))
         else:
             raise LLRPError('missing or invalid EPCData parameter')
 
-    par.update(llrp_decoder.decode_tve_parameters(body))
+    # grab TV-encoded parameters
+    while body:
+        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        if ret:
+            par.update(ret)
+            body = body[nbytes:]
+        else:
+            break
 
+    ret, body = decode_OpSpecResult(body)
+    if ret:
+        par['OpSpecResult'] = ret
+
+    logger.debug('par={}'.format(par))
     return par, data[length : ]
 
 Message_struct['TagReportData'] = {
@@ -2172,9 +2183,166 @@ Message_struct['TagReportData'] = {
         'TagSeenCount',
         'AirProtocolTagData',
         'AccessSpecID',
-        'OpSpecResultParameter',
+        'OpSpecResult',
     ],
     'decode': decode_TagReportData
+}
+
+def decode_OpSpecResult (data):
+    # handle any of the C1G2*OpSpecResult types
+    par = {}
+    logger.debug('%s' % func())
+
+    if len(data) == 0:
+        return None, data
+
+    header = data[0 : par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    c1g2opspecresults = ('C1G2ReadOpSpecResult',
+            'C1G2WriteOpSpecResult',
+            'C1G2KillOpSpecResult',
+            'C1G2RecommissionOpSpecResult',
+            'C1G2LockOpSpecResult',
+            'C1G2BlockEraseOpSpecResult',
+            'C1G2BlockWriteOpSpecResult',
+            'C1G2BlockPermalockOpSpecResult',
+            'C1G2GetBlockPermalockStatusOpSpecResult')
+    ok_types = (Message_struct[x]['type'] for x in c1g2opspecresults)
+    if msgtype not in ok_types:
+        return (None, data)
+    body = data[par_header_len : length]
+
+    # all OpSpecResults begin with Result and OpSpecID
+    par['Result'], par['OpSpecID'] = struct.unpack('!BH', body[:3])
+    body = body[3:]
+
+    if msgtype == Message_struct['C1G2ReadOpSpecResult']['type']:
+        wordcnt = struct.unpack('!H', body[:2])[0]
+        par['ReadDataWordCount'] = wordcnt
+        end = 2 + (wordcnt*2)
+        par['ReadData'] = body[2:end]
+
+    elif msgtype in (Message_struct['C1G2WriteOpSpecResult']['type'],
+            Message_struct['C1G2BlockWriteOpSpecResult']['type']):
+        par['NumWordsWritten'] = struct.unpack('!H', body[:2])[0]
+
+    if msgtype == \
+      Message_struct['C1G2GetBlockPermalockStatusOpSpecResult']['type']:
+        wordcnt = struct.unpack('!H', body[:2])[0]
+        par['StatusWordCount'] = wordcnt
+        end = 2 + (wordcnt*2)
+        par['PermalockStatus'] = body[2:end]
+
+    return par, data[length:]
+
+Message_struct['OpSpecResult'] = {
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'ReadDataWordCount',
+        'ReadData',
+        'NumWordsWritten',
+        'StatusWordCount',
+        'PermalockStatus'
+    ],
+}
+
+Message_struct['C1G2ReadOpSpecResult'] = {
+    'type': 349,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'ReadDataWordCount',
+        'ReadData'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2WriteOpSpecResult'] = {
+    'type': 350,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'NumWordsWritten'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2KillOpSpecResult'] = {
+    'type': 351,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2RecommissionOpSpecResult'] = {
+    'type': 360,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2LockOpSpecResult'] = {
+    'type': 352,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2BlockEraseOpSpecResult'] = {
+    'type': 353,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2BlockWriteOpSpecResult'] = {
+    'type': 354,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'NumWordsWritten'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2BlockPermalockOpSpecResult'] = {
+    'type': 361,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2GetBlockPermalockStatusOpSpecResult'] = {
+    'type': 362,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'StatusWordCount',
+        'PermalockStatus'
+    ],
+    'decode': decode_OpSpecResult
 }
 
 # 16.2.7.3.1 EPCData Parameter
@@ -2217,10 +2385,11 @@ def decode_EPC96(data):
         return None, data
 
     header = data[0 : tve_header_len]
-    (msgtype, ), length = struct.unpack(tve_header, header), 1 + (96 / 8)
+    (msgtype, ) = struct.unpack(tve_header, header)
     msgtype = msgtype & BITMASK(7)
     if msgtype != Message_struct['EPC-96']['type']:
         return (None, data)
+    length = tve_header_len + (96 / 8)
     body = data[tve_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
 
