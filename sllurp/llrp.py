@@ -225,11 +225,12 @@ class LLRPClient (LineReceiver):
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
         if max(self.antennas) > gdc['MaxNumberOfAntennaSupported']:
-            reqd  = ','.join(map(str, self.antennas))
+            reqd = ','.join(map(str, self.antennas))
             avail = ','.join(map(str,
-                        range(1, gdc['MaxNumberOfAntennaSupported']+1)))
-            raise LLRPError('Invalid antenna set specified: requested={},' \
-                    ' available={}'.format(reqd, avail))
+                             range(1, gdc['MaxNumberOfAntennaSupported']+1)))
+            logger.warn('Invalid antenna set specified: requested={},'
+                        ' available={}.\nIgnoring invalid antennas.'.format(reqd, avail))
+            self.antennas = [ant for ant in self.antennas if ant <= gdc['MaxNumberOfAntennaSupported']]
 
         # check requested Tx power
         logger.debug('requested tx_power: {}'.format(self.tx_power))
