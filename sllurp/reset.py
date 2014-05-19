@@ -23,7 +23,7 @@ def parse_args ():
     global args
     parser = argparse.ArgumentParser(description='Reset RFID Reader')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
-            nargs='*')
+            nargs='+')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
     parser.add_argument('-d', '--debug', action='store_true',

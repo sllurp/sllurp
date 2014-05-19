@@ -4,6 +4,7 @@
 #
 # Copyright (C) 2009 Rodolfo Giometti <giometti@linux.it>
 # Copyright (C) 2009 CAEN RFID <support.rfid@caen.it>
+# Copyright (C) 2013, 2014 Benjamin Ransford <ransford@cs.washington.edu>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -38,12 +39,9 @@ from llrp_errors import *
 
 __all__ = [
     # Class
-    "LLRPdConnection",
     "LLRPdCapabilities",
     "LLRPROSpec",
-
-    # Commands
-    "llrp_set_logging",
+    "LLRPMessageDict",
 
     # Misc
     "func",
@@ -100,69 +98,6 @@ def bin2dump(data, label=''):
 
 def dump(data, label):
     logger.debug(bin2dump(data, label))
-
-def recv_message(connection):
-    msg = LLRPMessageDict()
-    logger.debug('recv_message()')
-
-    # Try to read the message's header first.
-    data = connection.stream.recv(gen_header_len)
-    msgtype, length = struct.unpack(gen_header, data)
-
-    # Little sanity checks
-    ver = (msgtype >> 10) & BITMASK(3)
-    if (ver != VER_PROTO_V1) :
-        raise LLRPError('messages version %d are not supported' % ver)
-
-    # Then try to read the message's body.
-    length -= gen_header_len
-    data += connection.stream.recv(length)
-    dump(data, 'recv')
-
-    header = data[0 : msg_header_len]
-    msgtype, length, msgid = struct.unpack(msg_header, header)
-    msgtype = msgtype & BITMASK(10)
-    body = data[msg_header_len : length]
-    logger.debug('%s (msgtype=%d len=%d msgid=%d)' % (func(), msgtype, length, msgid))
-
-    # Decode message
-    try:
-       name = Message_Type2Name[msgtype]
-    except KeyError:
-       raise LLRPError('message msgtype %d is not supported' % msgtype)
-    data = decode(name)(body)
-
-    msg[name] = data
-    msg[name]['Ver'] = ver
-    msg[name]['Type'] = msgtype
-    msg[name]['ID'] = msgid
-    logger.debug(msg)
-
-    return msg
-
-def send_message(connection, msg):
-    logger.debug('%s' % func())
-    logger.debug(msg)
-
-    # Sanity checks
-    key = msg.keys()
-    if (len(key) != 1):
-        raise LLRPError('invalid message format')
-    name = key[0]
-
-    if name not in Message_struct:
-        raise LLRPError('invalid message %s' % name)
-    ver = msg[name]['Ver'] & BITMASK(3)
-    msgtype = msg[name]['Type'] & BITMASK(10)
-    msgid = msg[name]['ID']
-
-    data = encode(name)(msg[name])
-
-    data = struct.pack(msg_header, (ver << 10) | msgtype,
-                len(data) + msg_header_len, msgid) + data
-    dump(data, 'send')
-
-    connection.stream.send(data)
 
 #
 # LLRP defines & structs
@@ -2238,137 +2173,6 @@ Message_struct['ParameterError'] = {
 # LLRP Commands
 #
 
-def llrp_add_rospec(connection, rospec):
-    msgid = rospec['ROSpec']['ROSpecID']
-
-    msg = LLRPMessageDict()
-    msg['ADD_ROSPEC'] = {
-        'Ver':  1,
-                'Type': Message_struct['ADD_ROSPEC']['type'],
-                'ID':   0,
-        'ROSpecID' : msgid
-    }
-    msg['ADD_ROSPEC']['ROSpec'] = rospec['ROSpec']
-
-    logger.debug(msg)
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Check the server response
-    try:
-        (code, descr) = (ans['ADD_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['ADD_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
-def llrp_close(connection):
-    # Send the message to gently close the connection
-    msg = LLRPMessageDict()
-    msg['CLOSE_CONNECTION'] = {
-        'Ver':  1,
-                'Type': Message_struct['CLOSE_CONNECTION']['type'],
-                'ID':   0
-    }
-
-    logger.debug(msg)
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Close the communication socket
-    connection.stream.close()
-
-    # Check the server response
-    try:
-        (code, descr) = (ans['CLOSE_CONNECTION_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['CLOSE_CONNECTION_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
-def llrp_connect(connection, host, port = LLRP_PORT):
-    connection.stream.connect((host, port))
-
-    # Wait for the answer
-    ans = recv_message(connection)
-
-    # Check connection status
-    try:
-        status = ans['READER_EVENT_NOTIFICATION']\
-                ['ReaderEventNotificationData']\
-                ['ConnectionAttemptEvent']\
-                ['Status']
-    except:
-        raise LLRPError('invalid connection answer!')
-
-    if status != 'Success':
-        raise LLRPResponseError(status)
-
-def llrp_get_capabilities(connection, req):
-    # Sanity checks
-    if req not in Capability_Name2Type:
-        raise LLRPError('invalid request (req=%s)' % req)
-
-    msg = LLRPMessageDict()
-    msg['GET_READER_CAPABILITIES'] = {
-        'Ver':  1,
-        'Type': Message_struct['GET_READER_CAPABILITIES']['type'],
-        'ID':   0,
-        'RequestedData' : Capability_Name2Type[req]
-    }
-
-    logger.debug(msg)
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Check the server response
-    try:
-        (code, descr) = (ans['GET_READER_CAPABILITIES_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['GET_READER_CAPABILITIES_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
-    # Create an LLRPdCapabilities instance
-    cap = LLRPdCapabilities()
-
-    # Add LLRPCapabilities?
-    if 'LLRPCapabilities' in ans['GET_READER_CAPABILITIES_RESPONSE']:
-        c = ans['GET_READER_CAPABILITIES_RESPONSE']['LLRPCapabilities']
-
-        cap.LLRPCapabilities( c['CanDoRFSurvey'],
-            c['CanReportBufferFillWarning'],
-            c['SupportsClientRequestOpSpec'],
-            c['CanDoTagInventoryStateAwareSingulation'],
-            c['SupportsEventAndReportHolding'],
-            c['MaxPriorityLevelSupported'],
-            c['ClientRequestOpSpecTimeout'],
-            c['MaxNumROSpec'],
-            c['MaxNumSpecsPerROSpec'],
-            c['MaxNumInventoryParametersSpecsPerAISpec'],
-            c['MaxNumAccessSpec'],
-            c['MaxNumOpSpecsPerAccessSpec'])
-
-    return cap
-
 def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level = 0):
         tabs = '\t' * level
@@ -2399,158 +2203,6 @@ def llrp_data2xml(msg):
     for p in msg:
         ans += __llrp_data2xml(msg[p], p)
     return ans[ : -1]
-
-def llrp_set_logging(level):
-    log.setLevel(level)
-
-def llrp_start_rospec(connection, rospec):
-    msgid = rospec['ROSpec']['ROSpecID']
-
-    msg = LLRPMessageDict()
-    msg['START_ROSPEC'] = {
-        'Ver':  1,
-        'Type': Message_struct['START_ROSPEC']['type'],
-        'ID':   0,
-        'ROSpecID' : msgid
-    }
-
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Check the server response
-    try:
-        (code, descr) = (ans['START_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['START_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
-def llrp_stop_rospec(connection, rospec):
-    msgid = rospec['ROSpec']['ROSpecID']
-
-    msg = LLRPMessageDict()
-    msg['STOP_ROSPEC'] = {
-        'Ver':  1,
-                'Type': Message_struct['STOP_ROSPEC']['type'],
-                'ID':   0,
-        'ROSpecID' : msgid
-    }
-
-    logger.debug(msg)
-    send_message(connection, msg)
-
-    # Wait for the answer
-    ans = wait_for_message(connection)
-
-    # Check the server response
-    try:
-        print ans
-        (code, descr) = (ans['STOP_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['StatusCode'],
-                 ans['STOP_ROSPEC_RESPONSE']\
-                    ['LLRPStatus']['ErrorDescription'])
-    except:
-        raise LLRPError('invalid response')
-
-    if code != 'Success':
-        raise LLRPResponseError('%s: %s' % (code, descr))
-
-#
-# LLRP classes
-#
-
-def do_nothing(connection, msg):
-    pass
-
-def wait_for_message(connection):
-    logger.debug('wait_for_message: acquiring lock')
-    connection.msg_cond.acquire()
-    logger.debug('wait_for_message: got lock')
-
-    logger.debug('wait_for_message: waiting for #messages != 0')
-    while len(connection.messages) == 0:
-        connection.msg_cond.wait()
-    logger.debug('wait_for_message: #messages != 0')
-
-    msg = connection.messages.pop(0)
-
-    logger.debug('wait_for_message: releasing lock')
-    connection.msg_cond.release()
-
-    return msg
-
-class LLRPdCapabilities(dict):
-    def __init__(self):
-        self['LLRPdCapabilities'] = { }
-
-    def __repr__(self):
-        return llrp_data2xml(self)
-
-    def LLRPCapabilities(self, can_do_rfsurvey, can_report_buf_fill,
-            supports_client_reqs, can_do_tag_inv,
-            supports_ev_rep_holding,
-            max_prio, timeout,
-            max_rospec, max_spec_x_rospec,
-            max_inv_x_aispec,
-            max_accesspec, max_opspec_x_accesspec):
-        # Sanity checks
-        if type(can_do_rfsurvey) != BooleanType:
-            raise LLRPError('invalid argument 1 (not bool)')
-        if type(can_report_buf_fill) != BooleanType:
-            raise LLRPError('invalid argument 2 (not bool)')
-        if type(supports_client_reqs) != BooleanType:
-            raise LLRPError('invalid argument 3 (not bool)')
-        if type(can_do_tag_inv) != BooleanType:
-            raise LLRPError('invalid argument 4 (not bool)')
-        if type(supports_ev_rep_holding) != BooleanType:
-            raise LLRPError('invalid argument 5 (not bool)')
-        if (max_prio < 0 or max_prio > 7):
-            raise LLRPError('invalid argument 6 (not in [0-7])')
-        if (timeout < 0):
-            raise LLRPError('invalid argument 7 (not positive)')
-        if (max_rospec < 0):
-            raise LLRPError('invalid argument 8 (not positive)')
-        if (max_spec_x_rospec < 0):
-            raise LLRPError('invalid argument 9 (not positive)')
-        if (max_inv_x_aispec < 0):
-            raise LLRPError('invalid argument 10 (not positive)')
-        if (max_accesspec < 0):
-            raise LLRPError('invalid argument 11 (not positive)')
-        if (max_opspec_x_accesspec < 0):
-            raise LLRPError('invalid argument 12 (not positive)')
-
-        self['LLRPdCapabilities']['LLRPCapabilities'] = { }
-
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['CanDoRFSurvey'] = can_do_rfsurvey
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['CanReportBufferFillWarning'] = can_report_buf_fill
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['SupportsClientRequestOpSpec'] = supports_client_reqs
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['CanDoTagInventoryStateAwareSingulation'] = can_do_tag_inv
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['SupportsEventAndReportHolding'] = supports_ev_rep_holding
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['MaxPriorityLevelSupported'] = max_prio
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['ClientRequestOpSpecTimeout'] = timeout
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['MaxNumROSpec'] = max_rospec
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['MaxNumSpecsPerROSpec'] = max_spec_x_rospec
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['MaxNumInventoryParametersSpecsPerAISpec'] = max_inv_x_aispec
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['MaxNumAccessSpec'] = max_accesspec
-        self['LLRPdCapabilities']['LLRPCapabilities']\
-            ['MaxNumOpSpecsPerAccessSpec'] = max_opspec_x_accesspec
 
 class LLRPROSpec(dict):
     def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
@@ -2662,16 +2314,3 @@ for m in Message_struct:
         Message_Type2Name[i] = m
     else:
         logging.warn('Message_struct type {} lacks "type" field'.format(m))
-
-#
-# Main
-#
-
-def main():
-    print 'nothing to do...'
-
-#
-# Module or not module?
-#
-if __name__ == '__main__':
-    main()

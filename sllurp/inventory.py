@@ -37,7 +37,7 @@ def parse_args ():
     global args
     parser = argparse.ArgumentParser(description='Simple RFID Reader Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
-            nargs='*')
+            nargs='+')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT, type=int,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
     parser.add_argument('-t', '--time', default=10, type=float,
@@ -95,7 +95,19 @@ def main ():
             modulation=args.modulation,
             tari=args.tari,
             start_inventory=True,
-            reconnect=args.reconnect)
+            reconnect=args.reconnect,
+            tag_content_selector={
+                'EnableROSpecID': False,
+                'EnableSpecIndex': False,
+                'EnableInventoryParameterSpecID': False,
+                'EnableAntennaID': True,
+                'EnableChannelIndex': False,
+                'EnablePeakRRSI': True,
+                'EnableFirstSeenTimestamp': False,
+                'EnableLastSeenTimestamp': True,
+                'EnableTagSeenCount': True,
+                'EnableAccessSpecID': False
+            })
 
     # tagReportCallback will be called every time the reader sends a TagReport
     # message (i.e., when it has "seen" tags).
