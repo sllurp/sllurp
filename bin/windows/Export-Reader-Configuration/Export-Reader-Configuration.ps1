@@ -35,7 +35,7 @@ $commands | ForEach {
     Write-Host ("Exporting {0} {1, 10}" -f $_.Name, "") -NoNewLine
 
     # Connect and pipe to config file
-    ./plink.exe -ssh -P $reader_port -l $reader_username -pw $reader_password $reader_ip $_.Command > $export_folder/$($_.File)
+    'C:\Program Files\PuTTY\plink.exe' -ssh -P $reader_port -l $reader_username -pw $reader_password $reader_ip $_.Command > $export_folder/$($_.File)
 
     # On error, save the name of the failed command and remove its empty configuration file
     if ($lastexitcode -eq 0) {
