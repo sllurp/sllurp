@@ -538,12 +538,14 @@ def decode_ROAccessReport(data):
     msg = LLRPMessageDict()
     logger.debug('%s' % func())
 
-    logger.debug('RO_ACCESS_REPORT bytes: {}'.format(data.encode('hex')))
-
     # Decode parameters
     msg['TagReportData'] = [ ]
     while True:
-        ret, data = decode('TagReportData')(data)
+        try:
+            ret, data = decode('TagReportData')(data)
+        except TypeError: # XXX
+            logger.error('Unable to decode TagReportData')
+            break
         #print('len(ret) = {}'.format(len(ret)))
         #print('len(data) = {}'.format(len(data)))
         if ret:
@@ -1367,6 +1369,356 @@ Message_struct['ROSpec'] = {
     'encode': encode_ROSpec
 }
 
+# 17.2.5.1 AccessSpec
+def encode_AccessSpec (par):
+    msgtype = Message_struct['AccessSpec']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', int(par['AccessSpecID']))
+    data += struct.pack('!H', int(par['AntennaID']))
+    data += struct.pack('!B', par['ProtocolID'])
+    data += struct.pack('!B', par['C'] and (1<<7) or 0)
+    data += struct.pack('!I', par['ROSpecID'])
+
+    data += encode('AccessSpecStopTrigger')(par['AccessSpecStopTrigger'])
+    data += encode('AccessCommand')(par['AccessCommand'])
+    if 'AccessReportSpec' in par:
+        data += encode('AccessReportSpec')(par['AccessReportSpec'])
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+
+    return data
+
+# 17.2.5.1 AccessSpec
+Message_struct['AccessSpec'] = {
+    'type': 207,
+    'fields': [
+        'Type',
+        'AccessSpecID',
+        'AntennaID',
+        'ProtocolID',
+        'C',
+        'ROSpecID',
+        'AccessSpecStopTrigger',
+        'AccessCommand',
+        'AccessReportSpec'
+    ],
+    'encode': encode_AccessSpec
+}
+
+# 17.1.21 ADD_ACCESSSPEC
+def encode_AddAccessSpec (msg):
+    return encode('AccessSpec')(msg['AccessSpec'])
+
+# 17.1.21 ADD_ACCESSSPEC
+Message_struct['ADD_ACCESSSPEC'] = {
+    'type': 40,
+    'fields': [
+        'Type',
+        'AccessSpec',
+    ],
+    'encode': encode_AddAccessSpec
+}
+
+# 17.1.22 ADD_ACCESSSPEC_RESPONSE
+def decode_AddAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_AddROSpecResponse(msg)
+
+# 17.1.22 ADD_ACCESSSPEC_RESPONSE
+Message_struct['ADD_ACCESSSPEC_RESPONSE'] = {
+    'type': 50,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_AddAccessSpecResponse
+}
+
+# 17.1.23 DELETE_ACCESSSPEC
+def encode_DeleteAccessSpec (msg):
+    return struct.pack('!I', msg['AccessSpecID'])
+
+# 17.1.23 DELETE_ACCESSSPEC
+Message_struct['DELETE_ACCESSSPEC'] = {
+    'type': 41,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'AccessSpecID'
+    ],
+    'encode': encode_DeleteAccessSpec
+}
+
+# 17.1.24 DELETE_ACCESSSPEC_RESPONSE
+def decode_DeleteAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_DeleteROSpecResponse(msg)
+
+# 17.1.24 DELETE_ACCESSSPEC_RESPONSE
+Message_struct['DELETE_ACCESSSPEC_RESPONSE'] = {
+    'type': 51,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_DeleteAccessSpecResponse
+}
+
+# 17.1.25 ENABLE_ACCESSSPEC
+def encode_EnableAccessSpec (msg):
+    return struct.pack('!I', msg['AccessSpecID'])
+
+# 17.1.25 ENABLE_ACCESSSPEC
+Message_struct['ENABLE_ACCESSSPEC'] = {
+    'type': 42,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'AccessSpecID'
+    ],
+    'encode': encode_EnableAccessSpec
+}
+
+# 17.1.26 ENABLE_ACCESSSPEC_RESPONSE
+def decode_EnableAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_EnableROSpecResponse(msg)
+
+# 17.1.26 ENABLE_ACCESSSPEC_RESPONSE
+Message_struct['ENABLE_ACCESSSPEC_RESPONSE'] = {
+    'type': 52,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_EnableAccessSpecResponse
+}
+
+# 17.1.27 DISABLE_ACCESSSPEC
+def encode_DisableAccessSpec (msg):
+    return struct.pack('!I', msg['AccessSpecID'])
+
+# 17.1.27 DISABLE_ACCESSSPEC
+Message_struct['DISABLE_ACCESSSPEC'] = {
+    'type': 43,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'AccessSpecID'
+    ],
+    'encode': encode_DisableAccessSpec
+}
+
+# 17.1.28 DISABLE_ACCESSSPEC_RESPONSE
+def decode_DisableAccessSpecResponse (msg):
+    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
+    return decode_DisableROSpecResponse(msg)
+
+# 17.1.28 DISABLE_ACCESSSPEC_RESPONSE
+Message_struct['DISABLE_ACCESSSPEC_RESPONSE'] = {
+    'type': 53,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus'
+    ],
+    'decode': decode_DisableAccessSpecResponse
+}
+
+def encode_AccessSpecStopTrigger (par):
+    msgtype = Message_struct['AccessSpecStopTrigger']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!B', int(par['AccessSpecStopTriggerType']))
+    data += struct.pack('!H', int(par['OperationCountValue']))
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+
+    return data
+
+Message_struct['AccessSpecStopTrigger'] = {
+    'type': 208,
+    'fields': [
+        'Type',
+        'AccessSpecStopTriggerType',
+        'OperationCountValue'
+    ],
+    'encode': encode_AccessSpecStopTrigger
+}
+
+def encode_AccessCommand (par):
+    msgtype = Message_struct['AccessCommand']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = encode_C1G2TagSpec(par['TagSpecParameter'])
+
+    if 'WriteData' in par['OpSpecParameter']:
+        data += encode_C1G2Write(par['OpSpecParameter'])
+    else:
+        data += encode_C1G2Read(par['OpSpecParameter'])
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+
+    return data
+
+Message_struct['AccessCommand'] = {
+    'type': 209,
+    'fields': [
+        'Type',
+        'TagSpecParameter',
+        'OpSpecParameter'
+    ],
+    'encode': encode_AccessCommand
+}
+
+def encode_C1G2TagSpec (par):
+    msgtype = Message_struct['C1G2TagSpec']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    targets = par['C1G2TargetTag']
+    if type(targets) != ListType:
+        targets = (targets,)
+    for target in targets:
+        data = encode_C1G2TargetTag(target)
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+    return data
+
+Message_struct['C1G2TagSpec'] = {
+    'type': 338,
+    'fields': [
+        'Type',
+        'C1G2TargetTag'
+    ],
+    'encode': encode_C1G2TagSpec
+}
+
+def encode_bitstring (bstr, length_bytes):
+    def B (x):
+        return struct.pack('!B', x)
+    Bs = map(B, bstr.unpack('>' + 'b'*length_bytes))
+    return ''.join(Bs)
+
+def encode_C1G2TargetTag (par):
+    msgtype = Message_struct['C1G2TargetTag']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!B', ((int(par['MB']) << 6) | \
+                (par['M'] and (1<<5) or 0)))
+    data += struct.pack('!H', int(par['Pointer']))
+    data += struct.pack('!H', int(par['MaskBitCount']))
+    if int(par['MaskBitCount']):
+        data += encode_bitstring(par['TagMask'], 10)
+    data += struct.pack('!H', int(par['DataBitCount']))
+    if int(par['DataBitCount']):
+        data += encode_bitstring(par['TagData'], 10)
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+    return data
+
+Message_struct['C1G2TargetTag'] = {
+    'type': 339,
+    'fields': [
+        'Type',
+        'MB',
+        'M',
+        'Pointer',
+        'MaskBitCount',
+        'TagMask',
+        'DataBitCount',
+        'TagData'
+    ],
+    'encode': encode_C1G2TargetTag
+}
+
+# 16.2.1.3.2.2 C1G2Read
+def encode_C1G2Read (par):
+    msgtype = Message_struct['C1G2Read']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!H', int(par['OpSpecID']))
+    data += struct.pack('!I', int(par['AccessPassword']))
+    data += struct.pack('!B', int(par['MB']) << 6)
+    data += struct.pack('!H', int(par['WordPtr']))
+    data += struct.pack('!H', int(par['WordCount']))
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+    return data
+
+Message_struct['C1G2Read'] = {
+    'type': 341,
+    'fields': [
+        'Type',
+        'OpSpecID',
+        'MB',
+        'WordPtr',
+        'WordCount',
+        'AccessPassword'
+    ],
+    'encode': encode_C1G2Read
+}
+
+# 16.2.1.3.2.3 C1G2Write
+def encode_C1G2Write (par):
+    msgtype = Message_struct['C1G2Write']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!H', int(par['OpSpecID']))
+    data += struct.pack('!I', int(par['AccessPassword']))
+    data += struct.pack('!B', int(par['MB']) << 6)
+    data += struct.pack('!H', int(par['WordPtr']))
+    data += struct.pack('!H', int(par['WriteDataWordCount']))
+    data += par['WriteData']
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+    return data
+
+Message_struct['C1G2Write'] = {
+    'type': 342,
+    'fields': [
+        'Type',
+        'OpSpecID',
+        'MB',
+        'WordPtr',
+        'AccessPassword'
+        'WriteDataWordCount',
+        'WriteData'
+    ],
+    'encode': encode_C1G2Write
+}
+
+def encode_AccessReportSpec (par):
+    msgtype = Message_struct['AccessReportSpec']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!B', par['AccessReportTrigger'])
+
+    data = struct.pack(msg_header, msgtype,
+            len(data) + msg_header_len) + data
+
+    return data
+
+Message_struct['AccessReportSpec'] = {
+    'type': 239,
+    'fields': [
+        'Type',
+        'AccessReportTrigger'
+    ],
+    'encode': encode_AccessReportSpec
+}
+
 # 16.2.4.1.1 ROBoundarySpec Parameter
 def encode_ROBoundarySpec(par):
     msgtype = Message_struct['ROBoundarySpec']['type']
@@ -1758,7 +2110,6 @@ Message_struct['TagReportContentSelector'] = {
 def decode_TagReportData(data):
     par = {}
     logger.debug('%s' % func())
-    logger.debug('TagReportData bytes: {}'.format(data.encode('hex')))
 
     if len(data) == 0:
         return None, data
@@ -1780,11 +2131,24 @@ def decode_TagReportData(data):
         ret, body = decode('EPC-96')(body)
         if ret:
             par['EPC-96'] = ret['EPC']
+            logger.debug('EPC-96: {}'.format(ret['EPC']))
         else:
             raise LLRPError('missing or invalid EPCData parameter')
 
-    par.update(llrp_decoder.decode_tve_parameters(body))
+    # grab TV-encoded parameters
+    while body:
+        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        if ret:
+            par.update(ret)
+            body = body[nbytes:]
+        else:
+            break
 
+    ret, body = decode_OpSpecResult(body)
+    if ret:
+        par['OpSpecResult'] = ret
+
+    logger.debug('par={}'.format(par))
     return par, data[length : ]
 
 Message_struct['TagReportData'] = {
@@ -1806,9 +2170,166 @@ Message_struct['TagReportData'] = {
         'TagSeenCount',
         'AirProtocolTagData',
         'AccessSpecID',
-        'OpSpecResultParameter',
+        'OpSpecResult',
     ],
     'decode': decode_TagReportData
+}
+
+def decode_OpSpecResult (data):
+    # handle any of the C1G2*OpSpecResult types
+    par = {}
+    logger.debug('%s' % func())
+
+    if len(data) == 0:
+        return None, data
+
+    header = data[0 : par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    c1g2opspecresults = ('C1G2ReadOpSpecResult',
+            'C1G2WriteOpSpecResult',
+            'C1G2KillOpSpecResult',
+            'C1G2RecommissionOpSpecResult',
+            'C1G2LockOpSpecResult',
+            'C1G2BlockEraseOpSpecResult',
+            'C1G2BlockWriteOpSpecResult',
+            'C1G2BlockPermalockOpSpecResult',
+            'C1G2GetBlockPermalockStatusOpSpecResult')
+    ok_types = (Message_struct[x]['type'] for x in c1g2opspecresults)
+    if msgtype not in ok_types:
+        return (None, data)
+    body = data[par_header_len : length]
+
+    # all OpSpecResults begin with Result and OpSpecID
+    par['Result'], par['OpSpecID'] = struct.unpack('!BH', body[:3])
+    body = body[3:]
+
+    if msgtype == Message_struct['C1G2ReadOpSpecResult']['type']:
+        wordcnt = struct.unpack('!H', body[:2])[0]
+        par['ReadDataWordCount'] = wordcnt
+        end = 2 + (wordcnt*2)
+        par['ReadData'] = body[2:end]
+
+    elif msgtype in (Message_struct['C1G2WriteOpSpecResult']['type'],
+            Message_struct['C1G2BlockWriteOpSpecResult']['type']):
+        par['NumWordsWritten'] = struct.unpack('!H', body[:2])[0]
+
+    if msgtype == \
+      Message_struct['C1G2GetBlockPermalockStatusOpSpecResult']['type']:
+        wordcnt = struct.unpack('!H', body[:2])[0]
+        par['StatusWordCount'] = wordcnt
+        end = 2 + (wordcnt*2)
+        par['PermalockStatus'] = body[2:end]
+
+    return par, data[length:]
+
+Message_struct['OpSpecResult'] = {
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'ReadDataWordCount',
+        'ReadData',
+        'NumWordsWritten',
+        'StatusWordCount',
+        'PermalockStatus'
+    ],
+}
+
+Message_struct['C1G2ReadOpSpecResult'] = {
+    'type': 349,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'ReadDataWordCount',
+        'ReadData'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2WriteOpSpecResult'] = {
+    'type': 350,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'NumWordsWritten'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2KillOpSpecResult'] = {
+    'type': 351,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2RecommissionOpSpecResult'] = {
+    'type': 360,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2LockOpSpecResult'] = {
+    'type': 352,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2BlockEraseOpSpecResult'] = {
+    'type': 353,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2BlockWriteOpSpecResult'] = {
+    'type': 354,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'NumWordsWritten'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2BlockPermalockOpSpecResult'] = {
+    'type': 361,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID'
+    ],
+    'decode': decode_OpSpecResult
+}
+
+Message_struct['C1G2GetBlockPermalockStatusOpSpecResult'] = {
+    'type': 362,
+    'fields': [
+        'Type',
+        'Result',
+        'OpSpecID',
+        'StatusWordCount',
+        'PermalockStatus'
+    ],
+    'decode': decode_OpSpecResult
 }
 
 # 16.2.7.3.1 EPCData Parameter
@@ -1851,10 +2372,11 @@ def decode_EPC96(data):
         return None, data
 
     header = data[0 : tve_header_len]
-    (msgtype, ), length = struct.unpack(tve_header, header), 1 + (96 / 8)
+    (msgtype, ) = struct.unpack(tve_header, header)
     msgtype = msgtype & BITMASK(7)
     if msgtype != Message_struct['EPC-96']['type']:
         return (None, data)
+    length = tve_header_len + (96 / 8)
     body = data[tve_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
 
