@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Sllurp Tornado Example</title>
+        <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <table class="table">
+            <thead>
+                <tr>
+                    <td>ROSpecID</td>
+                    <td>SpecIndex</td>
+                    <td>InventoryParameterSpecID</td>
+                    <td>AntennaID</td>
+                    <td>ChannelIndex</td>
+                    <td>PeakRSSI</td>
+                    <td>FirstSeenTimestamp</td>
+                    <td>LastSeenTimestamp</td>
+                    <td>TagSeenCount</td>
+                    <td>AccessSpecID</td>
+                </tr>
+            </thead>
+            <tbody id="tagData"></tbody>
+        </table>
+        <script type="text/javascript">
+            var tagAttributes = [
+                'ROSpecID',
+                'SpecIndex',
+                'InventoryParameterSpecID',
+                'AntennaID',
+                'ChannelIndex',
+                'PeakRSSI',
+                'FirstSeenTimestampUTC',
+                'LastSeenTimestampUTC',
+                'TagSeenCount',
+                'AccessSpecID'
+            ];
+
+            function handleMessage(evt){
+                var data = JSON.parse(evt.data),
+                tags = data.tags,
+                tbody = document.getElementById('tagData'),
+                bodyData = '',
+                i,
+                tag,
+                ai;
+
+                for(i in tags){
+                    tag = tags[i];
+                    bodyData += '<tr>';
+                    for(ai in tagAttributes){
+                        bodyData += createCell(tag, tagAttributes[ai])
+                    }
+                    bodyData += '</tr>';
+                }
+                tbody.innerHTML = bodyData;
+            }
+
+            function createCell(tag, attribute){
+                var value = tag[attribute] ? tag[attribute] : '';
+                if(value && value instanceof Array){
+                    value = value.join(', ')
+                }
+                if(value && attribute == 'FirstSeenTimestampUTC' || attribute == 'LastSeenTimestampUTC'){
+                    value = new Date(value / 1000).toLocaleString();
+                }
+                return '<td>' + value + '</td>';
+            }
+
+            if(window.WebSocket){
+                var loc = document.location.toLocaleString(),
+                start = loc.indexOf('://') + 3,
+                end = loc.lastIndexOf('/'),
+                host = loc.slice(start, end),
+                wsPath = 'ws://' + host + '/ws';
+                window.ws = new WebSocket(wsPath);
+                ws.onopen = function() {
+                    console.log('websocket connected');
+                };
+                ws.onmessage = handleMessage;
+            } else {
+                alert('This demo only works with browsers that support WebSocket.');
+            }
+        </script>
+    </body>
+</html>
