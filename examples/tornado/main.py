@@ -5,7 +5,6 @@ sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..', '..')))
 from argparse import ArgumentParser
 from logging import getLogger, INFO, Formatter, StreamHandler, WARN
 from sllurp.llrp import LLRP_PORT, LLRPClientFactory
-from sllurp.llrp_proto import ModeIndex_Name2Type
 import smokesignal
 from tornado.escape import json_decode
 from tornado.platform.twisted import TwistedIOLoop
@@ -106,9 +105,8 @@ def parse_args():
                         help='comma-separated list of antennas to enable')
     parser.add_argument('-X', '--tx-power', default=0, type=int,
                         dest='tx_power', help='Transmit power (default 0=max power)')
-    parser.add_argument('-M', '--modulation', default='M4',
-                        choices=sorted(ModeIndex_Name2Type.keys()),
-                        help='modulation (default M4)')
+    parser.add_argument('-M', '--modulation', default='M8',
+                        help='modulation (default M8)')
     parser.add_argument('-T', '--tari', default=0, type=int,
                         help='Tari value (default 0=auto)')
     return parser.parse_args()
