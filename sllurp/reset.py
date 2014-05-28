@@ -5,7 +5,6 @@ import logging
 from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
-from sllurp.llrp_proto import LLRPROSpec
 
 logger = logging.getLogger('sllurp')
 logger.propagate = False
