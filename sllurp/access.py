@@ -6,7 +6,6 @@ import time
 from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
-from sllurp.llrp_proto import LLRPROSpec, ModeIndex_Name2Type
 
 tagReport = 0
 logger = logging.getLogger('sllurp')
