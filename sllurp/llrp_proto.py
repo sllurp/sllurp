@@ -218,21 +218,8 @@ ROReportTrigger_Name2Type = {
     'Upon_N_Tags_Or_End_Of_ROSpec': 2,
 }
 
-# 15.2.1.1.2.1 UHFC1G2RFModeTableEntry
-ModeIndex_Name2Type = {
-    ## TODO flesh out this table by looking at capabilities from different
-    ## readers
-    'FM0': 0,
-    'WISP5': 1,
-    'M4': 2,
-    'M8': 3,
-    #'AutosetSingle': 1001
-}
-
-ModeIndex_Type2Name = reverse_dict(ModeIndex_Name2Type)
-for m in ModeIndex_Name2Type:
-    i = ModeIndex_Name2Type[m]
-    ModeIndex_Type2Name[i] = m
+# 16.2.1.1.2.1 UHFRFModeTable, to be filled in by capabilities parser
+ModeIndex_Name2Type = { }
 
 #
 # LLRP Messages

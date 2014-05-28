@@ -7,7 +7,7 @@ import pprint
 import struct
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
          Message_Type2Name, Capability_Name2Type, \
-         llrp_data2xml, LLRPMessageDict
+         llrp_data2xml, LLRPMessageDict, ModeIndex_Name2Type
 import copy
 from util import *
 from twisted.internet import reactor, task, defer
@@ -222,6 +222,7 @@ class LLRPClient (LineReceiver):
             m = p(arr)
             for idx, val in enumerate(arr):
                 if val == m: return idx
+
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
         if max(self.antennas) > gdc['MaxNumberOfAntennaSupported']:
@@ -251,6 +252,18 @@ class LLRPClient (LineReceiver):
                         find_p(max, self.tx_power_table)))
         logger.debug('set tx_power: {} ({} dBm)'.format(self.tx_power,
                     self.tx_power_table[self.tx_power] / 100.0))
+
+        # fill UHFC1G2RFModeTable
+        regcap = capdict['RegulatoryCapabilities']
+        for k, v in regcap['UHFBandCapabilities']['UHFRFModeTable'].items():
+            m = v['M']
+            mid = v['ModeIdentifier']
+            if m == 0:
+                ModeIndex_Name2Type['FM0'] = mid
+                ModeIndex_Name2Type['WISP5'] = mid
+            else:
+                m = 2 ** m
+                ModeIndex_Name2Type['M{}'.format(m)] = mid
 
     def processDeferreds (self, msgName, isSuccess):
         deferreds = self._deferreds[msgName]
