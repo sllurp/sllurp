@@ -526,9 +526,28 @@ class LLRPClient (LineReceiver):
         if onCompletion:
             self._deferreds['ENABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
-    def startAccess (self, wordCount=0, *args):
+    def startAccess (self, readWords=None, writeWords=None, *args):
         m = Message_struct['AccessSpec']
         accessSpecID = 1
+        if readWords:
+            opSpecParam = {
+                'OpSpecID': 0,
+                'MB': 0,
+                'WordPtr': 0,
+                'WordCount': readWords,
+                'AccessPassword': 0,
+            }
+        elif writeWords:
+            opSpecParam = {
+                'OpSpecID': 0,
+                'MB': 0,
+                'WordPtr': 0,
+                'AccessPassword': 0,
+                'WriteDataWordCount': writeWords,
+                'WriteData': '\xff\xff', # XXX allow user-defined pattern
+            }
+        else:
+            raise LLRPError('startAccess requires readWords or writeWords.')
         accessSpec = {
             'Type': m['type'],
             'AccessSpecID': accessSpecID,
@@ -553,15 +572,7 @@ class LLRPClient (LineReceiver):
                         'TagData': 0
                     }
                 },
-                'OpSpecParameter': {
-                    'OpSpecID': 0,
-                    'MB': 0,
-                    'WordPtr': 0,
-                    #'WordCount': wordCount,
-                    'AccessPassword': 0,
-                    'WriteDataWordCount': 1,
-                    'WriteData': '\xff\xff',
-                }
+                'OpSpecParameter': opSpecParam,
             },
             'AccessReportSpec': {
                 'AccessReportTrigger': 1 # report at end of access

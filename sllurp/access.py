@@ -19,7 +19,8 @@ def finish (_):
     reactor.stop()
 
 def access (proto):
-    return proto.startAccess(wordCount=args.word_count)
+    return proto.startAccess(readWords=args.read_words,
+            writeWords=args.write_words)
 
 def politeShutdown (factory):
     return factory.politeShutdown()
@@ -56,9 +57,15 @@ def parse_args ():
             help='modulation (default M4)')
     parser.add_argument('-T', '--tari', default=0, type=int,
             help='Tari value (default 0=auto)')
-    parser.add_argument('-w', '--word-count', default=8, type=int,
-            dest='word_count', help='WordCount parameter')
+
+    # read or write
+    op = parser.add_mutually_exclusive_group(required=True)
+    op.add_argument('-r', '--read-words', type=int,
+            help='Number of words to read from MB 0 WordPtr 0')
+    op.add_argument('-w', '--write-words', type=int,
+            help='Number of words to write to MB 0 WordPtr 0')
     parser.add_argument('-l', '--logfile')
+
     args = parser.parse_args()
 
 def init_logging ():
