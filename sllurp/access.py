@@ -53,7 +53,6 @@ def parse_args ():
     parser.add_argument('-X', '--tx-power', default=0, type=int,
             dest='tx_power', help='Transmit power (default 0=max power)')
     parser.add_argument('-M', '--modulation', default='M4',
-            choices=sorted(ModeIndex_Name2Type.keys()),
             help='modulation (default M4)')
     parser.add_argument('-T', '--tari', default=0, type=int,
             help='Tari value (default 0=auto)')
