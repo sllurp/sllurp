@@ -150,7 +150,7 @@ class LLRPClient (LineReceiver):
             raise LLRPError('unknown state {}'.format(state))
 
     def __init__ (self, factory, duration=None, report_every_n_tags=None,
-            antennas=(1,), tx_power=0, modulation='M4', tari=0,
+            antennas=(1,), tx_power=0, modulation='M8', tari=0,
             start_inventory=True, disconnect_when_done=True,
             tag_content_selector={}):
         self.factory = factory

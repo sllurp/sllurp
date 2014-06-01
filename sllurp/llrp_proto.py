@@ -2715,7 +2715,7 @@ def llrp_data2xml(msg):
 
 class LLRPROSpec(dict):
     def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
-            tx_power=91, modulation='M4', tari=0,
+            tx_power=91, modulation='M8', tari=0,
             duration_sec=None, report_every_n_tags=None, tag_content_selector={}):
         # Sanity checks
         if msgid <= 0:
