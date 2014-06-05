@@ -24,6 +24,7 @@
 #
 
 import logging, struct, exceptions
+from collections import defaultdict
 import traceback
 from threading import *
 from types import *
@@ -219,7 +220,7 @@ ROReportTrigger_Name2Type = {
 }
 
 # 16.2.1.1.2.1 UHFRFModeTable, to be filled in by capabilities parser
-ModeIndex_Name2Type = { }
+ModeIndex_Name2Type = defaultdict(int)
 
 #
 # LLRP Messages
