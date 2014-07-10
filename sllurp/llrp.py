@@ -243,7 +243,8 @@ class LLRPClient (LineReceiver):
         self.tx_power_table = [0,] * (len(bandtbl) + 1)
         for k, v in bandtbl.items():
             idx = v['Index']
-            self.tx_power_table[idx] = v['TransmitPowerValue']
+            self.tx_power_table[idx] = int(v['TransmitPowerValue']) / 100.0
+        logger.debug('tx_power_table: {}'.format(self.tx_power_table))
         if self.tx_power == 0:
             # tx_power = 0 means max power
             self.tx_power = find_p(max, self.tx_power_table)
@@ -253,7 +254,7 @@ class LLRPClient (LineReceiver):
                         find_p(max, self.tx_power_table),
                         find_p(min, self.tx_power_table)))
         logger.debug('set tx_power: {} ({} dBm)'.format(self.tx_power,
-                    self.tx_power_table[self.tx_power] / 100.0))
+                    self.tx_power_table[self.tx_power]))
 
         # fill UHFC1G2RFModeTable
         regcap = capdict['RegulatoryCapabilities']
