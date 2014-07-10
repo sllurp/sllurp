@@ -7,20 +7,20 @@ from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
 
-tagReport = 0
+numTags = 0
 logger = logging.getLogger('sllurp')
 
 args = None
 
 def finish (_):
-    logger.info('total # of tags seen: {}'.format(tagReport))
+    logger.info('total # of tags seen: {}'.format(numTags))
 
 def politeShutdown (factory):
     return factory.politeShutdown()
 
 def tagReportCallback (llrpMsg):
     """Function to run each time the reader reports seeing tags."""
-    global tagReport
+    global numTags
     tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
         logger.info('saw tag(s): {}'.format(pprint.pformat(tags)))
@@ -28,7 +28,7 @@ def tagReportCallback (llrpMsg):
         logger.info('no tags seen')
         return
     for tag in tags:
-        tagReport += tag['TagSeenCount'][0]
+        numTags += tag['TagSeenCount'][0]
 
 def parse_args ():
     global args
