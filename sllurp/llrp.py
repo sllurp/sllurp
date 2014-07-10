@@ -809,6 +809,14 @@ class LLRPClientFactory (ClientFactory):
                 except defer.AlreadyCalledError:
                     pass
 
+    def resumeInventory (self):
+        for proto in self.protocols:
+            proto.resume()
+
+    def pauseInventory (self, seconds=0):
+        for proto in self.protocols:
+            proto.pause(seconds)
+
     def politeShutdown (self):
         """Stop inventory on all connected readers."""
         protoDeferreds = []
