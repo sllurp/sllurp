@@ -733,6 +733,7 @@ class LLRPClient (LineReceiver):
         rospec = self.getROSpec()['ROSpec']
 
         d = defer.Deferred()
+        d.addCallback(self._setState_wrapper, LLRPClient.STATE_INVENTORYING)
         d.addErrback(self.panic, 'resume() failed')
         self.send_ENABLE_ROSPEC(None, rospec, onCompletion=d)
 
