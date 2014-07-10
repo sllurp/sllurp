@@ -719,7 +719,11 @@ class LLRPClient (LineReceiver):
 
         return d
 
-    def resume (self, rospec):
+    def resume (self):
+        if self.state == LLRPClient.STATE_CONNECTED:
+            self.startInventory()
+            return
+
         if self.state != LLRPClient.STATE_PAUSED:
             logger.debug('cannot resume() if not paused; ignoring')
             return None
