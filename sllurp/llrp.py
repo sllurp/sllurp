@@ -133,6 +133,8 @@ class LLRPClient (LineReceiver):
     STATE_SENT_DELETE_ROSPEC = 7
     STATE_SENT_DELETE_ACCESSSPEC = 8
     STATE_SENT_GET_CAPABILITIES = 9
+    STATE_PAUSING = 10
+    STATE_PAUSED = 11
 
     @classmethod
     def getStates (_):
@@ -375,6 +377,23 @@ class LLRPClient (LineReceiver):
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error {} adding ROSpec: {}'.format(status, err))
+                return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
+        # in state PAUSING, we have sent a DISABLE_ROSPEC, so expect only
+        # DISABLE_ROSPEC_RESPONSE.  advance to state PAUSED.
+        elif self.state == LLRPClient.STATE_PAUSING:
+            if msgName != 'DISABLE_ROSPEC_RESPONSE':
+                logger.error('unexpected response {} ' \
+                        ' when disabling ROSpec'.format(msgName))
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.error('DISABLE_ROSPEC failed with status {}: {}' \
+                        .format(status, err))
+                logger.fatal('Error {} disabling ROSpec: {}'.format(status, err))
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
@@ -671,15 +690,47 @@ class LLRPClient (LineReceiver):
         self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
         return d
 
-    def pause (self, duration_seconds):
+    def pause (self, duration_seconds=0):
         """Pause an inventory operation for a set amount of time."""
-        # XXX rewrite to use Deferreds properly
         if self.state != LLRPClient.STATE_INVENTORYING:
             logger.debug('cannot pause() if not inventorying; ignoring')
-            return
+            return None
+
         logger.info('pausing for {} seconds'.format(duration_seconds))
-        self.stopPolitely()
-        return task.deferLater(reactor, duration_seconds, self.startInventory)
+
+        rospec = self.getROSpec()['ROSpec']
+
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'DISABLE_ROSPEC': {
+                'Ver':  1,
+                'Type': 25,
+                'ID':   0,
+                'ROSpecID': rospec['ROSpecID']
+            }}))
+        self.setState(LLRPClient.STATE_PAUSING)
+
+        d = defer.Deferred()
+        d.addCallback(self._setState_wrapper, LLRPClient.STATE_PAUSED)
+        self._deferreds['DISABLE_ROSPEC_RESPONSE'].append(d)
+
+        if duration_seconds > 0:
+            startAgain = task.deferLater(reactor, duration_seconds, lambda: 0)
+            startAgain.addCallback(self.resume)
+
+        return d
+
+    def resume (self, rospec):
+        if self.state != LLRPClient.STATE_PAUSED:
+            logger.debug('cannot resume() if not paused; ignoring')
+            return None
+
+        logger.info('resuming')
+
+        rospec = self.getROSpec()['ROSpec']
+
+        d = defer.Deferred()
+        d.addErrback(self.panic, 'resume() failed')
+        self.send_ENABLE_ROSPEC(None, rospec, onCompletion=d)
 
     def sendLLRPMessage (self, llrp_msg):
         assert isinstance(llrp_msg, LLRPMessage)
