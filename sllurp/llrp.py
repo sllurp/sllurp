@@ -185,7 +185,7 @@ class LLRPClient (LineReceiver):
         # Deferreds to fire during state machine machinations
         self._deferreds = defaultdict(list)
 
-        self._rospecs = []
+        self.rospec = None
 
     def addStateCallback (self, state, cb):
         self._state_callbacks[state].append(cb)
@@ -607,7 +607,6 @@ class LLRPClient (LineReceiver):
             return None
 
         rospec = self.getROSpec()['ROSpec']
-        self._rospecs.append(rospec)
 
         started = defer.Deferred()
         started.addCallback(self._setState_wrapper,
@@ -625,14 +624,17 @@ class LLRPClient (LineReceiver):
         #return started
 
     def getROSpec (self):
+        if self.rospec:
+            return self.rospec
+
         # create an ROSpec to define the reader's inventorying behavior
-        rospec = LLRPROSpec(1, duration_sec=self.duration,
+        self.rospec = LLRPROSpec(1, duration_sec=self.duration,
                             report_every_n_tags=self.report_every_n_tags,
                             tx_power=self.tx_power, modulation=self.modulation,
                             tari=self.tari, antennas=self.antennas,
                             tag_content_selector=self.tag_content_selector)
-        logger.debug('ROSpec: {}'.format(rospec))
-        return rospec
+        logger.debug('ROSpec: {}'.format(self.rospec))
+        return self.rospec
 
     def stopPolitely (self, *args):
         """Delete all active ROSpecs.  Return a Deferred that will be called
