@@ -390,7 +390,7 @@ class LLRPClient (LineReceiver):
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
-                logger.error('DELETE_ROSPEC failed with status {}: {}' \
+                logger.error('ENABLE_ROSPEC failed with status {}: {}' \
                         .format(status, err))
                 logger.fatal('Error {} enabling ROSpec: {}'.format(status, err))
                 return
