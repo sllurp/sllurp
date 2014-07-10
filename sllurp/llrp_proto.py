@@ -48,11 +48,7 @@ __all__ = [
     "func",
 ]
 
-#
-# Setup logging
-#
-
-logger = logging.getLogger('sllurp')
+logger = logging.getLogger(__name__)
 
 #
 # Local functions

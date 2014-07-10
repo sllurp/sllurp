@@ -2,7 +2,7 @@ import struct
 import logging
 from llrp_errors import *
 
-logger = logging.getLogger('sllurp')
+logger = logging.getLogger(__name__)
 
 tve_header = '!B'
 tve_header_len = struct.calcsize(tve_header)

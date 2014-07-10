@@ -9,7 +9,6 @@ import sllurp.llrp as llrp
 
 tagReport = 0
 logger = logging.getLogger('sllurp')
-logger.propagate = False
 
 args = None
 
@@ -59,17 +58,20 @@ def parse_args ():
 
 def init_logging ():
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logger.setLevel(logLevel)
     logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
     formatter = logging.Formatter(logFormat)
+    stderr = logging.StreamHandler()
+    stderr.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.setLevel(logLevel)
+    root.handlers = [stderr,]
+
     if args.logfile:
         fHandler = logging.FileHandler(args.logfile)
         fHandler.setFormatter(formatter)
-        logger.addHandler(fHandler)
-    else:
-        sHandler = logging.StreamHandler()
-        sHandler.setFormatter(formatter)
-        logger.addHandler(sHandler)
+        root.addHandler(fHandler)
+
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
 def main ():

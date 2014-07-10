@@ -7,7 +7,6 @@ from twisted.internet import reactor, defer
 import sllurp.llrp as llrp
 
 logger = logging.getLogger('sllurp')
-logger.propagate = False
 
 args = None
 
@@ -27,22 +26,19 @@ def parse_args ():
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
     parser.add_argument('-d', '--debug', action='store_true',
             help='show debugging output')
-    parser.add_argument('-l', '--logfile')
     args = parser.parse_args()
 
 def init_logging ():
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logger.setLevel(logLevel)
     logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
     formatter = logging.Formatter(logFormat)
-    if args.logfile:
-        fHandler = logging.FileHandler(args.logfile)
-        fHandler.setFormatter(formatter)
-        logger.addHandler(fHandler)
-    else:
-        sHandler = logging.StreamHandler()
-        sHandler.setFormatter(formatter)
-        logger.addHandler(sHandler)
+    stderr = logging.StreamHandler()
+    stderr.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.setLevel(logLevel)
+    root.handlers = [stderr,]
+
     logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
 
 def main ():

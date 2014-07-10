@@ -17,7 +17,7 @@ from twisted.internet.error import ReactorAlreadyRunning, ReactorNotRunning
 
 LLRP_PORT = 5084
 
-logger = logging.getLogger('sllurp')
+logger = logging.getLogger(__name__)
 
 class LLRPMessage:
     hdr_fmt = '!HI'
