@@ -611,17 +611,16 @@ class LLRPClient (LineReceiver):
         started = defer.Deferred()
         started.addCallback(self._setState_wrapper,
                 LLRPClient.STATE_INVENTORYING)
+        started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
+
         if self.duration:
             task.deferLater(reactor, self.duration, self.stopPolitely)
-        started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
         d = defer.Deferred()
         d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
         d.addErrback(self.panic, 'ADD_ROSPEC failed')
 
         self.send_ADD_ROSPEC(rospec, onCompletion=d)
-
-        #return started
 
     def getROSpec (self):
         if self.rospec:
