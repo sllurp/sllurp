@@ -15,7 +15,6 @@ args = None
 
 def finish (_):
     logger.info('total # of tags seen: {}'.format(tagReport))
-    reactor.stop()
 
 def politeShutdown (factory):
     return factory.politeShutdown()
