@@ -247,10 +247,11 @@ class LLRPClient (LineReceiver):
         if self.tx_power == 0:
             # tx_power = 0 means max power
             self.tx_power = find_p(max, self.tx_power_table)
-        elif self.tx_power > len(self.tx_power_table):
+        elif self.tx_power not in range(len(self.tx_power_table)):
             raise LLRPError('Invalid tx_power: requested={},' \
-                    ' available={}'.format(self.tx_power,
-                        find_p(max, self.tx_power_table)))
+                    ' max_available={}, min_available={}'.format(self.tx_power,
+                        find_p(max, self.tx_power_table),
+                        find_p(min, self.tx_power_table)))
         logger.debug('set tx_power: {} ({} dBm)'.format(self.tx_power,
                     self.tx_power_table[self.tx_power] / 100.0))
 
