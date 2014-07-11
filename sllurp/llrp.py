@@ -171,6 +171,8 @@ class LLRPClient (LineReceiver):
         if self.start_inventory:
             logger.info('will start inventory on connect')
 
+        logger.info('using antennas: {}'.format(self.antennas))
+
         # for partial data transfers
         self.expectingRemainingBytes = 0
         self.partialData = ''
