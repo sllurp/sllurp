@@ -694,10 +694,6 @@ class LLRPClient (LineReceiver):
 
     def pause (self, duration_seconds=0):
         """Pause an inventory operation for a set amount of time."""
-        if self.state != LLRPClient.STATE_INVENTORYING:
-            logger.debug('cannot pause() if not inventorying; ignoring')
-            return None
-
         logger.info('pausing for {} seconds'.format(duration_seconds))
 
         rospec = self.getROSpec()['ROSpec']
