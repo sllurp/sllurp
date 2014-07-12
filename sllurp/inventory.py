@@ -37,8 +37,8 @@ def parse_args ():
             nargs='+')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT, type=int,
             help='port to connect to (default {})'.format(llrp.LLRP_PORT))
-    parser.add_argument('-t', '--time', default=10, type=float,
-            help='number of seconds for which to inventory (default 10)')
+    parser.add_argument('-t', '--time', type=float,
+            help='number of seconds for which to inventory (default forever)')
     parser.add_argument('-d', '--debug', action='store_true',
             help='show debugging output')
     parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
