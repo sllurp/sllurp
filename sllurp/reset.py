@@ -10,11 +10,11 @@ logger = logging.getLogger('sllurp')
 
 args = None
 
-def stopProtocol (proto):
-    return proto.stopPolitely()
+def shutdownReader (proto):
+    logger.info('shutting down reader')
+    return proto.stopPolitely(disconnect=True)
 
-def shutdown (_):
-    logger.info('shutting down')
+def finish (_):
     reactor.stop()
 
 def parse_args ():
@@ -45,14 +45,12 @@ def main ():
     parse_args()
     init_logging()
 
-    # a Deferred to call when all connections have closed
-    d = defer.Deferred()
-    d.addCallback(shutdown)
+    onFinish = defer.Deferred()
+    onFinish.addCallback(finish)
 
-    factory = llrp.LLRPClientFactory(start_inventory=False, onFinish=d)
-
-    # when each protocol connects, stop it politely
-    factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED, stopProtocol)
+    factory = llrp.LLRPClientFactory(reset_on_connect=False,
+            start_inventory=False, onFinish=onFinish)
+    factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED, shutdownReader)
 
     for host in args.host:
         reactor.connectTCP(host, args.port, factory, timeout=3)

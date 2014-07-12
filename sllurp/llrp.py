@@ -153,7 +153,8 @@ class LLRPClient (LineReceiver):
 
     def __init__ (self, factory, duration=None, report_every_n_tags=None,
             antennas=(1,), tx_power=0, modulation='M8', tari=0,
-            start_inventory=True, disconnect_when_done=True,
+            start_inventory=True, reset_on_connect=True,
+            disconnect_when_done=True,
             tag_content_selector={}):
         self.factory = factory
         self.setRawMode()
@@ -167,6 +168,8 @@ class LLRPClient (LineReceiver):
         self.peername = None
         self.tx_power_table = []
         self.start_inventory = start_inventory
+        self.reset_on_connect = reset_on_connect
+        self.disconnect_when_done = disconnect_when_done
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
@@ -189,6 +192,7 @@ class LLRPClient (LineReceiver):
         # Deferreds to fire during state machine machinations
         self._deferreds = defaultdict(list)
 
+        self.disconnecting = False
         self.rospec = None
 
     def addStateCallback (self, state, cb):
@@ -362,8 +366,11 @@ class LLRPClient (LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-            # XXX use chainDeferred above instead?
-            if self.start_inventory:
+            if self.reset_on_connect:
+                d = self.stopPolitely(disconnect=False)
+                if self.start_inventory:
+                    d.addCallback(self.startInventory)
+            elif self.start_inventory:
                 self.startInventory()
 
         # in state SENT_ADD_ROSPEC, expect only ADD_ROSPEC_RESPONSE; respond to
@@ -441,17 +448,21 @@ class LLRPClient (LineReceiver):
 
             if lmsg.isSuccess():
                 logger.info('reader finished inventory')
-                self.setState(LLRPClient.STATE_DISCONNECTED)
+                if self.disconnecting:
+                    self.setState(LLRPClient.STATE_DISCONNECTED)
+                else:
+                    self.setState(LLRPClient.STATE_CONNECTED)
 
             else:
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.error('DELETE_ROSPEC failed with status {}: {}' \
                         .format(status, err))
-                logger.info('disconnecting')
 
             self.processDeferreds(msgName, lmsg.isSuccess())
-            self.transport.loseConnection()
+            if self.disconnecting:
+                logger.info('disconnecting')
+                self.transport.loseConnection()
 
         else:
             logger.warn('message {} received in unknown state!'.format(msgName))
@@ -635,7 +646,7 @@ class LLRPClient (LineReceiver):
         started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
         if self.duration:
-            task.deferLater(reactor, self.duration, self.stopPolitely)
+            task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
         d = defer.Deferred()
         d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
@@ -656,10 +667,13 @@ class LLRPClient (LineReceiver):
         logger.debug('ROSpec: {}'.format(self.rospec))
         return self.rospec
 
-    def stopPolitely (self, *args):
+    def stopPolitely (self, disconnect=False):
         """Delete all active ROSpecs.  Return a Deferred that will be called
            when the DELETE_ROSPEC_RESPONSE comes back."""
         logger.info('stopping politely')
+        if disconnect:
+            logger.info('will disconnect when stopped')
+            self.disconnecting = True
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'DELETE_ACCESSSPEC': {
                 'Ver': 1,
@@ -743,10 +757,10 @@ class LLRPClient (LineReceiver):
 class LLRPClientFactory (ClientFactory):
     def __init__ (self, onFinish=None, reconnect=False,
             **kwargs):
-        self.client_args = kwargs
+        self.onFinish = onFinish
         self.reconnect = reconnect
         self.reconnect_delay = 1.0 # seconds
-        self.onFinish = onFinish
+        self.client_args = kwargs
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
@@ -802,10 +816,7 @@ class LLRPClientFactory (ClientFactory):
             connector.connect()
         elif not self.protocols:
             if self.onFinish:
-                try:
-                    self.onFinish.callback(None)
-                except defer.AlreadyCalledError:
-                    pass
+                self.onFinish.callback(None)
 
     def resumeInventory (self):
         for proto in self.protocols:
@@ -819,7 +830,5 @@ class LLRPClientFactory (ClientFactory):
         """Stop inventory on all connected readers."""
         protoDeferreds = []
         for proto in self.protocols:
-            protoDeferreds.append(proto.stopPolitely())
-        if self.onFinish:
-            protoDeferreds.append(self.onFinish)
+            protoDeferreds.append(proto.stopPolitely(disconnect=True))
         return defer.DeferredList(protoDeferreds)

@@ -14,6 +14,8 @@ args = None
 
 def finish (_):
     logger.info('total # of tags seen: {}'.format(numTags))
+    if reactor.running:
+        reactor.stop()
 
 def politeShutdown (factory):
     return factory.politeShutdown()
@@ -89,11 +91,11 @@ def main ():
             duration=args.time,
             report_every_n_tags=args.every_n,
             antennas=enabled_antennas,
-            disconnect_when_done=True,
             tx_power=args.tx_power,
             modulation=args.modulation,
             tari=args.tari,
             start_inventory=True,
+            disconnect_when_done=(args.time > 0),
             reconnect=args.reconnect,
             tag_content_selector={
                 'EnableROSpecID': False,
