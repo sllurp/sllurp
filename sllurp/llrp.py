@@ -169,6 +169,8 @@ class LLRPClient (LineReceiver):
         self.tx_power_table = []
         self.start_inventory = start_inventory
         self.reset_on_connect = reset_on_connect
+        if self.reset_on_connect:
+            logger.info('will reset reader state on connect')
         self.disconnect_when_done = disconnect_when_done
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
@@ -639,6 +641,8 @@ class LLRPClient (LineReceiver):
             return None
 
         rospec = self.getROSpec()['ROSpec']
+
+        logger.info('starting inventory')
 
         started = defer.Deferred()
         started.addCallback(self._setState_wrapper,
