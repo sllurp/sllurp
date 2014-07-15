@@ -46,8 +46,8 @@ import logging
 logging.getLogger().setLevel(logging.INFO)
 
 def cb (tagReport):
-	tags = tagReport.msgdict['RO_ACCESS_REPORT']['TagReportData']
-	print 'tags:', tags
+    tags = tagReport.msgdict['RO_ACCESS_REPORT']['TagReportData']
+    print 'tags:', tags
 
 factory = llrp.LLRPClientFactory()
 factory.addTagReportCallback(cb)
