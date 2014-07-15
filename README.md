@@ -43,16 +43,15 @@ connection, create an `LLRPClientFactory` and hand it to Twisted:
 from sllurp import llrp
 from twisted.internet import reactor
 import logging
+logging.getLogger().setLevel(logging.INFO)
 
-logger = logging.getLogger('sllurp')
-logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
-logger.propagate = False
+def cb (tagReport):
+	tags = tagReport.msgdict['RO_ACCESS_REPORT']['TagReportData']
+	print 'tags:', tags
 
-host = 's2'
-wrapper = llrp.ProtocolWrapper()
-factory = llrp.LLRPClientFactory(wrapper)
-reactor.connectTCP(host, llrp.LLRP_PORT, factory)
+factory = llrp.LLRPClientFactory()
+factory.addTagReportCallback(cb)
+reactor.connectTCP('myreader', llrp.LLRP_PORT, factory)
 reactor.run()
 ```
 
