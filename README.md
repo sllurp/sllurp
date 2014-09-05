@@ -121,3 +121,7 @@ Want to contribute?  Here are some areas that need improvement:
    `llrp_proto.py`.
  * Support the AccessSpec primitive (basis for tag read and write).
  * Write tests for common encoding and decoding tasks.
+ * Make `get_reader_config` use the `fabric` library to connect to readers via
+   SSH.
+ * Generalize LLRP support beyond Impinj readers.  Remove Impinj-specific
+   assumptions.
