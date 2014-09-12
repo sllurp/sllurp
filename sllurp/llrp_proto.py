@@ -2716,12 +2716,14 @@ class LLRPROSpec(dict):
             duration_sec=None, report_every_n_tags=None, tag_content_selector={}):
         # Sanity checks
         if msgid <= 0:
-            raise LLRPError('invalid argument 1 (not positive)')
+            raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(\
+                        msgid))
         if priority < 0 or priority > 7:
-            raise LLRPError('invalid argument 2 (not in [0-7])')
+            raise LLRPError('invalid ROSpec priority {} (need [0-7])'.format(\
+                        priority))
         if not state in ROSpecState_Name2Type:
-            raise LLRPError('invalid argument 3 (not [%s])' %
-                    ROSpecState_Name2Type.keys())
+            raise LLRPError('invalid ROSpec state {} (need [{}])'.format(\
+                    state, ','.join(ROSpecState_Name2Type.keys())))
 
         tagReportContentSelector = {
             'EnableROSpecID': False,
