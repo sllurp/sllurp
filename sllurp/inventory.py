@@ -6,6 +6,8 @@ import time
 from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
+from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
+     Modulation_DefaultTari
 
 numTags = 0
 logger = logging.getLogger('sllurp')
@@ -48,9 +50,11 @@ def parse_args ():
     parser.add_argument('-a', '--antennas', default='1',
             help='comma-separated list of antennas to enable')
     parser.add_argument('-X', '--tx-power', default=0, type=int,
-            dest='tx_power', help='Transmit power (default 0=max power)')
-    parser.add_argument('-M', '--modulation', default='M8',
-            help='modulation (default M8)')
+            dest='tx_power', help='transmit power (default 0=max power)')
+    mods = sorted(Modulation_Name2Type.keys())
+    parser.add_argument('-M', '--modulation', default=DEFAULT_MODULATION,
+            choices=mods, help='modulation (default={})'.format(\
+                DEFAULT_MODULATION))
     parser.add_argument('-T', '--tari', default=0, type=int,
             help='Tari value (default 0=auto)')
     parser.add_argument('-l', '--logfile')
@@ -79,6 +83,17 @@ def init_logging ():
 def main ():
     parse_args()
     init_logging()
+
+    # special case default Tari values
+    if args.modulation in Modulation_DefaultTari:
+        t_suggested = Modulation_DefaultTari[args.modulation]
+        if args.tari:
+            logger.warn('recommended Tari for {} is {}'.format(args.modulation,
+                        t_suggested))
+        else:
+            args.tari = t_suggested
+            logger.info('selected recommended Tari of {} for {}'.format(args.tari,
+                        args.modulation))
 
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
 

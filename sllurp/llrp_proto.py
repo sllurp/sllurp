@@ -218,6 +218,21 @@ ROReportTrigger_Name2Type = {
 # 16.2.1.1.2.1 UHFRFModeTable, to be filled in by capabilities parser
 ModeIndex_Name2Type = defaultdict(int)
 
+# 16.2.1.1.2.1
+Modulation_Name2Type = {
+    'FM0': 0,
+    'M2': 1,
+    'M4': 2,
+    'M8': 3,
+    'WISP5pre': 0,
+    'WISP5': 0,
+}
+Modulation_DefaultTari = {
+    'WISP5pre': 12500,
+    'WISP5': 7140,
+}
+DEFAULT_MODULATION = 'M8'
+
 #
 # LLRP Messages
 #
@@ -2711,9 +2726,9 @@ def llrp_data2xml(msg):
     return ans[ : -1]
 
 class LLRPROSpec(dict):
-    def __init__(self, msgid, priority=0, state = 'Disabled', antennas=(1,),
-            tx_power=91, modulation='M8', tari=0,
-            duration_sec=None, report_every_n_tags=None, tag_content_selector={}):
+    def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
+            antennas=(1,), tx_power=91, duration_sec=None,
+            report_every_n_tags=None, tag_content_selector={}):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(\
@@ -2724,6 +2739,10 @@ class LLRPROSpec(dict):
         if not state in ROSpecState_Name2Type:
             raise LLRPError('invalid ROSpec state {} (need [{}])'.format(\
                     state, ','.join(ROSpecState_Name2Type.keys())))
+
+        rmode = llrpcli.reader_mode
+        mode_index = rmode['ModeIdentifier']
+        tari = rmode['MaxTari']
 
         tagReportContentSelector = {
             'EnableROSpecID': False,
@@ -2785,7 +2804,7 @@ class LLRPROSpec(dict):
                     'C1G2InventoryCommand': {
                         'TagInventoryStateAware': False,
                         'C1G2RFControl': {
-                            'ModeIndex': ModeIndex_Name2Type[modulation],
+                            'ModeIndex': mode_index,
                             'Tari': tari,
                         },
                         'C1G2SingulationControl': {

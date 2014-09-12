@@ -7,7 +7,8 @@ import pprint
 import struct
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
          Message_Type2Name, Capability_Name2Type, AirProtocol, \
-         llrp_data2xml, LLRPMessageDict, ModeIndex_Name2Type
+         llrp_data2xml, LLRPMessageDict, ModeIndex_Name2Type, \
+         Modulation_Name2Type, DEFAULT_MODULATION
 import copy
 from util import *
 from twisted.internet import reactor, task, defer
@@ -152,7 +153,7 @@ class LLRPClient (LineReceiver):
             raise LLRPError('unknown state {}'.format(state))
 
     def __init__ (self, factory, duration=None, report_every_n_tags=None,
-            antennas=(1,), tx_power=0, modulation='M8', tari=0,
+            antennas=(1,), tx_power=0, modulation=DEFAULT_MODULATION, tari=0,
             start_inventory=True, reset_on_connect=True,
             disconnect_when_done=True,
             tag_content_selector={}):
@@ -160,6 +161,8 @@ class LLRPClient (LineReceiver):
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
         self.report_every_n_tags = report_every_n_tags
+        self.capabilities = {}
+        self.reader_mode = None
         self.tx_power = tx_power
         self.modulation = modulation
         self.tari = tari
@@ -266,17 +269,23 @@ class LLRPClient (LineReceiver):
         logger.debug('set tx_power: {} ({} dBm)'.format(self.tx_power,
                     self.tx_power_table[self.tx_power]))
 
-        # fill UHFC1G2RFModeTable
+        # fill UHFC1G2RFModeTable & check requested modulation & Tari
+        match = False # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
-        for k, v in regcap['UHFBandCapabilities']['UHFRFModeTable'].items():
-            m = v['M']
-            mid = v['ModeIdentifier']
-            if m == 0:
-                ModeIndex_Name2Type['FM0'] = mid
-                ModeIndex_Name2Type['WISP5'] = mid
-            else:
-                m = 2 ** m
-                ModeIndex_Name2Type['M{}'.format(m)] = mid
+        logger.info('requested modulation: {}'.format(self.modulation))
+        for v in regcap['UHFBandCapabilities']['UHFRFModeTable'].values():
+            match = v['Mod'] == Modulation_Name2Type[self.modulation]
+            if self.tari:
+                match = match and (v['MaxTari'] == self.tari)
+            if match:
+                self.reader_mode = dict(v)
+        if not self.reader_mode:
+            taristr = ' and Tari={}'.format(self.tari) if self.tari else ''
+            logger.warn('Could not find reader mode matching '\
+                    'modulation={}{}'.format(self.modulation, taristr))
+            self.reader_mode = dict(regcap['UHFBandCapabilities']\
+                    ['UHFRFModeTable']['UHFC1G2RFModeTableEntry0'])
+        logger.info('using reader mode: {}'.format(self.reader_mode))
 
     def processDeferreds (self, msgName, isSuccess):
         deferreds = self._deferreds[msgName]
@@ -358,10 +367,10 @@ class LLRPClient (LineReceiver):
                             err))
                 return
 
-            caps = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-            logger.debug('Capabilities: {}'.format(pprint.pformat(caps)))
+            self.capabilities = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
+            logger.debug('Capabilities: {}'.format(pprint.pformat(self.capabilities)))
             try:
-                self.parseCapabilities(caps)
+                self.parseCapabilities(self.capabilities)
             except LLRPError as err:
                 logger.fatal('capabilities mismatch: {}'.format(err))
                 raise err
@@ -663,10 +672,9 @@ class LLRPClient (LineReceiver):
             return self.rospec
 
         # create an ROSpec to define the reader's inventorying behavior
-        self.rospec = LLRPROSpec(1, duration_sec=self.duration,
+        self.rospec = LLRPROSpec(self, 1, duration_sec=self.duration,
                             report_every_n_tags=self.report_every_n_tags,
-                            tx_power=self.tx_power, modulation=self.modulation,
-                            tari=self.tari, antennas=self.antennas,
+                            tx_power=self.tx_power, antennas=self.antennas,
                             tag_content_selector=self.tag_content_selector)
         logger.debug('ROSpec: {}'.format(self.rospec))
         return self.rospec
