@@ -8,6 +8,15 @@ project][]'s [code][] on SourceForge.  It has been updated to work with Impinj
 Speedway readers (and probably still other readers), and to provide a simple
 callback-based API to clients.
 
+These readers are known to work well with sllurp, but it should be adaptable
+with not much effort to other LLRP-compatible readers:
+
+ * Impinj Speedway (R1000)
+ * Impinj Speedway Revolution (R220, R420)
+
+File an issue on this GitHub project if you would like help getting another
+kind of reader to work.
+
 [LLRPyC project]: http://wiki.enneenne.com/index.php/LLRPyC
 [code]: http://sourceforge.net/projects/llrpyc/
 
