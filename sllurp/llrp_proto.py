@@ -2798,7 +2798,7 @@ class LLRPROSpec(dict):
                     'AntennaID': antid,
                     'RFTransmitter': {
                         'HopTableId': 1,
-                        'ChannelIndex': 0,
+                        'ChannelIndex': 1,
                         'TransmitPower': tx_power,
                     },
                     'C1G2InventoryCommand': {
