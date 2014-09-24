@@ -2840,4 +2840,5 @@ for m in Message_struct:
         i = Message_struct[m]['type']
         Message_Type2Name[i] = m
     else:
-        logging.warn('Message_struct type {} lacks "type" field'.format(m))
+        logging.debug('Pseudo-warning: Message_struct type {} ' \
+                'lacks "type" field'.format(m))
