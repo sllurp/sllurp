@@ -18,6 +18,9 @@ with not much effort to other LLRP-compatible readers:
 File an issue on this GitHub project if you would like help getting another
 kind of reader to work.
 
+sllurp is distributed under version 3 of the GNU General Public License.  See
+`LICENSE.txt` for details.
+
 [LLRPyC project]: http://wiki.enneenne.com/index.php/LLRPyC
 [code]: http://sourceforge.net/projects/llrpyc/
 
