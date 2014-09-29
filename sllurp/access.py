@@ -18,7 +18,7 @@ def finish (_):
 
 def access (proto):
     return proto.startAccess(readWords=args.read_words,
-            writeWords=args.write_words)
+            writeWords=args.write_words, writeContent=args.write_content)
 
 def politeShutdown (factory):
     return factory.politeShutdown()
@@ -34,6 +34,15 @@ def tagReportCallback (llrpMsg):
         return
     for tag in tags:
         tagReport += tag['TagSeenCount'][0]
+
+class hexact(argparse.Action):
+    'An argparse.Action that handles hex string input'
+    def __call__(self,parser, namespace, values, option_string=None):
+        base = 10
+        if '0x' in values: base = 16
+        setattr(namespace, self.dest, int(values,base))
+        return
+    pass
 
 def parse_args ():
     global args
@@ -62,6 +71,9 @@ def parse_args ():
     op.add_argument('-w', '--write-words', type=int,
             help='Number of words to write to MB 0 WordPtr 0')
     parser.add_argument('-l', '--logfile')
+    # specify content to write
+    parser.add_argument('-c', '--write_content', action=hexact,
+            help='Content to write when using -w, example: 0xaabb, 0x1234')
 
     args = parser.parse_args()
 
