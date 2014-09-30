@@ -48,7 +48,8 @@ def parse_args ():
     parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
             dest='every_n', metavar='N', help='issue a TagReport every N tags')
     parser.add_argument('-a', '--antennas', default='1',
-            help='comma-separated list of antennas to enable')
+            help='comma-separated list of antennas to enable (0=all; '\
+                'default 1)')
     parser.add_argument('-X', '--tx-power', default=0, type=int,
             dest='tx_power', help='transmit power (default 0=max power)')
     mods = sorted(Modulation_Name2Type.keys())
