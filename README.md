@@ -109,6 +109,9 @@ The "nuclear option" for resetting a reader is:
 
     > reboot
 
+## Decoding EPC Data:
+```sllurp.epc``` contains EPC decoding tools. [Read here for example usage](sllurp/epc/README.md).
+
 ## If You Find a Bug
 
 Start an issue on this GitHub project!
