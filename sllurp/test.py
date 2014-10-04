@@ -48,11 +48,16 @@ class mock_conn (object):
     def write (self, mybytes):
         pass
 
+class FauxClient (object):
+    def __init__ (self):
+        self.reader_mode = {'ModeIdentifier': 'M4', 'MaxTari': 7250}
+
 class TestROSpec (unittest.TestCase):
     def setUp (self):
         pass
     def test_start (self):
-        rospec = sllurp.llrp.LLRPROSpec(1)
+        fx = FauxClient()
+        rospec = sllurp.llrp.LLRPROSpec(fx, 1)
         rospec_str = repr(rospec)
         self.assertNotEqual(rospec_str, '')
     def tearDown (self):
