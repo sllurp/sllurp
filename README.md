@@ -1,5 +1,7 @@
 # sllurp
 
+[![Build Status](https://travis-ci.org/ransford/sllurp.svg?branch=master)](https://travis-ci.org/ransford/sllurp)
+
 **IMPORTANT:** This is beta-quality software that changes frequently.  Use at
 your own risk.
 
