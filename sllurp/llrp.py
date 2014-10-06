@@ -588,8 +588,8 @@ class LLRPClient (LineReceiver):
             *args):
         m = Message_struct['AccessSpec']
 
-        if not targ:
-            targ = {
+        if not target:
+            target = {
                 'MB' : 0,
                 'Pointer' : 0,
                 'MaskBitCount': 0,
@@ -633,13 +633,13 @@ class LLRPClient (LineReceiver):
             'AccessCommand': {
                 'TagSpecParameter': {
                     'C1G2TargetTag': { # XXX correct values?
-                        'MB': targ['MB'],
+                        'MB': target['MB'],
                         'M': 1,
-                        'Pointer': targ['Pointer'],
-                        'MaskBitCount': targ['MaskBitCount'],
-                        'TagMask': targ['TagMask'],
-                        'DataBitCount': targ['DataBitCount'],
-                        'TagData': targ['TagData']
+                        'Pointer': target['Pointer'],
+                        'MaskBitCount': target['MaskBitCount'],
+                        'TagMask': target['TagMask'],
+                        'DataBitCount': target['DataBitCount'],
+                        'TagData': target['TagData']
                     }
                 },
                 'OpSpecParameter': opSpecParam,
