@@ -1627,10 +1627,13 @@ def encode_C1G2TargetTag (par):
     data += struct.pack('!H', int(par['Pointer']))
     data += struct.pack('!H', int(par['MaskBitCount']))
     if int(par['MaskBitCount']):
-        data += encode_bitstring(par['TagMask'], int(par['MaskBitCount']/8))
+        numBytes = ((par['MaskBitCount'] - 1) / 8) + 1
+        data += encode_bitstring(par['TagMask'], numBytes)
+
     data += struct.pack('!H', int(par['DataBitCount']))
     if int(par['DataBitCount']):
-        data += encode_bitstring(par['TagData'], int(par['DataBitCount']/8))
+        numBytes = ((par['DataBitCount'] - 1) / 8) + 1
+        data += encode_bitstring(par['TagData'], numBytes)
 
     data = struct.pack(msg_header, msgtype,
             len(data) + msg_header_len) + data
