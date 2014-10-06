@@ -1613,7 +1613,8 @@ Message_struct['C1G2TagSpec'] = {
 def encode_bitstring (bstr, length_bytes):
     def B (x):
         return struct.pack('!B', x)
-    Bs = map(B, bstr.unpack('>' + 'b'*length_bytes))
+    Bs = map(B, struct.unpack('>' + 'B'*len(bstr), bstr))
+    Bs += ['\x00'] * (length_bytes - len(bstr))
     return ''.join(Bs)
 
 def encode_C1G2TargetTag (par):
@@ -1626,10 +1627,10 @@ def encode_C1G2TargetTag (par):
     data += struct.pack('!H', int(par['Pointer']))
     data += struct.pack('!H', int(par['MaskBitCount']))
     if int(par['MaskBitCount']):
-        data += encode_bitstring(par['TagMask'], 10)
+        data += encode_bitstring(par['TagMask'], int(par['MaskBitCount']/8))
     data += struct.pack('!H', int(par['DataBitCount']))
     if int(par['DataBitCount']):
-        data += encode_bitstring(par['TagData'], 10)
+        data += encode_bitstring(par['TagData'], int(par['DataBitCount']/8))
 
     data = struct.pack(msg_header, msgtype,
             len(data) + msg_header_len) + data
@@ -1655,7 +1656,6 @@ def encode_C1G2Read (par):
     msgtype = Message_struct['C1G2Read']['type']
     msg_header = '!HH'
     msg_header_len = struct.calcsize(msg_header)
-
     data = struct.pack('!H', int(par['OpSpecID']))
     data += struct.pack('!I', int(par['AccessPassword']))
     data += struct.pack('!B', int(par['MB']) << 6)
