@@ -587,7 +587,6 @@ class LLRPClient (LineReceiver):
     def startAccess (self, readWords=None, writeWords=None, target = None,
             *args):
         m = Message_struct['AccessSpec']
-
         if not target:
             target = {
                 'MB' : 0,
@@ -609,12 +608,16 @@ class LLRPClient (LineReceiver):
             opSpecParam['MB'] = readWords['MB']
             opSpecParam['WordPtr'] = readWords['WordPtr']
             opSpecParam['WordCount'] = readWords['WordCount']
+            if 'OpSpecID' in readWords:
+                opSpecParam['OpSpecID'] = readWords['OpSpecID']
 
         elif writeWords:
             opSpecParam['MB'] = writeWords['MB']
             opSpecParam['WordPtr'] = writeWords['WordPtr']
             opSpecParam['WriteDataWordCount'] = writeWords['WriteDataWordCount']
             opSpecParam['WriteData'] = writeWords['WriteData']
+            if 'OpSpecID' in writeWords:
+                opSpecParam['OpSpecID'] = writeWords['OpSpecID']
         else:
             raise LLRPError('startAccess requires readWords or writeWords.')
 
