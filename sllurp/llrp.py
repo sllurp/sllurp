@@ -584,28 +584,43 @@ class LLRPClient (LineReceiver):
         if onCompletion:
             self._deferreds['ENABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
-    def startAccess (self, readWords=None, writeWords=None, *args):
+    def startAccess (self, readWords=None, writeWords=None, target = None,
+            *args):
         m = Message_struct['AccessSpec']
+        if not target:
+            target = {
+                'MB' : 0,
+                'Pointer' : 0,
+                'MaskBitCount': 0,
+                'TagMask': '',
+                'DataBitCount': 0,
+                'TagData': ''
+            }
+
         accessSpecID = 1
+
+        opSpecParam = {
+            'OpSpecID': 0,
+            'AccessPassword': 0,
+        }
+
         if readWords:
-            opSpecParam = {
-                'OpSpecID': 0,
-                'MB': 0,
-                'WordPtr': 0,
-                'WordCount': readWords,
-                'AccessPassword': 0,
-            }
+            opSpecParam['MB'] = readWords['MB']
+            opSpecParam['WordPtr'] = readWords['WordPtr']
+            opSpecParam['WordCount'] = readWords['WordCount']
+            if 'OpSpecID' in readWords:
+                opSpecParam['OpSpecID'] = readWords['OpSpecID']
+
         elif writeWords:
-            opSpecParam = {
-                'OpSpecID': 0,
-                'MB': 0,
-                'WordPtr': 0,
-                'AccessPassword': 0,
-                'WriteDataWordCount': writeWords,
-                'WriteData': '\xff\xff', # XXX allow user-defined pattern
-            }
+            opSpecParam['MB'] = writeWords['MB']
+            opSpecParam['WordPtr'] = writeWords['WordPtr']
+            opSpecParam['WriteDataWordCount'] = writeWords['WriteDataWordCount']
+            opSpecParam['WriteData'] = writeWords['WriteData']
+            if 'OpSpecID' in writeWords:
+                opSpecParam['OpSpecID'] = writeWords['OpSpecID']
         else:
             raise LLRPError('startAccess requires readWords or writeWords.')
+
         accessSpec = {
             'Type': m['type'],
             'AccessSpecID': accessSpecID,
@@ -621,13 +636,13 @@ class LLRPClient (LineReceiver):
             'AccessCommand': {
                 'TagSpecParameter': {
                     'C1G2TargetTag': { # XXX correct values?
-                        'MB': 0,
+                        'MB': target['MB'],
                         'M': 1,
-                        'Pointer': 0,
-                        'MaskBitCount': 0,
-                        'TagMask': 0,
-                        'DataBitCount': 0,
-                        'TagData': 0
+                        'Pointer': target['Pointer'],
+                        'MaskBitCount': target['MaskBitCount'],
+                        'TagMask': target['TagMask'],
+                        'DataBitCount': target['DataBitCount'],
+                        'TagData': target['TagData']
                     }
                 },
                 'OpSpecParameter': opSpecParam,
