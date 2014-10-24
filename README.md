@@ -16,6 +16,7 @@ with not much effort to other LLRP-compatible readers:
  * Impinj Speedway (R1000)
  * Impinj Speedway Revolution (R220, R420)
  * Impinj Speedway xPortal
+ * Motorola MC9190-Z (handheld)
 
 File an issue on this GitHub project if you would like help getting another
 kind of reader to work.
