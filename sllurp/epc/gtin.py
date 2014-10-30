@@ -1,3 +1,6 @@
+import math
+
+
 def calculate_check_digit(gtin):
     '''Given a GTIN (8-14) or SSCC, calculate its appropriate check digit'''
     reverse_gtin = gtin[::-1]
@@ -9,7 +12,10 @@ def calculate_check_digit(gtin):
             digit = digit * 3
         total = total + digit
         count = count + 1
-    return 10 - (total % 10)
+
+    nearest_multiple_of_ten = int(math.ceil(total / 10.0) * 10)
+
+    return nearest_multiple_of_ten - total
 
 
 def combine_gtin_with_check_digit(gtin):
