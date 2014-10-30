@@ -1,5 +1,7 @@
 # sllurp
 
+[![Build Status](https://travis-ci.org/ransford/sllurp.svg?branch=master)](https://travis-ci.org/ransford/sllurp)
+
 **IMPORTANT:** This is beta-quality software that changes frequently.  Use at
 your own risk.
 
@@ -14,9 +16,13 @@ with not much effort to other LLRP-compatible readers:
  * Impinj Speedway (R1000)
  * Impinj Speedway Revolution (R220, R420)
  * Impinj Speedway xPortal
+ * Motorola MC9190-Z (handheld)
 
 File an issue on this GitHub project if you would like help getting another
 kind of reader to work.
+
+sllurp is distributed under version 3 of the GNU General Public License.  See
+`LICENSE.txt` for details.
 
 [LLRPyC project]: http://wiki.enneenne.com/index.php/LLRPyC
 [code]: http://sourceforge.net/projects/llrpyc/
