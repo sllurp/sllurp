@@ -759,7 +759,8 @@ class LLRPClient (LineReceiver):
         return d
 
     def resume (self):
-        if self.state == LLRPClient.STATE_CONNECTED:
+        if self.state in (LLRPClient.STATE_CONNECTED,
+                LLRPClient.STATE_DISCONNECTED):
             self.startInventory()
             return
 
