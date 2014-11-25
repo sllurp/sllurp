@@ -2811,7 +2811,7 @@ class LLRPROSpec(dict):
                             'Tari': tari,
                         },
                         'C1G2SingulationControl': {
-                            'Session': 0,
+                            'Session': 2,
                             'TagPopulation': 4,
                             'TagTransitTime': 0
                         }
