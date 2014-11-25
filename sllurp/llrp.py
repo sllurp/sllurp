@@ -860,3 +860,9 @@ class LLRPClientFactory (ClientFactory):
         for proto in self.protocols:
             protoDeferreds.append(proto.stopPolitely(disconnect=True))
         return defer.DeferredList(protoDeferreds)
+
+    def getProtocolStates (self):
+        states = {'{}'.format(proto.peername[0]): \
+            LLRPClient.getStateName(proto.state) for proto in self.protocols}
+        logger.info('states: {}'.format(states))
+        return states
