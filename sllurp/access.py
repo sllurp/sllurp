@@ -11,14 +11,18 @@ tagReport = 0
 logger = logging.getLogger('sllurp')
 
 args = None
+words_to_write = None
+content_to_write = None
+words_to_read = None
+
+tags_seen = 0
 
 def finish (_):
     logger.info('total # of tags seen: {}'.format(tagReport))
     reactor.stop()
 
 def access (proto):
-    return proto.startAccess(readWords=args.read_words,
-            writeWords=args.write_words, writeContent=args.write_content)
+    return proto.startAccess(readWords=args.read_words, writeWords=args.write_words, writeContent=args.write_content)
 
 def politeShutdown (factory):
     return factory.politeShutdown()

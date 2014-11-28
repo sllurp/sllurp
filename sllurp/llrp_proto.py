@@ -2221,7 +2221,7 @@ def decode_OpSpecResult (data):
         par['ReadDataWordCount'] = wordcnt
         end = 2 + (wordcnt*2)
         par['ReadData'] = body[2:end]
-        logger.info('Read data: {}' .format(':'.join(hex(ord(x))[2:] for x in body[2:4])))
+        logger.info('Read data: {}' .format(':'.join(hex(ord(x))[2:] for x in body[2:end])))
 
     elif msgtype in (Message_struct['C1G2WriteOpSpecResult']['type'],
             Message_struct['C1G2BlockWriteOpSpecResult']['type']):
@@ -2809,7 +2809,8 @@ class LLRPROSpec(dict):
                             'Tari': tari,
                         },
                         'C1G2SingulationControl': {
-                            'Session': 0,
+                            'Session': 2,
+                            #'Session': 0,
                             'TagPopulation': 4,
                             'TagTransitTime': 0
                         }
