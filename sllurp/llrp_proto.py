@@ -2731,7 +2731,8 @@ def llrp_data2xml(msg):
 class LLRPROSpec(dict):
     def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
             antennas=(1,), tx_power=91, duration_sec=None,
-            report_every_n_tags=None, tag_content_selector={}):
+            report_every_n_tags=None, tag_content_selector={},
+            tag_population=4):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(\
@@ -2794,6 +2795,7 @@ class LLRPROSpec(dict):
             },
         }
 
+
         # patch up per-antenna config
         for antid in antennas:
             self['ROSpec']['AISpec']['InventoryParameterSpec']\
@@ -2812,7 +2814,7 @@ class LLRPROSpec(dict):
                         },
                         'C1G2SingulationControl': {
                             'Session': 2,
-                            'TagPopulation': 4,
+                            'TagPopulation': tag_population,
                             'TagTransitTime': 0
                         }
                     }

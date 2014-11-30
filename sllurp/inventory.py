@@ -61,6 +61,8 @@ def parse_args ():
     parser.add_argument('-l', '--logfile')
     parser.add_argument('-r', '--reconnect', action='store_true',
             default=False, help='reconnect on connection failure or loss')
+    parser.add_argument('-P', '--tag-population', default='4', type=int,
+            dest='population', help="Tag Population value (default 4)")
     args = parser.parse_args()
 
 def init_logging ():
@@ -110,6 +112,7 @@ def main ():
             tx_power=args.tx_power,
             modulation=args.modulation,
             tari=args.tari,
+            tag_population=args.population,
             start_inventory=True,
             disconnect_when_done=(args.time > 0),
             reconnect=args.reconnect,
