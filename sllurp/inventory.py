@@ -58,11 +58,11 @@ def parse_args ():
                 DEFAULT_MODULATION))
     parser.add_argument('-T', '--tari', default=0, type=int,
             help='Tari value (default 0=auto)')
+    parser.add_argument('-P', '--tag-population', default=4, type=int,
+            dest='population', help="Tag Population value (default 4)")
     parser.add_argument('-l', '--logfile')
     parser.add_argument('-r', '--reconnect', action='store_true',
             default=False, help='reconnect on connection failure or loss')
-    parser.add_argument('-P', '--tag-population', default='4', type=int,
-            dest='population', help="Tag Population value (default 4)")
     args = parser.parse_args()
 
 def init_logging ():
