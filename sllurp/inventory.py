@@ -58,6 +58,8 @@ def parse_args ():
                 DEFAULT_MODULATION))
     parser.add_argument('-T', '--tari', default=0, type=int,
             help='Tari value (default 0=auto)')
+    parser.add_argument('-s', '--session', default=2, type=int,
+            help='Gen2 session (default 2)')
     parser.add_argument('-l', '--logfile')
     parser.add_argument('-r', '--reconnect', action='store_true',
             default=False, help='reconnect on connection failure or loss')
@@ -110,6 +112,7 @@ def main ():
             tx_power=args.tx_power,
             modulation=args.modulation,
             tari=args.tari,
+            session=args.session,
             start_inventory=True,
             disconnect_when_done=(args.time > 0),
             reconnect=args.reconnect,

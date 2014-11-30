@@ -2731,7 +2731,8 @@ def llrp_data2xml(msg):
 class LLRPROSpec(dict):
     def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
             antennas=(1,), tx_power=91, duration_sec=None,
-            report_every_n_tags=None, tag_content_selector={}):
+            report_every_n_tags=None, tag_content_selector={},
+            session=2):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(\
@@ -2811,7 +2812,7 @@ class LLRPROSpec(dict):
                             'Tari': tari,
                         },
                         'C1G2SingulationControl': {
-                            'Session': 2,
+                            'Session': session,
                             'TagPopulation': 4,
                             'TagTransitTime': 0
                         }
