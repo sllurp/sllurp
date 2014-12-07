@@ -54,6 +54,8 @@ def parse_args ():
             help='modulation (default M8)')
     parser.add_argument('-T', '--tari', default=0, type=int,
             help='Tari value (default 0=auto)')
+    parser.add_argument('-s', '--session', default=2, type=int,
+            help='Gen2 session (default 2)')
 
     # read or write
     op = parser.add_mutually_exclusive_group(required=True)
@@ -95,6 +97,7 @@ def main ():
             disconnect_when_done=True,
             modulation=args.modulation,
             tari=args.tari,
+            session=args.session,
             start_inventory=True,
             tx_power=args.tx_power,
             report_every_n_tags=args.every_n,
