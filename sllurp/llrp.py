@@ -157,7 +157,7 @@ class LLRPClient (LineReceiver):
             start_inventory=True, reset_on_connect=True,
             disconnect_when_done=True,
             tag_content_selector={},
-            session=2):
+            session=2, tag_population=4):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -168,6 +168,7 @@ class LLRPClient (LineReceiver):
         self.modulation = modulation
         self.tari = tari
         self.session = session
+        self.tag_population = tag_population
         self.antennas = antennas
         self.duration = duration
         self.peername = None
@@ -693,7 +694,8 @@ class LLRPClient (LineReceiver):
                             report_every_n_tags=self.report_every_n_tags,
                             tx_power=self.tx_power, antennas=self.antennas,
                             tag_content_selector=self.tag_content_selector,
-                            session=self.session)
+                            session=self.session,
+                            tag_population=self.tag_population)
         logger.debug('ROSpec: {}'.format(self.rospec))
         return self.rospec
 

@@ -56,6 +56,8 @@ def parse_args ():
             help='Tari value (default 0=auto)')
     parser.add_argument('-s', '--session', default=2, type=int,
             help='Gen2 session (default 2)')
+    parser.add_argument('-P', '--tag-population', default=4, type=int,
+            dest='population', help="Tag Population value (default 4)")
 
     # read or write
     op = parser.add_mutually_exclusive_group(required=True)
@@ -98,6 +100,7 @@ def main ():
             modulation=args.modulation,
             tari=args.tari,
             session=args.session,
+            tag_population=args.population,
             start_inventory=True,
             tx_power=args.tx_power,
             report_every_n_tags=args.every_n,
