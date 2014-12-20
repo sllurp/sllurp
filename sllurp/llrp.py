@@ -503,13 +503,16 @@ class LLRPClient (LineReceiver):
 
         while data:
             # parse the message header to grab its length
-            try:
+            if len(data) >= LLRPMessage.full_hdr_len:
                 msg_type, msg_len, message_id = \
                     struct.unpack(LLRPMessage.full_hdr_fmt,
                                   data[:LLRPMessage.full_hdr_len])
-            except struct.error as ae:
+            else:
                 logger.warning('Too few bytes ({}) to unpack LLRP message' \
                         'header'.format(len(data)))
+                self.partialData = data
+                self.expectingRemainingBytes = \
+                    LLRPMessage.full_hdr_len - len(data)
                 break
 
             logger.debug('expect {} bytes (have {})'.format(msg_len, len(data)))
