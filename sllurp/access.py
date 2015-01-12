@@ -17,8 +17,23 @@ def finish (_):
     reactor.stop()
 
 def access (proto):
-    return proto.startAccess(readWords=args.read_words,
-            writeWords=args.write_words)
+    readSpecParam = {
+        'OpSpecID': 0,
+        'MB': 0,
+        'WordPtr': 0,
+        'AccessPassword': 0,
+        'WordCount': args.read_words
+    }
+    writeSpecParam = {
+        'OpSpecID': 0,
+        'MB': 0,
+        'WordPtr': 0,
+        'AccessPassword': 0,
+        'WriteDataWordCount': args.write_words,
+        'WriteData': '\xbe\xef', # XXX allow user-defined pattern
+    }
+    return proto.startAccess(readWords=readSpecParam,
+            writeWords=writeSpecParam)
 
 def politeShutdown (factory):
     return factory.politeShutdown()
