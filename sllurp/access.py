@@ -14,7 +14,8 @@ args = None
 
 def finish (_):
     logger.info('total # of tags seen: {}'.format(tagReport))
-    reactor.stop()
+    if reactor.running:
+        reactor.stop()
 
 def access (proto):
     readSpecParam = {
