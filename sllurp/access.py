@@ -22,7 +22,7 @@ def access (proto):
     if args.read_words:
         readSpecParam = {
             'OpSpecID': 0,
-            'MB': 0,
+            'MB': 3,
             'WordPtr': 0,
             'AccessPassword': 0,
             'WordCount': args.read_words
@@ -32,7 +32,7 @@ def access (proto):
     if args.write_words:
         writeSpecParam = {
             'OpSpecID': 0,
-            'MB': 0,
+            'MB': 3,
             'WordPtr': 0,
             'AccessPassword': 0,
             'WriteDataWordCount': args.write_words,
