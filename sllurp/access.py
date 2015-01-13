@@ -14,11 +14,33 @@ args = None
 
 def finish (_):
     logger.info('total # of tags seen: {}'.format(tagReport))
-    reactor.stop()
+    if reactor.running:
+        reactor.stop()
 
 def access (proto):
-    return proto.startAccess(readWords=args.read_words,
-            writeWords=args.write_words)
+    readSpecParam = None
+    if args.read_words:
+        readSpecParam = {
+            'OpSpecID': 0,
+            'MB': 3,
+            'WordPtr': 0,
+            'AccessPassword': 0,
+            'WordCount': args.read_words
+        }
+
+    writeSpecParam = None
+    if args.write_words:
+        writeSpecParam = {
+            'OpSpecID': 0,
+            'MB': 3,
+            'WordPtr': 0,
+            'AccessPassword': 0,
+            'WriteDataWordCount': args.write_words,
+            'WriteData': '\xbe\xef', # XXX allow user-defined pattern
+        }
+
+    return proto.startAccess(readWords=readSpecParam,
+            writeWords=writeSpecParam)
 
 def politeShutdown (factory):
     return factory.politeShutdown()
