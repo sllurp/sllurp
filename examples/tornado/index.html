@@ -8,6 +8,7 @@
         <table class="table">
             <thead>
                 <tr>
+                    <td>EPC-96</td>
                     <td>ROSpecID</td>
                     <td>SpecIndex</td>
                     <td>InventoryParameterSpecID</td>
@@ -24,6 +25,7 @@
         </table>
         <script type="text/javascript">
             var tagAttributes = [
+                'EPC-96',
                 'ROSpecID',
                 'SpecIndex',
                 'InventoryParameterSpecID',
@@ -40,20 +42,27 @@
                 var data = JSON.parse(evt.data),
                 tags = data.tags,
                 tbody = document.getElementById('tagData'),
-                bodyData = '',
+                rowData = '',
                 i,
                 tag,
-                ai;
+                ai,
+                row;
 
                 for(i in tags){
                     tag = tags[i];
-                    bodyData += '<tr>';
-                    for(ai in tagAttributes){
-                        bodyData += createCell(tag, tagAttributes[ai])
+                    row = document.getElementById(tag['EPC-96'])
+                    if (!row) {
+                        row = document.createElement("tr")
+                        row.id = tag['EPC-96']
+                        tbody.appendChild(row)
                     }
-                    bodyData += '</tr>';
+
+                    rowData = ''
+                    for(ai in tagAttributes){
+                        rowData += createCell(tag, tagAttributes[ai])
+                    }
+                    row.innerHTML = rowData;
                 }
-                tbody.innerHTML = bodyData;
             }
 
             function createCell(tag, attribute){
