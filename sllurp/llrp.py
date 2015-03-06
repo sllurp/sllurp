@@ -315,6 +315,11 @@ class LLRPClient (LineReceiver):
             fn(lmsg)
         logger.debug('done with message callbacks for {}'.format(msgName))
 
+        # keepalives can occur at any time
+        if msgName == 'KEEPALIVE':
+            self.send_KEEPALIVE_ACK()
+            return
+
         if msgName == 'RO_ACCESS_REPORT' and \
                     self.state != LLRPClient.STATE_INVENTORYING:
             logger.debug('ignoring RO_ACCESS_REPORT because not inventorying')
@@ -539,6 +544,14 @@ class LLRPClient (LineReceiver):
         logger.error('panic(): {}'.format(args))
         logger.error(failure.getErrorMessage())
         logger.error(failure.getTraceback())
+
+    def send_KEEPALIVE_ACK (self):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'KEEPALIVE_ACK': {
+                'Ver':  1,
+                'Type': 72,
+                'ID':   0,
+            }}))
 
     def send_GET_READER_CAPABILITIES (self, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={

@@ -580,6 +580,30 @@ Message_struct['RO_ACCESS_REPORT'] = {
     'decode': decode_ROAccessReport
 }
 
+# 16.1.35 KEEPALIVE
+def encode_Keepalive(msg):
+    return ''
+
+Message_struct['KEEPALIVE'] = {
+    'type': 62,
+    'fields': [
+        'Ver', 'Type', 'ID',
+    ],
+    'encode': encode_Keepalive
+}
+
+# 16.1.36 KEEPALIVE_ACK
+def encode_KeepaliveAck(msg):
+    return ''
+
+Message_struct['KEEPALIVE_ACK'] = {
+    'type': 72,
+    'fields': [
+        'Ver', 'Type', 'ID',
+    ],
+    'encode': encode_KeepaliveAck
+}
+
 # 16.1.33 READER_EVENT_NOTIFICATION
 def decode_ReaderEventNotification(data):
     msg = LLRPMessageDict()
