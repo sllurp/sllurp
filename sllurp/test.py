@@ -137,7 +137,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self.assertEqual(len(self._r), 3982)
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = mock_conn(self._binr)
-        logger.debug('{} bytes waiting'.format(self._mock_conn.stream.waiting()))
+        logger.debug('%d bytes waiting', self._mock_conn.stream.waiting())
         self._client = sllurp.llrp.LLRPClient(self, start_inventory=False)
         self._client.transport = mock_conn('')
         self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)

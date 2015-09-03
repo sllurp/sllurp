@@ -30,7 +30,6 @@ def decode_tve_parameter (data):
     Given an array of bytes, tries to interpret a TVE parameter from the
     beginning of the array.  Returns the decoded data and the number of bytes it
     read."""
-    #logger.debug('TVE parameter bytes: {}'.format(data.encode('hex')))
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
     (msgtype,) = struct.unpack(tve_header, data[:tve_header_len])
@@ -40,7 +39,7 @@ def decode_tve_parameter (data):
     msgtype = msgtype & 0x7f
     try:
         param_name, param_fmt = tve_param_formats[msgtype]
-        logger.debug('found {} (type={})'.format(param_name, msgtype))
+        logger.debug('found %s (type=%s)', param_name, msgtype)
     except KeyError as err:
         return None, 0
 

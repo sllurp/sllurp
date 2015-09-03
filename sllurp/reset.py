@@ -39,7 +39,7 @@ def init_logging ():
     root.setLevel(logLevel)
     root.handlers = [stderr,]
 
-    logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
+    logger.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
 
 def main ():
     parse_args()

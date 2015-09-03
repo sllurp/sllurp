@@ -1947,7 +1947,7 @@ def encode_InventoryParameterSpec(par):
     data += struct.pack('!B', par['ProtocolID'])
 
     for antconf in par['AntennaConfiguration']:
-        logger.debug('encoding AntennaConfiguration: {}'.format(antconf))
+        logger.debug('encoding AntennaConfiguration: %s', antconf)
         data += encode('AntennaConfiguration')(antconf)
 
     data = struct.pack(msg_header, msgtype,
@@ -2206,7 +2206,7 @@ def decode_TagReportData(data):
         ret, body = decode('EPC-96')(body)
         if ret:
             par['EPC-96'] = ret['EPC']
-            logger.debug('EPC-96: {}'.format(ret['EPC']))
+            logger.debug('EPC-96: %s', ret['EPC'])
         else:
             raise LLRPError('missing or invalid EPCData parameter')
 
@@ -2223,7 +2223,7 @@ def decode_TagReportData(data):
     if ret:
         par['OpSpecResult'] = ret
 
-    logger.debug('par={}'.format(par))
+    logger.debug('par=%s', par)
     return par, data[length : ]
 
 Message_struct['TagReportData'] = {
@@ -2617,7 +2617,7 @@ Message_struct['ConnectionAttemptEvent'] = {
 def decode_LLRPStatus(data):
     logger.debug(func())
     par = {}
-    logger.debug('decode_LLRPStatus: {}'.format(hexlify(data)))
+    logger.debug('decode_LLRPStatus: %s', hexlify(data))
 
     if len(data) == 0:
         return None, data
@@ -2628,7 +2628,7 @@ def decode_LLRPStatus(data):
     if msgtype != Message_struct['LLRPStatus']['type']:
         logger.debug('got msgtype={0}, expected {1}'.format(msgtype,
                     Message_struct['LLRPStatus']['type']))
-        logger.debug('note length={}'.format(length))
+        logger.debug('note length=%d', length)
         return (None, data)
     body = data[par_header_len : length]
     logger.debug('%s (type=%d len=%d)' % (func(), msgtype, length))
@@ -2639,7 +2639,7 @@ def decode_LLRPStatus(data):
     try:
         par['StatusCode'] = Error_Type2Name[code]
     except KeyError:
-        logger.warning('Unknown field code {}'.format(code))
+        logger.warning('Unknown field code %s', code)
     par['ErrorDescription'] = body[offset : offset + n]
 
     # Decode parameters
@@ -2889,8 +2889,7 @@ class LLRPROSpec(dict):
             }
 
         if report_every_n_tags is not None:
-            logger.debug('will report every ~N={}' \
-                    ' tags'.format(report_every_n_tags))
+            logger.debug('will report every ~N=%d tags', report_every_n_tags)
             self['ROSpec']['ROReportSpec']['N'] = report_every_n_tags
 
     def __repr__(self):

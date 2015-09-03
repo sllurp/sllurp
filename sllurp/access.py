@@ -13,7 +13,7 @@ logger = logging.getLogger('sllurp')
 args = None
 
 def finish (_):
-    logger.info('total # of tags seen: {}'.format(tagReport))
+    logger.info('total # of tags seen: %d', tagReport)
     if reactor.running:
         reactor.stop()
 
@@ -60,7 +60,7 @@ def tagReportCallback (llrpMsg):
     global tagReport
     tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
-        logger.info('saw tag(s): {}'.format(pprint.pformat(tags)))
+        logger.info('saw tag(s): %s', pprint.pformat(tags))
     else:
         logger.info('no tags seen')
         return
@@ -117,7 +117,7 @@ def init_logging ():
         fHandler.setFormatter(formatter)
         root.addHandler(fHandler)
 
-    logger.log(logLevel, 'log level: {}'.format(logging.getLevelName(logLevel)))
+    logger.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
 
 def main ():
     parse_args()
