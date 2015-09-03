@@ -2070,6 +2070,8 @@ def encode_C1G2Filter (par):
 
 Message_struct['C1G2Filter'] = {
     'type': 331,
+    'fields': [],
+    'encode': lambda: _
 }
 
 # 16.3.1.2.1.2 C1G2RFControl Parameter
@@ -2297,6 +2299,7 @@ def decode_OpSpecResult (data):
     return par, data[length:]
 
 Message_struct['OpSpecResult'] = {
+    'type': -1,
     'fields': [
         'Type',
         'Result',
@@ -2307,6 +2310,7 @@ Message_struct['OpSpecResult'] = {
         'StatusWordCount',
         'PermalockStatus'
     ],
+    'decode': lambda: _
 }
 
 Message_struct['C1G2ReadOpSpecResult'] = {

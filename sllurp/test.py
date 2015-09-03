@@ -178,5 +178,31 @@ class TestEncodings (unittest.TestCase):
         flags = int(binascii.hexlify(data[4:]), 16) >> 6
         self.assertEqual(flags, 0b0001011110)
 
+class TestMessageStruct (unittest.TestCase):
+    s = sllurp.llrp_proto.Message_struct
+
+    def test_can_encode_or_decode (self):
+        for msg_name, msg_struct in self.s.items():
+            self.assertIsInstance(msg_struct, dict)
+            self.assertTrue('decode' in msg_struct or 'encode' in msg_struct)
+            if 'decode' in msg_struct:
+                self.assertTrue(callable(msg_struct['decode']))
+            if 'encode' in msg_struct:
+                self.assertTrue(callable(msg_struct['encode']))
+
+    def test_has_fields (self):
+        for msg_name, msg_struct in self.s.items():
+            self.assertIsInstance(msg_struct, dict)
+            self.assertIn('fields', msg_struct)
+            self.assertIsInstance(msg_struct['fields'], list)
+
+    def test_unique_types (self):
+        d = {}
+        for msg_name, msg_struct in self.s.items():
+            self.assertIn('type', msg_struct)
+            self.assertIsInstance(msg_struct['type'], int)
+            self.assertNotIn(msg_struct['type'], d)
+            d[msg_struct['type']] = True
+
 if __name__ == '__main__':
     unittest.main()
