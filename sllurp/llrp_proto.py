@@ -25,10 +25,8 @@
 
 import logging, struct, exceptions
 from collections import defaultdict
+from binascii import hexlify
 import traceback
-from threading import *
-from types import *
-from socket import *
 import time
 from util import *
 import llrp_decoder
@@ -2772,10 +2770,9 @@ def llrp_data2xml(msg):
             except KeyError:
                 continue
 
-            if type(sub) == DictionaryType:
+            if type(sub) is dict:
                 str += __llrp_data2xml(sub, p, level + 1)
-            elif type(sub) == ListType and sub and \
-                    type(sub[0]) == DictionaryType:
+            elif type(sub) is list and sub and type(sub[0]) is dict:
                 for e in sub:
                     str += __llrp_data2xml(e, p, level + 1)
             else:

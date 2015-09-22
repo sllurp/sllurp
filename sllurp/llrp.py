@@ -10,6 +10,7 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
          llrp_data2xml, LLRPMessageDict, ModeIndex_Name2Type, \
          Modulation_Name2Type, DEFAULT_MODULATION
 import copy
+from binascii import hexlify
 from util import *
 from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ClientFactory
