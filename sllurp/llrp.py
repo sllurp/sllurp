@@ -750,7 +750,7 @@ class LLRPClient (LineReceiver):
         self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
 
         d = defer.Deferred()
-        d.addCallback(self._setState_wrapper, LLRPClient.STATE_DISCONNECTED)
+        d.addErrback(self.panic, 'DELETE_ROSPEC failed')
 
         self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
         return d
