@@ -418,8 +418,7 @@ class LLRPClient (LineReceiver):
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.error('DISABLE_ROSPEC failed with status %s: %s',
                         status, err)
-                logger.fatal('Error %s disabling ROSpec: %s', status, err)
-                return
+                logger.warn('Error %s disabling ROSpec: %s', status, err)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -539,6 +538,9 @@ class LLRPClient (LineReceiver):
         logger.error('panic(): %s', args)
         logger.error(failure.getErrorMessage())
         logger.error(failure.getTraceback())
+
+    def complain (self, failure, *args):
+        logger.warn('complain(): %s', args)
 
     def send_KEEPALIVE_ACK (self):
         self.sendLLRPMessage(LLRPMessage(msgdict={
@@ -772,6 +774,7 @@ class LLRPClient (LineReceiver):
 
         d = defer.Deferred()
         d.addCallback(self._setState_wrapper, LLRPClient.STATE_PAUSED)
+        d.addErrback(self.complain, 'pause() failed')
         self._deferreds['DISABLE_ROSPEC_RESPONSE'].append(d)
 
         if duration_seconds > 0:
