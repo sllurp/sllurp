@@ -9,13 +9,31 @@ import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
      Modulation_DefaultTari
 
+startTime = None
+endTime = None
+
 numTags = 0
 logger = logging.getLogger('sllurp')
 
 args = None
 
+def startTimeMeasurement():
+    global startTime
+    startTime = time.time()
+
+def stopTimeMeasurement():
+    global endTime
+    endTime = time.time()
+
 def finish (_):
-    logger.info('total # of tags seen: %d', numTags)
+    global startTime
+    global endTime
+
+    # stop runtime measurement to determine rates
+    stopTimeMeasurement()
+    runTime = (endTime - startTime) if (endTime > startTime) else 0
+
+    logger.info('total # of tags seen: %d (%d tags/second)', numTags, numTags/runTime)
     if reactor.running:
         reactor.stop()
 
@@ -141,6 +159,9 @@ def main ():
 
     # catch ctrl-C and stop inventory before disconnecting
     reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)
+
+    # start runtime measurement to determine rates
+    startTimeMeasurement()
 
     reactor.run()
 
