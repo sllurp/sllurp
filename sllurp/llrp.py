@@ -757,9 +757,17 @@ class LLRPClient (LineReceiver):
         self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
         return d
 
-    def pause (self, duration_seconds=0):
+    def pause (self, duration_seconds=0, force=False):
         """Pause an inventory operation for a set amount of time."""
-        logger.info('pausing for %d seconds', duration_seconds)
+        if self.state != LLRPClient.STATE_INVENTORYING:
+            if not force:
+                logger.info('ignoring pause() because not inventorying')
+                return
+            else:
+                logger.info('forcing pause()')
+
+        if duration_seconds:
+            logger.info('pausing for %d seconds', duration_seconds)
 
         rospec = self.getROSpec()['ROSpec']
 
