@@ -1617,7 +1617,7 @@ def encode_C1G2TagSpec (par):
     msg_header_len = struct.calcsize(msg_header)
 
     targets = par['C1G2TargetTag']
-    if type(targets) != ListType:
+    if type(targets) != list:
         targets = (targets,)
     for target in targets:
         data = encode_C1G2TargetTag(target)
