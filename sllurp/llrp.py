@@ -441,7 +441,8 @@ class LLRPClient (LineReceiver):
 
         elif self.state == LLRPClient.STATE_INVENTORYING:
             if msgName not in ('RO_ACCESS_REPORT', 'READER_EVENT_NOTIFICATION',
-                    'ADD_ACCESSSPEC_RESPONSE', 'ENABLE_ACCESSSPEC_RESPONSE'):
+                    'ADD_ACCESSSPEC_RESPONSE', 'ENABLE_ACCESSSPEC_RESPONSE',
+                    'DISABLE_ACCESSSPEC_RESPONSE', 'DELETE_ACCESSSPEC_RESPONSE'):
                 logger.error('unexpected message %s while inventorying',
                         msgName)
                 return
@@ -594,6 +595,18 @@ class LLRPClient (LineReceiver):
             }}))
         self._deferreds['ADD_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
+    def send_DISABLE_ACCESSSPEC (self, accessSpecID = 1, onCompletion=None):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'DISABLE_ACCESSSPEC': {
+                'Ver':  1,
+                'Type': 43,
+                'ID':   0,
+                'AccessSpecID': accessSpecID,
+            }}))
+
+        if onCompletion:
+            self._deferreds['DISABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
+
     def send_ENABLE_ACCESSSPEC (self, _, accessSpecID, onCompletion=None):
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'ENABLE_ACCESSSPEC': {
@@ -606,8 +619,21 @@ class LLRPClient (LineReceiver):
         if onCompletion:
             self._deferreds['ENABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
+    def send_DELETE_ACCESSSPEC (self, placeHolderArg, readSpecParam, writeSpecParam, stopParam,accessSpecID = 1, onCompletion=None):
+        #logger.info('Deleting current accessSpec.')
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'DELETE_ACCESSSPEC': {
+                'Ver': 1,
+                'Type': 41,
+                'ID': 0,
+                'AccessSpecID': accessSpecID # ONE AccessSpec
+            }}))
+
+        # Hackfix to chain startAccess to send_DELETE, since appending a deferred doesn't seem to work...
+        task.deferLater(reactor, 0, self.startAccess, readWords=readSpecParam, writeWords=writeSpecParam, accessStopParam=stopParam,accessSpecID = accessSpecID)
+
     def startAccess (self, readWords=None, writeWords=None, target = None,
-            *args):
+            accessStopParam=None, accessSpecID = 1, *args):
         m = Message_struct['AccessSpec']
         if not target:
             target = {
@@ -618,8 +644,6 @@ class LLRPClient (LineReceiver):
                 'DataBitCount': 0,
                 'TagData': ''
             }
-
-        accessSpecID = 1
 
         opSpecParam = {
             'OpSpecID': 0,
@@ -643,6 +667,13 @@ class LLRPClient (LineReceiver):
         else:
             raise LLRPError('startAccess requires readWords or writeWords.')
 
+        if accessStopParam:
+            opSpecParam['AccessSpecStopTriggerType'] = accessStopParam['AccessSpecStopTriggerType']
+            opSpecParam['OperationCountValue']       = accessStopParam['OperationCountValue']
+        else:
+            opSpecParam['AccessSpecStopTriggerType'] = 1
+            opSpecParam['OperationCountValue']       = 5
+
         accessSpec = {
             'Type': m['type'],
             'AccessSpecID': accessSpecID,
@@ -650,11 +681,7 @@ class LLRPClient (LineReceiver):
             'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
             'C': False, # disabled by default
             'ROSpecID': 0, # all ROSpecs
-            'AccessSpecStopTrigger': {
-                # 1 = stop after OperationCountValue accesses
-                'AccessSpecStopTriggerType': 0,
-                'OperationCountValue': 1,
-            },
+            'AccessSpecStopTrigger': accessStopParam,
             'AccessCommand': {
                 'TagSpecParameter': {
                     'C1G2TargetTag': { # XXX correct values?
@@ -679,6 +706,14 @@ class LLRPClient (LineReceiver):
         d.addErrback(self.panic, 'ADD_ACCESSSPEC failed')
 
         self.send_ADD_ACCESSSPEC(accessSpec, onCompletion=d)
+
+    def nextAccess(self, readSpecPar, writeSpecPar, stopSpecPar, accessSpecID = 1):
+        d = defer.Deferred()
+        d.addCallback(self.send_DELETE_ACCESSSPEC, readSpecPar, writeSpecPar, stopSpecPar, accessSpecID)
+        d.addErrback(self.send_DELETE_ACCESSSPEC, readSpecPar, writeSpecPar, stopSpecPar, accessSpecID)
+        #d.addErrback(self.panic, 'DISABLE_ACCESSSPEC failed')
+
+        self.send_DISABLE_ACCESSSPEC(accessSpecID, onCompletion=d)
 
     def startInventory (self, *args):
         """Add a ROSpec to the reader and enable it."""
@@ -858,6 +893,12 @@ class LLRPClientFactory (ClientFactory):
                 proto.addMessageCallback(msg_type, cb)
 
         return proto
+
+    def nextAccess(self, readParam=None, writeParam=None, stopParam=None, accessSpecID = 1):
+        #logger.info('Stopping current accessSpec.')
+        for proto in self.protocols:
+            proto.nextAccess(readSpecPar=readParam, writeSpecPar=writeParam,
+            stopSpecPar=stopParam,accessSpecID=accessSpecID)
 
     def clientConnectionLost(self, connector, reason):
         logger.info('lost connection: %s', reason.getErrorMessage())
