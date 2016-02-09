@@ -2645,13 +2645,13 @@ def decode_LLRPStatus(data):
     if ret:
         par['FieldError'] = ret
     else:
-        logging.debug('no FieldError')
+        logger.debug('no FieldError')
 
     ret, body = decode('ParameterError')(body)
     if ret:
         par['ParameterError'] = ret
     else:
-        logging.debug('no ParameterError')
+        logger.debug('no ParameterError')
 
     # Check the end of the message
     if len(body) > 0:
