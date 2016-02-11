@@ -29,9 +29,10 @@ sllurp is distributed under version 3 of the GNU General Public License.  See
 
 ## Quick Start
 
-Install a version of [Twisted][] appropriate for your Python installation.  For
-Windows users, choose the appropriate `.exe` installer at the Twisted website,
-and install [zope.interface][] with the same parameters.
+Install a version of [Twisted][] appropriate for your Python installation.
+Non-Windows users can simply `pip install -r .pip-requirements.txt`.
+Windows users must choose the appropriate `.exe` installer at the Twisted
+website, and install [zope.interface][] with the same parameters.
 
 To connect to a reader and perform EPC Gen 2 inventory for 10 seconds:
 
