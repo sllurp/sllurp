@@ -1,1 +1,1 @@
-twisted
+Twisted>=15.5.0
