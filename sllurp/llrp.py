@@ -680,14 +680,10 @@ class LLRPClient(LineReceiver):
         else:
             raise LLRPError('startAccess requires readWords or writeWords.')
 
-        if accessStopParam:
-            opSpecParam['AccessSpecStopTriggerType'] = \
-                accessStopParam['AccessSpecStopTriggerType']
-            opSpecParam['OperationCountValue'] = \
-                accessStopParam['OperationCountValue']
-        else:
-            opSpecParam['AccessSpecStopTriggerType'] = 1
-            opSpecParam['OperationCountValue'] = 5
+        if not accessStopParam:
+            accessStopParam = {}
+            accessStopParam['AccessSpecStopTriggerType'] = 1
+            accessStopParam['OperationCountValue'] = 5
 
         accessSpec = {
             'Type': m['type'],
