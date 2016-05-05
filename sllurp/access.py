@@ -1,7 +1,9 @@
 from __future__ import print_function
 import argparse
+import binascii
 import logging
 import pprint
+import sys
 import time
 from twisted.internet import reactor, defer
 
@@ -53,24 +55,19 @@ def access(proto):
 
     writeSpecParam = None
     if args.write_words:
-        if args.write_words > 1:
-            writeSpecParam = {
-                'OpSpecID': 0,
-                'MB': args.mb,
-                'WordPtr': args.word_ptr,
-                'AccessPassword':  args.access_password,
-                'WriteDataWordCount': args.write_words,
-                'WriteData': '\xde\xad\xbe\xef',  # XXX allow user-def pattern
-            }
+        # get the binary data from the standard input stream
+        if sys.version_info.major < 3:
+            data = sys.stdin.read(args.write_words * 2)
         else:
-            writeSpecParam = {
-                'OpSpecID': 0,
-                'MB': args.mb,
-                'WordPtr': args.word_ptr,
-                'AccessPassword':  args.access_password,
-                'WriteDataWordCount': args.write_words,
-                'WriteData': '\xbe\xef',  # XXX allow user-defined pattern
-            }
+            data = sys.stdin.buffer.read(args.write_words * 2)        # bytes
+        writeSpecParam = {
+            'OpSpecID': 0,
+            'MB': args.mb,
+            'WordPtr': args.word_ptr,
+            'AccessPassword': args.access_password,
+            'WriteDataWordCount': args.write_words,
+            'WriteData': data,
+        }
 
     return proto.startAccess(readWords=readSpecParam,
                              writeWords=writeSpecParam)
@@ -91,6 +88,16 @@ def tagReportCallback(llrpMsg):
         return
     for tag in tags:
         tagReport += tag['TagSeenCount'][0]
+        if "OpSpecResult" in tag:
+            # copy the binary data to the standard output stream
+            data = tag["OpSpecResult"].get("ReadData")
+            if data:
+                if sys.version_info.major < 3:
+                    sys.stdout.write(data)
+                else:
+                    sys.stdout.buffer.write(data)                     # bytes
+                logger.debug("hex data: %s", binascii.hexlify(data))
+
 
 def parse_args():
     global args
