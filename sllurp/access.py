@@ -45,9 +45,9 @@ def access(proto):
     if args.read_words:
         readSpecParam = {
             'OpSpecID': 0,
-            'MB': 3,
-            'WordPtr': 0,
-            'AccessPassword': 0,
+            'MB': args.mb,
+            'WordPtr': args.word_ptr,
+            'AccessPassword': args.access_password,
             'WordCount': args.read_words
         }
 
@@ -56,18 +56,18 @@ def access(proto):
         if args.write_words > 1:
             writeSpecParam = {
                 'OpSpecID': 0,
-                'MB': 3,
-                'WordPtr': 0,
-                'AccessPassword': 0,
+                'MB': args.mb,
+                'WordPtr': args.word_ptr,
+                'AccessPassword':  args.access_password,
                 'WriteDataWordCount': args.write_words,
                 'WriteData': '\xde\xad\xbe\xef',  # XXX allow user-def pattern
             }
         else:
             writeSpecParam = {
                 'OpSpecID': 0,
-                'MB': 3,
-                'WordPtr': 0,
-                'AccessPassword': 0,
+                'MB': args.mb,
+                'WordPtr': args.word_ptr,
+                'AccessPassword':  args.access_password,
                 'WriteDataWordCount': args.write_words,
                 'WriteData': '\xbe\xef',  # XXX allow user-defined pattern
             }
@@ -91,7 +91,6 @@ def tagReportCallback(llrpMsg):
         return
     for tag in tags:
         tagReport += tag['TagSeenCount'][0]
-
 
 def parse_args():
     global args
@@ -123,9 +122,22 @@ def parse_args():
     # read or write
     op = parser.add_mutually_exclusive_group(required=True)
     op.add_argument('-r', '--read-words', type=int,
-                    help='Number of words to read from MB 0 WordPtr 0')
+                    help='Number of words to read')
     op.add_argument('-w', '--write-words', type=int,
-                    help='Number of words to write to MB 0 WordPtr 0')
+                    help='Number of words to write')
+
+    # C1G2 Read / Write parameters:
+    parser.add_argument('-mb', '--memory-bank', default=3, type=int,
+                        dest='mb',
+                        help='Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved')
+    parser.add_argument('-wp', '--word-ptr', default=3, type=int,
+                        dest='word_ptr',
+                        help='Word addresss of the first word to read/write')
+
+    parser.add_argument('-ap', '--access_password', default=0, type=int,
+                        dest='access_password',
+                        help='Access password for secure state if R/W locked')
+
     parser.add_argument('-l', '--logfile')
 
     args = parser.parse_args()
