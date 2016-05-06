@@ -1623,6 +1623,8 @@ def encode_AccessCommand(par):
             data += encode_C1G2BlockWrite(par['OpSpecParameter'])
         else:
             data += encode_C1G2Write(par['OpSpecParameter'])
+    elif 'LockPayload' in par['OpSpecParameter']:
+        data += encode_C1G2Lock(par['OpSpecParameter'])
     else:
         data += encode_C1G2Read(par['OpSpecParameter'])
 
@@ -1773,6 +1775,56 @@ Message_struct['C1G2Write'] = {
     'encode': encode_C1G2Write
 }
 
+
+# 16.2.1.3.2.5 C1G2Lock Parameter
+def encode_C1G2Lock(par):
+    msgtype = Message_struct['C1G2Lock']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!H', int(par['OpSpecID']))
+    data += struct.pack('!I', int(par['AccessPassword']))
+    for payload in par['LockPayload']:
+        data += encode_C1G2LockPayload(payload)
+
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + msg_header_len) + data
+    return data
+
+Message_struct['C1G2Lock'] = {
+    'type': 344,
+    'fields': [
+        'Type',
+        'OpSpecID',
+        'LockCommandPayloadList',
+        'AccessPassword'
+    ],
+    'encode': encode_C1G2Lock
+}
+
+# 16.2.1.3.2.5.1 C1G2LockPayload Parameter
+def encode_C1G2LockPayload(par):
+    msgtype = Message_struct['C1G2LockPayload']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!B', int(par['Privilege']))
+    data += struct.pack('!b', int(par['DataField']))
+
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + msg_header_len) + data
+    return data
+
+Message_struct['C1G2LockPayload'] = {
+    'type': 345,
+    'fields': [
+        'Type',
+        'OpSpecID',
+        'Privilege',
+        'DataField',
+    ],
+    'encode': encode_C1G2LockPayload
+}
 
 # 16.2.1.3.2.7 C1G2BlockWrite
 def encode_C1G2BlockWrite(par):
