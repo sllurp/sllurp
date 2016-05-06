@@ -1,9 +1,7 @@
 from __future__ import print_function
 import argparse
-import binascii
 import logging
 import pprint
-import sys
 import time
 from twisted.internet import reactor, defer
 
@@ -43,34 +41,18 @@ def finish(_):
 
 
 def access(proto):
-    readSpecParam = None
-    if args.read_words:
-        readSpecParam = {
+    lockSpecParam = {
             'OpSpecID': 0,
-            'MB': args.mb,
-            'WordPtr': args.word_ptr,
             'AccessPassword': args.access_password,
-            'WordCount': args.read_words
+            'LockPayload': [
+                {
+                    'Privilege': args.privilege,
+                    'DataField': args.data_field,
+                },
+            ]
         }
 
-    writeSpecParam = None
-    if args.write_words:
-        # get the binary data from the standard input stream
-        if sys.version_info.major < 3:
-            data = sys.stdin.read(args.write_words * 2)
-        else:
-            data = sys.stdin.buffer.read(args.write_words * 2)        # bytes
-        writeSpecParam = {
-            'OpSpecID': 0,
-            'MB': args.mb,
-            'WordPtr': args.word_ptr,
-            'AccessPassword': args.access_password,
-            'WriteDataWordCount': args.write_words,
-            'WriteData': data,
-        }
-
-    return proto.startAccess(readWords=readSpecParam,
-                             writeWords=writeSpecParam)
+    return proto.startAccess(param=lockSpecParam)
 
 
 def politeShutdown(factory):
@@ -89,19 +71,12 @@ def tagReportCallback(llrpMsg):
     for tag in tags:
         tagReport += tag['TagSeenCount'][0]
         if "OpSpecResult" in tag:
-            # copy the binary data to the standard output stream
-            data = tag["OpSpecResult"].get("ReadData")
-            if data:
-                if sys.version_info.major < 3:
-                    sys.stdout.write(data)
-                else:
-                    sys.stdout.buffer.write(data)                     # bytes
-                logger.debug("hex data: %s", binascii.hexlify(data))
-
+            result = tag["OpSpecResult"].get("Result")
+            logger.debug("result: %s", result)
 
 def parse_args():
     global args
-    parser = argparse.ArgumentParser(description='Simple RFID Inventory')
+    parser = argparse.ArgumentParser(description='Simple RFID Lock')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
                         nargs='*')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT, type=int,
@@ -126,20 +101,14 @@ def parse_args():
                         dest='population',
                         help='Tag Population value (default 4)')
 
-    # read or write
-    op = parser.add_mutually_exclusive_group(required=True)
-    op.add_argument('-r', '--read-words', type=int,
-                    help='Number of words to read')
-    op.add_argument('-w', '--write-words', type=int,
-                    help='Number of words to write')
-
-    # C1G2 Read / Write parameters:
-    parser.add_argument('-mb', '--memory-bank', default=3, type=int,
-                        dest='mb',
-                        help='Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved')
-    parser.add_argument('-wp', '--word-ptr', default=3, type=int,
-                        dest='word_ptr',
-                        help='Word addresss of the first word to read/write')
+    # C1G2 Lock Payload parameters:
+    parser.add_argument('-priv', '--privilege', default=0, type=int,
+                        help='Access privilege: '
+                             '0 RW, 1 Permalock, 2 Permaunlock, 3 Unlock')
+    parser.add_argument('-df', '--data-field', default=0, type=int,
+                        dest='data_field',
+                        help='Access Data Field: 0 KILL passwd, '
+                             '1 ACCESS passwd, 2 EPC, 3 TID, 4 User memory')
 
     parser.add_argument('-ap', '--access_password', default=0, type=int,
                         dest='access_password',
@@ -196,7 +165,7 @@ def main():
                                      'EnableFirstSeenTimestamp': False,
                                      'EnableLastSeenTimestamp': True,
                                      'EnableTagSeenCount': True,
-                                     'EnableAccessSpecID': True
+                                     'EnableAccessSpecID': True,
                                  })
 
     # tagReportCallback will be called every time the reader sends a TagReport

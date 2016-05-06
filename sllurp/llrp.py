@@ -646,7 +646,8 @@ class LLRPClient(LineReceiver):
                         accessSpecID=accessSpecID)
 
     def startAccess(self, readWords=None, writeWords=None, target=None,
-                    accessStopParam=None, accessSpecID=1, *args):
+                    accessStopParam=None, accessSpecID=1, param=None,
+                    *args):
         m = Message_struct['AccessSpec']
         if not target:
             target = {
@@ -677,17 +678,18 @@ class LLRPClient(LineReceiver):
             opSpecParam['WriteData'] = writeWords['WriteData']
             if 'OpSpecID' in writeWords:
                 opSpecParam['OpSpecID'] = writeWords['OpSpecID']
+
+        elif param:
+            # special parameters like C1G2Lock
+            opSpecParam = param
+
         else:
             raise LLRPError('startAccess requires readWords or writeWords.')
 
-        if accessStopParam:
-            opSpecParam['AccessSpecStopTriggerType'] = \
-                accessStopParam['AccessSpecStopTriggerType']
-            opSpecParam['OperationCountValue'] = \
-                accessStopParam['OperationCountValue']
-        else:
-            opSpecParam['AccessSpecStopTriggerType'] = 1
-            opSpecParam['OperationCountValue'] = 5
+        if not accessStopParam:
+            accessStopParam = {}
+            accessStopParam['AccessSpecStopTriggerType'] = 1
+            accessStopParam['OperationCountValue'] = 5
 
         accessSpec = {
             'Type': m['type'],
