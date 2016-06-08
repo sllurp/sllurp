@@ -208,9 +208,17 @@ class LLRPClient(LineReceiver):
         self._message_callbacks[msg_type].append(cb)
 
     def connectionMade(self):
-        self.transport.setTcpKeepAlive(True)
-        self.peername = self.transport.getHandle().getpeername()
-        logger.info('connected to %s', self.peername)
+        t = self.transport
+        t.setTcpKeepAlive(True)
+
+        # overwrite the peer hostname with the hostname the connector asked us
+        # for (e.g., 'localhost' instead of '127.0.0.1')
+        dest = t.connector.getDestination()
+        self.peer_ip, self.peer_port = t.getHandle().getpeername()
+        self.peername = (dest.host, self.peer_port)
+
+        logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
+                    self.peer_port)
         self.factory.protocols.add(self)
 
     def setState(self, newstate, onComplete=None):
