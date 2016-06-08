@@ -137,7 +137,7 @@ def parse_args():
     parser.add_argument('-mb', '--memory-bank', default=3, type=int,
                         dest='mb',
                         help='Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved')
-    parser.add_argument('-wp', '--word-ptr', default=3, type=int,
+    parser.add_argument('-wp', '--word-ptr', default=0, type=int,
                         dest='word_ptr',
                         help='Word addresss of the first word to read/write')
 

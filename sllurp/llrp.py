@@ -678,6 +678,8 @@ class LLRPClient(LineReceiver):
             opSpecParam['WordCount'] = readWords['WordCount']
             if 'OpSpecID' in readWords:
                 opSpecParam['OpSpecID'] = readWords['OpSpecID']
+            if 'AccessPassword' in readWords:
+                opSpecParam['AccessPassword'] = readWords['AccessPassword']
 
         elif writeWords:
             opSpecParam['MB'] = writeWords['MB']
@@ -686,6 +688,8 @@ class LLRPClient(LineReceiver):
             opSpecParam['WriteData'] = writeWords['WriteData']
             if 'OpSpecID' in writeWords:
                 opSpecParam['OpSpecID'] = writeWords['OpSpecID']
+            if 'AccessPassword' in writeWords:
+                opSpecParam['AccessPassword'] = writeWords['AccessPassword']
 
         elif param:
             # special parameters like C1G2Lock
