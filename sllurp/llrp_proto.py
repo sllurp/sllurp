@@ -2898,7 +2898,7 @@ def llrp_data2xml(msg):
 
 class LLRPROSpec(dict):
     def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
-                 antennas=(1,), tx_power=91, duration_sec=None,
+                 antennas=(1,), tx_power={1: 91}, duration_sec=None,
                  report_every_n_tags=None, tag_content_selector={},
                  session=2, tag_population=4):
         # Sanity checks
@@ -2911,6 +2911,10 @@ class LLRPROSpec(dict):
         if state not in ROSpecState_Name2Type:
             raise LLRPError('invalid ROSpec state {} (need [{}])'.format(
                             state, ','.join(ROSpecState_Name2Type.keys())))
+        for antid in tx_power:
+            if antid not in antennas:
+                raise LLRPError('ROSpec invalid antenna {} in tx_power map'
+                                .format(antid))
 
         rmode = llrpcli.reader_mode
         mode_index = rmode['ModeIdentifier']
@@ -2965,13 +2969,14 @@ class LLRPROSpec(dict):
 
         # patch up per-antenna config
         for antid in antennas:
+            transmit_power = tx_power[antid]
             self['ROSpec']['AISpec']['InventoryParameterSpec']\
                 ['AntennaConfiguration'].append({
                     'AntennaID': antid,
                     'RFTransmitter': {
                         'HopTableId': 1,
                         'ChannelIndex': 1,
-                        'TransmitPower': tx_power,
+                        'TransmitPower': transmit_power,
                     },
                     'C1G2InventoryCommand': {
                         'TagInventoryStateAware': False,
