@@ -716,6 +716,35 @@ Message_struct['UTCTimestamp'] = {
     'decode': decode_UTCTimestamp
 }
 
+# ?.?.?.? Uptime Parameter (7.1.3.1.1.2 Uptime Parameter in 2010 requirements)
+def decode_Uptime(data):
+    logger.debug(func())
+    par = {}
+
+    if len(data) == 0:
+        return None, data
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['Uptime']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (par['Microseconds'], ) = struct.unpack('!Q', body)
+
+    return par, data[length:]
+
+Message_struct['Uptime'] = {
+    'type':   129,
+    'fields': [
+        'Type',
+        'Microseconds'
+    ],
+    'decode': decode_Uptime
+}
 
 def decode_RegulatoryCapabilities(data):
     logger.debug(func())
@@ -2622,7 +2651,13 @@ def decode_ReaderEventNotificationData(data):
     if ret:
         par['UTCTimestamp'] = ret
     else:
-        raise LLRPError('missing or invalid UTCTimestamp parameter')
+        # Compliance requirement says Uptime Parameter must be present, if
+        # UTCTimestamp is missing.
+        ret, body = decode('Uptime')(body)
+        if ret:
+            par['Uptime'] = ret
+        else:
+            raise LLRPError('missing UTCTimestamp and Uptime parameter')
 
     ret, body = decode('ConnectionAttemptEvent')(body)
     if ret:
