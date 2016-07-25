@@ -96,7 +96,7 @@ def tag_seen_callback(llrpMsg):
 def parse_args():
     parser = ArgumentParser(description='Simple RFID Reader Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
-                        nargs='*')
+                        nargs='+')
     parser.add_argument('-p', '--port', default=LLRP_PORT, type=int,
                         help='port to connect to (default {})'.format(LLRP_PORT))
     parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
