@@ -272,8 +272,7 @@ class LLRPClient(LineReceiver):
         bandcap = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
         self.tx_power_table = self.parsePowerTable(bandcap)
         logger.debug('tx_power_table: %s', self.tx_power_table)
-        self.tx_power, power_dbm = self.get_tx_power(self.tx_power)
-        logger.debug('tx_power: %s (%s dBm)', self.tx_power, power_dbm)
+        self.setTxPower(self.tx_power)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
         match = False  # have we matched the user's requested values yet?
@@ -868,7 +867,13 @@ class LLRPClient(LineReceiver):
                             ' min_available={}, max_available={}'.format(
                                 self.tx_power, min_power, max_power))
 
+    def setTxPower(self, tx_power):
+        tx_pow_idx, tx_pow_dbm = self.get_tx_power(tx_power)
+        self.tx_power = tx_pow_idx
+        logger.debug('tx_power: %s (%s dBm)', tx_pow_idx, tx_pow_dbm)
 
+        if self.state == LLRPClient.STATE_INVENTORYING:
+            self.pause(0.1)
 
     def pause(self, duration_seconds=0, force=False):
         """Pause an inventory operation for a set amount of time."""
