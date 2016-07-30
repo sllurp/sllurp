@@ -241,7 +241,15 @@ class LLRPClient(LineReceiver):
         self.factory.protocols.remove(self)
 
     def parseCapabilities(self, capdict):
+        """Parse a capabilities dictionary and adjust instance settings
+
+           Sets the following instance variables:
+           - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
+           - self.tx_power_table (list of dBm values)
+           - self.reader_mode (dictionary of mode settings, e.g., Tari)
+        """
         def find_p(p, arr):
+            """Return the first value in arr for which p is True"""
             m = p(arr)
             for idx, val in enumerate(arr):
                 if val == m:
@@ -258,28 +266,14 @@ class LLRPClient(LineReceiver):
                         reqd, avail)
             self.antennas = [ant for ant in self.antennas
                              if ant <= gdc['MaxNumberOfAntennaSupported']]
+        logger.debug('set antennas: %s', self.antennas)
 
-        # check requested Tx power
-        logger.debug('requested tx_power: %s', self.tx_power)
-        bandtbl = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
-        bandtbl = {k: v for k, v in bandtbl.items()
-                   if k.startswith('TransmitPowerLevelTableEntry')}
-        self.tx_power_table = [0] * (len(bandtbl) + 1)
-        for k, v in bandtbl.items():
-            idx = v['Index']
-            self.tx_power_table[idx] = int(v['TransmitPowerValue']) / 100.0
+        # parse available transmit power entries, set self.tx_power
+        bandcap = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
+        self.tx_power_table = self.parsePowerTable(bandcap)
         logger.debug('tx_power_table: %s', self.tx_power_table)
-        if self.tx_power == 0:
-            # tx_power = 0 means max power
-            self.tx_power = find_p(max, self.tx_power_table)
-        elif self.tx_power not in range(len(self.tx_power_table)):
-            raise LLRPError('Invalid tx_power: requested={},'
-                            ' max_available={}, min_available={}'.format(
-                                self.tx_power,
-                                find_p(max, self.tx_power_table),
-                                find_p(min, self.tx_power_table)))
-        logger.debug('set tx_power: %s (%s dBm)', self.tx_power,
-                     self.tx_power_table[self.tx_power])
+        self.tx_power, power_dbm = self.setTxPower(self.tx_power)
+        logger.debug('tx_power: %s (%s dBm)', self.tx_power, power_dbm)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
         match = False  # have we matched the user's requested values yet?
@@ -824,6 +818,56 @@ class LLRPClient(LineReceiver):
 
         self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
         return d
+
+    @staticmethod
+    def parsePowerTable(uhfbandcap):
+        """Parse the transmit power table
+
+        @param uhfbandcap: Capability dictionary from
+            self.capabilities['RegulatoryCapabilities']['UHFBandCapabilities']
+        @return: a list of [0, dBm value, dBm value, ...]
+
+        >>> LLRPClient.parsePowerTable({'TransmitPowerLevelTableEntry1': \
+            {'Index': 1, 'TransmitPowerValue': 3225}})
+        [0, 32.25]
+        >>> LLRPClient.parsePowerTable({})
+        [0]
+        """
+        bandtbl = {k: v for k, v in uhfbandcap.items()
+                   if k.startswith('TransmitPowerLevelTableEntry')}
+        tx_power_table = [0] * (len(bandtbl) + 1)
+        for k, v in bandtbl.items():
+            idx = v['Index']
+            tx_power_table[idx] = int(v['TransmitPowerValue']) / 100.0
+
+        return tx_power_table
+
+    def setTxPower(self, tx_power):
+        """Sets the transmit power to the requested index in self.tx_power_table
+
+        @param tx_power: index into the self.tx_power_table list; if tx_power
+        is 0 then the max power from self.tx_power_table
+        @return: a tuple: tx_power_index, power_dbm from self.tx_power
+        """
+        logger.debug('requested tx_power: %s', tx_power)
+        min_power = self.tx_power_table.index(min(self.tx_power_table))
+        max_power = self.tx_power_table.index(max(self.tx_power_table))
+
+        if tx_power == 0:
+            # tx_power = 0 means max power
+            max_power_dbm = max(self.tx_power_table)
+            tx_power = self.tx_power_table.index(max_power_dbm)
+            return tx_power, max_power_dbm
+
+        try:
+            power_dbm = self.tx_power_table[tx_power]
+            return tx_power, power_dbm
+        except IndexError:
+            raise LLRPError('Invalid tx_power: requested={},'
+                            ' min_available={}, max_available={}'.format(
+                                self.tx_power, min_power, max_power))
+
+
 
     def pause(self, duration_seconds=0, force=False):
         """Pause an inventory operation for a set amount of time."""
