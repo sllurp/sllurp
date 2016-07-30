@@ -272,7 +272,7 @@ class LLRPClient(LineReceiver):
         bandcap = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
         self.tx_power_table = self.parsePowerTable(bandcap)
         logger.debug('tx_power_table: %s', self.tx_power_table)
-        self.tx_power, power_dbm = self.setTxPower(self.tx_power)
+        self.tx_power, power_dbm = self.get_tx_power(self.tx_power)
         logger.debug('tx_power: %s (%s dBm)', self.tx_power, power_dbm)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
@@ -842,12 +842,13 @@ class LLRPClient(LineReceiver):
 
         return tx_power_table
 
-    def setTxPower(self, tx_power):
-        """Sets the transmit power to the requested index in self.tx_power_table
+    def get_tx_power(self, tx_power):
+        """Validates tx_power against self.tx_power_table
 
         @param tx_power: index into the self.tx_power_table list; if tx_power
         is 0 then the max power from self.tx_power_table
-        @return: a tuple: tx_power_index, power_dbm from self.tx_power
+        @return: a tuple: tx_power_index, power_dbm from self.tx_power_table
+        @raise: LLRPError if the requested index is out of range
         """
         logger.debug('requested tx_power: %s', tx_power)
         min_power = self.tx_power_table.index(min(self.tx_power_table))
