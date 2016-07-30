@@ -1014,6 +1014,20 @@ class LLRPClientFactory(ClientFactory):
         for proto in self.protocols:
             proto.pause(seconds)
 
+    def setTxPower(self, tx_power, peername=None):
+        """Set the transmit power on one or all readers
+
+        If peername is None, set the transmit power for all readers.
+        Otherwise, set it for that specific reader.
+        """
+        if peername:
+            protocols = [p for p in self.protocols
+                         if p.peername[0] == peername]
+        else:
+            protocols = self.protocols
+        for proto in protocols:
+            proto.setTxPower(tx_power)
+
     def politeShutdown(self):
         """Stop inventory on all connected readers."""
         protoDeferreds = []
