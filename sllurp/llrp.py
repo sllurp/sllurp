@@ -849,6 +849,8 @@ class LLRPClient(LineReceiver):
         @return: a tuple: tx_power_index, power_dbm from self.tx_power_table
         @raise: LLRPError if the requested index is out of range
         """
+        assert len(self.tx_power_table) > 0
+
         logger.debug('requested tx_power: %s', tx_power)
         min_power = self.tx_power_table.index(min(self.tx_power_table))
         max_power = self.tx_power_table.index(max(self.tx_power_table))
