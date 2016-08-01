@@ -411,38 +411,25 @@ class LLRPClient(LineReceiver):
             self.send_READER_CONFIG(onCompletion=d)
 
         elif self.state == LLRPClient.STATE_SENT_READER_CONFIG:
-            print(msgName)
+            if msgName != 'SET_READER_CONFIG_RESPONSE':
+                logger.error('unexpected response %s when getting capabilities',
+                             msgName)
+                return
 
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error %s getting capabilities: %s', status, err)
+                return
 
-            # if msgName != 'GET_READER_CAPABILITIES_RESPONSE':
-            #     logger.error('unexpected response %s when getting capabilities',
-            #                  msgName)
-            #     return
+            self.processDeferreds(msgName, lmsg.isSuccess())
 
-            # if not lmsg.isSuccess():
-            #     status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
-            #     err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
-            #     logger.fatal('Error %s getting capabilities: %s', status, err)
-            #     return
-
-            # self.capabilities = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-            # logger.debug('Capabilities: %s', pprint.pformat(self.capabilities))
-            # try:
-            #     self.parseCapabilities(self.capabilities)
-            # except LLRPError as err:
-            #     logger.exception('Capabilities mismatch')
-            #     raise err
-
-            #self.processDeferreds(msgName, lmsg.isSuccess())
-
-
-            #if self.reset_on_connect:
-            #    d = self.stopPolitely(disconnect=False)
-            #    if self.start_inventory:
-            #        d.addCallback(self.startInventory)
-            #elif self.start_inventory:
-            #    self.startInventory()
-
+            if self.reset_on_connect:
+                d = self.stopPolitely(disconnect=False)
+                if self.start_inventory:
+                    d.addCallback(self.startInventory)
+            elif self.start_inventory:
+                self.startInventory()
 
         # in state SENT_ADD_ROSPEC, expect only ADD_ROSPEC_RESPONSE; respond to
         # favorable ADD_ROSPEC_RESPONSE by enabling the added ROSpec and
