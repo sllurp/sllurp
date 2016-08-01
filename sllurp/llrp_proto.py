@@ -1489,6 +1489,28 @@ TLV_struct['SET_READER_CONFIG'] = {
 }
 
 
+def decode_SET_READER_CONFIG(data):
+    msg = LLRPMessageDict()
+    logger.debug(func())
+    ret, body = TLV_decode('LLRPStatus')(data)
+    if ret:
+        msg['LLRPStatus'] = ret
+    else:
+        raise LLRPError('missing or invalid LLRPStatus parameter')
+    return msg
+
+TLV_struct['SET_READER_CONFIG_RESPONSE'] = {
+    'type': 13,
+    'fields': [
+        'Type',
+        'MessageLength',
+        'MessageID',
+        'LLRPStatus'
+    ],
+    'decode': decode_SET_READER_CONFIG
+}
+
+
 # 17.2.5.1 AccessSpec
 def encode_AccessSpec(par):
     msgtype = TLV_struct['AccessSpec']['type']
