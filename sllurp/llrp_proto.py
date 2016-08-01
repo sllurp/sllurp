@@ -306,7 +306,7 @@ TLV_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
 
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
-    return encode('ROSpec')(msg['ROSpec'])
+    return TLV_encode('ROSpec')(msg['ROSpec'])
 
 TLV_struct['ADD_ROSPEC'] = {
     'type': 20,
@@ -1431,9 +1431,9 @@ def encode_ROSpec(par):
     msg_header = '!HHIBB'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = encode('ROBoundarySpec')(par['ROBoundarySpec'])
-    data += encode('AISpec')(par['AISpec'])
-    data += encode('ROReportSpec')(par['ROReportSpec'])
+    data = TLV_encode('ROBoundarySpec')(par['ROBoundarySpec'])
+    data += TLV_encode('AISpec')(par['AISpec'])
+    data += TLV_encode('ROReportSpec')(par['ROReportSpec'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -1489,29 +1489,6 @@ TLV_struct['SET_READER_CONFIG'] = {
 }
 
 
-def decode_SET_READER_CONFIG(data):
-    print "sup, sup, sup"
-    # msg = LLRPMessageDict()
-    # logger.debug(func())
-    # ret, body = TLV_decode('LLRPStatus')(data)
-    # if ret:
-    #     msg['LLRPStatus'] = ret
-    # else:
-    #     raise LLRPError('missing or invalid LLRPStatus parameter')
-    return msg
-
-TLV_struct['SET_READER_CONFIG_RESPONSE'] = {
-    'type': 287,
-    'fields': [
-        'Type',
-        'MessageLength',
-        'MessageID',
-        'LLRPStatus'
-    ],
-    'decode': decode_SET_READER_CONFIG
-}
-
-
 # 17.2.5.1 AccessSpec
 def encode_AccessSpec(par):
     msgtype = TLV_struct['AccessSpec']['type']
@@ -1524,10 +1501,10 @@ def encode_AccessSpec(par):
     data += struct.pack('!B', par['C'] and (1 << 7) or 0)
     data += struct.pack('!I', par['ROSpecID'])
 
-    data += encode('AccessSpecStopTrigger')(par['AccessSpecStopTrigger'])
-    data += encode('AccessCommand')(par['AccessCommand'])
+    data += TLV_encode('AccessSpecStopTrigger')(par['AccessSpecStopTrigger'])
+    data += TLV_encode('AccessCommand')(par['AccessCommand'])
     if 'AccessReportSpec' in par:
-        data += encode('AccessReportSpec')(par['AccessReportSpec'])
+        data += TLV_encode('AccessReportSpec')(par['AccessReportSpec'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len) + data
@@ -1554,7 +1531,7 @@ TLV_struct['AccessSpec'] = {
 
 # 17.1.21 ADD_ACCESSSPEC
 def encode_AddAccessSpec(msg):
-    return encode('AccessSpec')(msg['AccessSpec'])
+    return TLV_encode('AccessSpec')(msg['AccessSpec'])
 
 # 17.1.21 ADD_ACCESSSPEC
 TLV_struct['ADD_ACCESSSPEC'] = {
@@ -1976,8 +1953,8 @@ def encode_ROBoundarySpec(par):
     msg_header = '!HH'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = encode('ROSpecStartTrigger')(par['ROSpecStartTrigger'])
-    data += encode('ROSpecStopTrigger')(par['ROSpecStopTrigger'])
+    data = TLV_encode('ROSpecStartTrigger')(par['ROSpecStartTrigger'])
+    data += TLV_encode('ROSpecStopTrigger')(par['ROSpecStopTrigger'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len) + data
@@ -2068,8 +2045,8 @@ def encode_AISpec(par):
     for a in antennas:
         data += struct.pack('!H', int(a))
 
-    data += encode('AISpecStopTrigger')(par['AISpecStopTrigger'])
-    data += encode('InventoryParameterSpec')(par['InventoryParameterSpec'])
+    data += TLV_encode('AISpecStopTrigger')(par['AISpecStopTrigger'])
+    data += TLV_encode('InventoryParameterSpec')(par['InventoryParameterSpec'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len, len(antennas)) + data
@@ -2130,7 +2107,7 @@ def encode_InventoryParameterSpec(par):
 
     for antconf in par['AntennaConfiguration']:
         logger.debug('encoding AntennaConfiguration: %s', antconf)
-        data += encode('AntennaConfiguration')(antconf)
+        data += TLV_encode('AntennaConfiguration')(antconf)
 
     data = struct.pack(msg_header, msgtype,
                        msg_header_len + len(data)) + data
@@ -2155,11 +2132,11 @@ def encode_AntennaConfiguration(par):
     msg_header = '!HH'
     data = struct.pack('!H', int(par['AntennaID']))
     if 'RFReceiver' in par:
-        data += encode('RFReceiver')(par['RFReceiver'])
+        data += TLV_encode('RFReceiver')(par['RFReceiver'])
     if 'RFTransmitter' in par:
-        data += encode('RFTransmitter')(par['RFTransmitter'])
+        data += TLV_encode('RFTransmitter')(par['RFTransmitter'])
     if 'C1G2InventoryCommand' in par:
-        data += encode('C1G2InventoryCommand')(par['C1G2InventoryCommand'])
+        data += TLV_encode('C1G2InventoryCommand')(par['C1G2InventoryCommand'])
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
     return data
@@ -2227,11 +2204,11 @@ def encode_C1G2InventoryCommand(par):
     msg_header = '!HH'
     data = struct.pack('!B', (par['TagInventoryStateAware'] and 1 or 0) << 7)
     if 'C1G2Filter' in par:
-        data += encode('C1G2Filter')(par['C1G2Filter'])
+        data += TLV_encode('C1G2Filter')(par['C1G2Filter'])
     if 'C1G2RFControl' in par:
-        data += encode('C1G2RFControl')(par['C1G2RFControl'])
+        data += TLV_encode('C1G2RFControl')(par['C1G2RFControl'])
     if 'C1G2SingulationControl' in par:
-        data += encode('C1G2SingulationControl')(par['C1G2SingulationControl'])
+        data += TLV_encode('C1G2SingulationControl')(par['C1G2SingulationControl'])
     # XXX custom parameters
 
     data = struct.pack(msg_header, msgtype,
@@ -2313,7 +2290,7 @@ def encode_ROReportSpec(par):
     msg_header = '!HHBH'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
+    data = TLV_encode('TagReportContentSelector')(par['TagReportContentSelector'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2617,7 +2594,7 @@ def decode_EPCData(data):
     # Decode fields
     (par['EPCLengthBits'], ) = struct.unpack('!H',
                                              body[0:struct.calcsize('!H')])
-    par['EPC'] = body[struct.calcsize('!H'):].encode('hex')
+    par['EPC'] = body[struct.calcsize('!H'):].TLV_encode('hex')
 
     return par, data[length:]
 
@@ -2649,7 +2626,7 @@ def decode_EPC96(data):
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
     # Decode fields
-    par['EPC'] = body.encode('hex')
+    par['EPC'] = body.TLV_encode('hex')
 
     return par, data[length:]
 
