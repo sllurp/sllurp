@@ -4,8 +4,8 @@ import time
 import logging
 import pprint
 import struct
-from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
-    Message_Type2Name, Capability_Name2Type, AirProtocol, \
+from llrp_proto import LLRPROSpec, LLRPError, TLV_struct, TV_struct, \
+    TLV_Type2Name, TV_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION
 from binascii import hexlify
@@ -50,7 +50,7 @@ class LLRPMessage(object):
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
         msgid = self.msgdict[name]['ID']
         try:
-            encoder = Message_struct[name]['encode']
+            encoder = TLV_struct[name]['encode']
         except KeyError:
             raise LLRPError('Cannot find encoder for message type '
                             '{}'.format(name))
@@ -67,14 +67,23 @@ class LLRPMessage(object):
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
         data = ''.join(self.msgbytes)
+
         msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
                                                data[:self.full_hdr_len])
+
+        TV_encoding = msgtype >> 15  # Check encoding before deserialization
         ver = (msgtype >> 10) & BITMASK(3)
         msgtype = msgtype & BITMASK(10)
+
         try:
-            name = Message_Type2Name[msgtype]
-            logger.debug('deserializing %s command', name)
-            decoder = Message_struct[name]['decode']
+            if TV_encoding:
+                name = TV_Type2Name[msgtype]
+                logger.debug('deserializing %s command (TV encoded)', name)
+                decoder = TV_struct[name]['decode']
+            else:
+                name = TLV_Type2Name[msgtype]
+                logger.debug('deserializing %s command (TLV encoded)', name)
+                decoder = TLV_struct[name]['decode']
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
                             '{}'.format(msgtype))
@@ -134,6 +143,7 @@ class LLRPClient(LineReceiver):
     STATE_SENT_GET_CAPABILITIES = 9
     STATE_PAUSING = 10
     STATE_PAUSED = 11
+    STATE_SENT_READER_CONFIG = 12
 
     @classmethod
     def getStates(_):
@@ -366,7 +376,7 @@ class LLRPClient(LineReceiver):
 
             # a Deferred to call when we get GET_READER_CAPABILITIES_RESPONSE
             d = defer.Deferred()
-            d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
+            d.addCallback(self._setState_wrapper, LLRPClient.STATE_SENT_READER_CONFIG)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
             self.send_GET_READER_CAPABILITIES(onCompletion=d)
 
@@ -394,12 +404,45 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-            if self.reset_on_connect:
-                d = self.stopPolitely(disconnect=False)
-                if self.start_inventory:
-                    d.addCallback(self.startInventory)
-            elif self.start_inventory:
-                self.startInventory()
+            # a Deferred to call when we get GET_READER_CAPABILITIES_RESPONSE
+            d = defer.Deferred()
+            d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
+            d.addErrback(self.panic, 'SET_READER_CONFIG failed')
+            self.send_READER_CONFIG(onCompletion=d)
+
+        elif self.state == LLRPClient.STATE_SENT_READER_CONFIG:
+            print(msgName)
+
+
+            # if msgName != 'GET_READER_CAPABILITIES_RESPONSE':
+            #     logger.error('unexpected response %s when getting capabilities',
+            #                  msgName)
+            #     return
+
+            # if not lmsg.isSuccess():
+            #     status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+            #     err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+            #     logger.fatal('Error %s getting capabilities: %s', status, err)
+            #     return
+
+            # self.capabilities = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
+            # logger.debug('Capabilities: %s', pprint.pformat(self.capabilities))
+            # try:
+            #     self.parseCapabilities(self.capabilities)
+            # except LLRPError as err:
+            #     logger.exception('Capabilities mismatch')
+            #     raise err
+
+            #self.processDeferreds(msgName, lmsg.isSuccess())
+
+
+            #if self.reset_on_connect:
+            #    d = self.stopPolitely(disconnect=False)
+            #    if self.start_inventory:
+            #        d.addCallback(self.startInventory)
+            #elif self.start_inventory:
+            #    self.startInventory()
+
 
         # in state SENT_ADD_ROSPEC, expect only ADD_ROSPEC_RESPONSE; respond to
         # favorable ADD_ROSPEC_RESPONSE by enabling the added ROSpec and
@@ -578,6 +621,19 @@ class LLRPClient(LineReceiver):
         self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
         self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(onCompletion)
 
+    def send_READER_CONFIG(self, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'SET_READER_CONFIG': {
+                'Ver':  1,
+                'Type': 3,
+                'Code': 226,
+                'ID':   0,
+                'R': 0,
+                'Payload': 1
+            }}))
+        self.setState(LLRPClient.STATE_SENT_READER_CONFIG)
+        self._deferreds['READER_CONFIG_RESPONSE'].append(onCompletion)
+
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'ADD_ROSPEC': {
@@ -656,7 +712,7 @@ class LLRPClient(LineReceiver):
     def startAccess(self, readWords=None, writeWords=None, target=None,
                     accessStopParam=None, accessSpecID=1, param=None,
                     *args):
-        m = Message_struct['AccessSpec']
+        m = TLV_struct['AccessSpec']
         if not target:
             target = {
                 'MB': 0,
