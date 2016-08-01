@@ -1457,6 +1457,21 @@ TLV_struct['ROSpec'] = {
 }
 
 
+# 17.1.38 ENABLE_EVENTS_AND_REPORTS
+def encode_ENABLE_EVENTS_AND_REPORTS(par):
+    return ""
+
+# 17.1.42 ENABLE_EVENTS_AND_REPORTS
+TLV_struct['ENABLE_EVENTS_AND_REPORTS'] = {
+    'type': 64,
+    'fields': [
+        'Ver',
+        'Type'
+    ],
+    'encode': encode_ENABLE_EVENTS_AND_REPORTS
+}
+
+
 # 17.1.42 SET_READER_CONFIG
 def encode_SET_READER_CONFIG(par):
     # See "Table 6: Parameter Listing" for type codes
