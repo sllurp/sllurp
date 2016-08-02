@@ -2631,11 +2631,11 @@ def decode_EPCData(data):
     # Decode fields
     (par['EPCLengthBits'], ) = struct.unpack('!H',
                                              body[0:struct.calcsize('!H')])
-    par['EPC'] = body[struct.calcsize('!H'):].TLV_encode('hex')
+    par['EPC'] = body[struct.calcsize('!H'):].encode('hex')
 
     return par, data[length:]
 
-TV_struct['EPCData'] = {
+TLV_struct['EPCData'] = {
     'type': 241,
     'fields': [
         'Type',
@@ -2656,14 +2656,14 @@ def decode_EPC96(data):
     header = data[0:tve_header_len]
     (msgtype, ) = struct.unpack(tve_header, header)
     msgtype = msgtype & BITMASK(7)
-    if msgtype != TLV_struct['EPC-96']['type']:
+    if msgtype != TV_struct['EPC-96']['type']:
         return (None, data)
     length = tve_header_len + (96 / 8)
     body = data[tve_header_len:length]
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
     # Decode fields
-    par['EPC'] = body.TLV_encode('hex')
+    par['EPC'] = body.encode('hex')
 
     return par, data[length:]
 
