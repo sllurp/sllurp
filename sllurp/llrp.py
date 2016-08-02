@@ -645,8 +645,7 @@ class LLRPClient(LineReceiver):
                 'Type': 64,
                 'ID':   0
             }}))
-        #self.setState(LLRPClient.STATE_INVENTORYING)
-        self._deferreds['ENABLE_EVENTS_AND_REPORTS'].append(onCompletion)
+        self.setState(LLRPClient.STATE_INVENTORYING)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
@@ -836,18 +835,13 @@ class LLRPClient(LineReceiver):
 
         logger.info('starting inventory')
 
-        started = defer.Deferred()
-        started.addCallback(self._setState_wrapper,
-                            LLRPClient.STATE_INVENTORYING)
-        started.addErrback(self.panic, 'Inventorying failed')
-
         if self.duration:
             task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
         rospec = self.getROSpec()['ROSpec']
 
         d2 = defer.Deferred()
-        d2.addCallback(self.send_ENABLE_EVENTS_AND_REPORTS, onCompletion=started)
+        d2.addCallback(self.send_ENABLE_EVENTS_AND_REPORTS, onCompletion=None)
         d2.addErrback(self.panic, 'START_ROSPEC failed')
 
         d1 = defer.Deferred()
