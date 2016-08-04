@@ -96,6 +96,9 @@ def bin2dump(data, label=''):
         str += line + '\n'
     return str[:-1]
 
+def getType(data):
+    return struct.unpack("!H", data[:2])[0]
+
 
 def dump(data, label):
     logger.debug(bin2dump(data, label))
@@ -1461,7 +1464,7 @@ TLV_struct['ROSpec'] = {
 def encode_ENABLE_EVENTS_AND_REPORTS(par):
     return ""
 
-# 17.1.42 ENABLE_EVENTS_AND_REPORTS
+# 17.1.38 ENABLE_EVENTS_AND_REPORTS
 TLV_struct['ENABLE_EVENTS_AND_REPORTS'] = {
     'type': 64,
     'fields': [
@@ -1469,6 +1472,164 @@ TLV_struct['ENABLE_EVENTS_AND_REPORTS'] = {
         'Type'
     ],
     'encode': encode_ENABLE_EVENTS_AND_REPORTS
+}
+
+
+# 17.1.40 GET_READER_CONFIG
+def encode_GET_READER_CONFIG(msg):
+    req = msg['RequestedData']
+    antenna = msg['Antenna']
+    gpi = msg['GPI']
+    gpo = msg['GPO']
+    return struct.pack('!HBHH', antenna, req, gpi, gpo)
+
+# 17.1.40 GET_READER_CONFIG
+TLV_struct['GET_READER_CONFIG'] = {
+    'type': 2,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'RequestedData', 'Antenna', 'GPO', 'GPI'
+    ],
+    'encode': encode_GET_READER_CONFIG
+}
+
+# 17.1.41 GET_READER_CONFIG_RESPONSE
+def decode_GET_READER_CONFIG(data):
+    msg = LLRPMessageDict()
+
+    ret, body = TLV_decode('LLRPStatus')(data)
+    if ret:
+        msg['LLRPStatus'] = ret
+    else:
+        raise LLRPError('missing or invalid LLRPStatus parameter')
+
+    # Check if Identification Parameter is present before decoding
+    if getType(body) == TLV_struct['Identification']['type']:
+        ret, body = TLV_decode('Identification')(body)
+        if ret:
+            msg["Identification"] = ret
+        else:
+            raise LLRPError('Missing Identification parameter')
+
+    # Check if AntennaProperties Parameter is present before decoding
+    if getType(body) == TLV_struct['AntennaProperties']['type']:
+        # If more antennas are present, it will have multiple entities
+        msg["AntennaProperties"] = []
+
+        while getType(body) == TLV_struct['AntennaProperties']['type']:
+            ret, body = TLV_decode('AntennaProperties')(body)
+            if ret:
+                msg["AntennaProperties"].append(ret)
+            else:
+                raise LLRPError('Missing AntennaProperties parameter')
+
+    # Check if AntennaConfiguration Parameter is present before decoding
+    if getType(body) == TLV_struct['AntennaConfiguration']['type']:
+        # If more antennas are present, it will have multiple entities
+        msg["AntennaConfiguration"] = []
+
+        while getType(body) == TLV_struct['AntennaConfiguration']['type']:
+            ret, body = TLV_decode('AntennaConfiguration')(body)
+            if ret:
+                msg["AntennaConfiguration"].append(ret)
+            else:
+                raise LLRPError('Missing AntennaConfiguration parameter')
+
+    # Check if ReaderEventNotificationSpec Parameter is present before decoding
+    if getType(body) == TLV_struct['ReaderEventNotificationSpec']['type']:
+        ret, body = TLV_decode('ReaderEventNotificationSpec')(body)
+        if ret:
+            msg["ReaderEventNotificationSpec"] = ret
+        else:
+            raise LLRPError('Missing ReaderEventNotificationSpec parameter')
+
+    # Check if ROReportSpec Parameter is present before decoding
+    if getType(body) == TLV_struct['ROReportSpec']['type']:
+        ret, body = TLV_decode('ROReportSpec')(body)
+        if ret:
+            msg["ROReportSpec"] = ret
+        else:
+            raise LLRPError('Missing ROReportSpec parameter')
+
+    # Check if AccessReportSpec Parameter is present before decoding
+    if getType(body) == TLV_struct['AccessReportSpec']['type']:
+        ret, body = TLV_decode('AccessReportSpec')(body)
+        if ret:
+            msg["AccessReportSpec"] = ret
+        else:
+            raise LLRPError('Missing AccessReportSpec parameter')
+
+    # Check if LLRPConfigurationStateValue Parameter is present before decoding
+    if getType(body) == TLV_struct['LLRPConfigurationStateValue']['type']:
+        ret, body = TLV_decode('LLRPConfigurationStateValue')(body)
+        if ret:
+            msg["LLRPConfigurationStateValue"] = ret
+        else:
+            raise LLRPError('Missing LLRPConfigurationStateValue parameter')
+
+    # Check if KeepaliveSpec Parameter is present before decoding
+    if getType(body) == TLV_struct['KeepaliveSpec']['type']:
+        ret, body = TLV_decode('KeepaliveSpec')(body)
+        if ret:
+            msg["KeepaliveSpec"] = ret
+        else:
+            raise LLRPError('Missing KeepaliveSpec parameter')
+
+    # Check if GPIPortCurrentState Parameter is present before decoding
+    if getType(body) == TLV_struct['GPIPortCurrentState']['type']:
+        # If more GP pins are present, it will have multiple entities
+        msg["GPIPortCurrentState"] = []
+
+        while getType(body) == TLV_struct['GPIPortCurrentState']['type']:
+            ret, body = TLV_decode('GPIPortCurrentState')(body)
+            if ret:
+                msg["GPIPortCurrentState"].append(ret)
+            else:
+                raise LLRPError('Missing GPIPortCurrentState parameter')
+
+    # Check if GPOWriteData Parameter is present before decoding
+    if getType(body) == TLV_struct['GPOWriteData']['type']:
+        # If more GP pins are present, it will have multiple entities
+        msg["GPOWriteData"] = []
+
+        while getType(body) == TLV_struct['GPOWriteData']['type']:
+            ret, body = TLV_decode('GPOWriteData')(body)
+            if ret:
+                msg["GPOWriteData"].append(ret)
+            else:
+                raise LLRPError('Missing GPOWriteData parameter')
+
+    # Check if EventsAndReports Parameter is present before decoding
+    if getType(body) == TLV_struct['EventsAndReports']['type']:
+        ret, body = TLV_decode('EventsAndReports')(body)
+        if ret:
+            msg["EventsAndReports"] = ret
+        else:
+            raise LLRPError('Missing EventsAndReports parameter')
+
+    return msg
+
+# 17.1.41 GET_READER_CONFIG_RESPONSE
+TLV_struct['GET_READER_CONFIG_RESPONSE'] = {
+    'type': 12,
+    'fields': [
+        'Type',
+        'MessageLength',
+        'MessageID',
+        'LLRPStatus',
+        'Identification',
+        'AntennaProperties',
+        'AntennaConfiguration',
+        'ReaderEventNotificationSpec',
+        'ROReportSpec',
+        'AccessReportSpec',
+        'LLRPConfigurationStateValue',
+        'KeepaliveSpec',
+        'GPIPortCurrentState',
+        'GPOWriteData',
+        'EventsAndReports'
+    ],
+    'decode': decode_GET_READER_CONFIG
 }
 
 
@@ -1504,6 +1665,7 @@ TLV_struct['SET_READER_CONFIG'] = {
 }
 
 
+# 17.1.43 SET_READER_CONFIG_RESPONSE
 def decode_SET_READER_CONFIG(data):
     msg = LLRPMessageDict()
     logger.debug(func())
@@ -1514,6 +1676,7 @@ def decode_SET_READER_CONFIG(data):
         raise LLRPError('missing or invalid LLRPStatus parameter')
     return msg
 
+# 17.1.43 SET_READER_CONFIG_RESPONSE
 TLV_struct['SET_READER_CONFIG_RESPONSE'] = {
     'type': 13,
     'fields': [
@@ -1565,6 +1728,208 @@ TLV_struct['AccessSpec'] = {
     'encode': encode_AccessSpec
 }
 
+# 17.2.6.1 LLRPConfigurationStateValue Parameter
+def decode_LLRPConfigurationStateValue(data):
+    Type, Length, LLRPConfigurationStateValue = struct.unpack("!HHI", data[:8])
+
+    par = {'Type': Type,
+           'Length': Length,
+           'LLRPConfigurationStateValue': LLRPConfigurationStateValue}
+
+    return par, data[8:]
+
+# 17.2.6.1 LLRPConfigurationStateValue Parameter
+TLV_struct['LLRPConfigurationStateValue'] = {
+    'type': 217,
+    'fields': [
+        'Type', 'Length', 'LLRPConfigurationStateValue'
+    ],
+    'decode': decode_LLRPConfigurationStateValue
+}
+
+# 17.2.6.2 Identification Parameter
+def decode_Identification(data):
+    Type, Length, IDType, ByteCount = struct.unpack("!HHBH", data[:7])
+
+    endIdx = 7+ByteCount
+    ReaderID = struct.unpack("!"+"B"*(ByteCount-2), data[7:endIdx])
+
+    par = {'Type': Type,
+           'Length': Length,
+           'IDType': IDType,
+           'ByteCount': ByteCount,
+           'ReaderID': ReaderID}
+
+    return par, data[endIdx:]
+
+# 17.2.6.2 Identification Parameter
+TLV_struct['Identification'] = {
+    'type': 218,
+    'fields': [
+        'Type', 'Length', 'IDType', 'ByteCount', 'ReaderID'
+    ],
+    'decode': decode_Identification
+}
+
+# 17.2.6.3 GPOWriteData Parameter
+def decode_GPOWriteData(data):
+    Type, Length, GPOPortNumber, GPOData = struct.unpack("!HHHB", data[:7])
+    GPOData = GPOData >> 7
+
+    par = {'Type': Type,
+           'Length': Length,
+           'GPOPortNumber': GPOPortNumber,
+           'GPOData': GPOData}
+
+    return par, data[7:]
+
+# 17.2.6.3 GPOWriteData Parameter
+TLV_struct['GPOWriteData'] = {
+    'type': 219,
+    'fields': [
+        'Type', 'Length', 'GPOPortNumber', 'GPOData'
+    ],
+    'decode': decode_GPOWriteData
+}
+
+
+# 17.2.6.4 KeepaliveSpec Parameter
+def decode_KeepaliveSpec(data):
+    Type, Length, KeepaliveTriggerType, TimeInterval = struct.unpack("!HHBI", data[:9])
+
+    par = {'Type': Type,
+           'Length': Length,
+           'KeepaliveTriggerType': KeepaliveTriggerType,
+           'TimeInterval': TimeInterval}
+
+    return par, data[9:]
+
+# 17.2.6.4 KeepaliveSpec Parameter
+TLV_struct['KeepaliveSpec'] = {
+    'type': 220,
+    'fields': [
+        'Type', 'Length', 'KeepaliveTriggerType', 'TimeInterval'
+    ],
+    'decode': decode_KeepaliveSpec
+}
+
+
+# 17.2.6.5 AntennaProperties Parameter
+def decode_AntennaProperties(data):
+    Type, Length, Connected, AntennaID, AntennaGain = struct.unpack("!HHBHH", data[:9])
+    Connected = Connected >> 7  # Antenna Connected (True/False)
+
+    par = {'Type': Type,
+           'Length': Length,
+           'Connected': Connected,
+           'AntennaID': AntennaID,
+           'AntennaGain': AntennaGain}
+
+    return par, data[Length:]
+
+# 17.2.6.5 AntennaProperties Parameter
+TLV_struct['AntennaProperties'] = {
+    'type': 221,
+    'fields': [
+        'Type', 'Length', 'Connected', 'AntennaID', 'AntennaGain'
+    ],
+    'decode': decode_AntennaProperties
+}
+
+# 17.2.6.9 GPIPortCurrentState Parameter
+def decode_GPIPortCurrentState(data):
+    Type, Length, GPIPortNum, GPIConfig, GPIState = struct.unpack("!HHHBB", data[:8])
+    GPIConfig = GPIConfig >> 7
+
+    par = {'Type': Type,
+           'Length': Length,
+           'GPIPortNum': GPIPortNum,
+           'GPIConfig': GPIConfig,
+           'GPIState': GPIState}
+
+    return par, data[8:]
+
+# 17.2.6.9 GPIPortCurrentState Parameter
+TLV_struct['GPIPortCurrentState'] = {
+    'type': 225,
+    'fields': [
+        'Type', 'Length', 'GPIPortNum', 'GPIConfig', 'GPIState'
+    ],
+    'decode': decode_GPIPortCurrentState
+}
+
+# 17.2.6.10 EventsAndReports Parameter
+def decode_EventsAndReports(data):
+    Type, Length, HoldEventsAndReportsUponReconnect = struct.unpack("!HHB", data[:5])
+    HoldEventsAndReportsUponReconnect = HoldEventsAndReportsUponReconnect >> 7
+
+    par = {'Type': Type,
+           'Length': Length,
+           'HoldEventsAndReportsUponReconnect': HoldEventsAndReportsUponReconnect}
+
+    return par, data[5:]
+
+# 17.2.6.10 EventsAndReports Parameter
+TLV_struct['EventsAndReports'] = {
+    'type': 226,
+    'fields': [
+        'Type', 'Length', 'HoldEventsAndReportsUponReconnect'
+    ],
+    'decode': decode_EventsAndReports
+}
+
+
+# 17.2.7.5 ReaderEventNotificationSpec
+def decode_ReaderEventNotificationSpec(data):
+    Type, Length = struct.unpack("!HH", data[:4])
+    body = data[4:]
+
+    if Type != TLV_struct['ReaderEventNotificationSpec']['type']:
+        return {}, data
+
+    EventNotificationState = []
+    while getType(body) == TLV_struct['EventNotificationState']['type']:
+        ENS, body = TLV_struct['EventNotificationState']['decode'](body)
+        EventNotificationState.append(ENS)
+
+    par = {'Type': Type,
+           'Length': Length,
+           'EventNotificationState': EventNotificationState}
+
+    return par, body
+
+# 17.2.7.5 ReaderEventNotificationSpec
+TLV_struct['ReaderEventNotificationSpec'] = {
+    'type': 244,
+    'fields': [
+        'Type', 'Length', 'EventNotificationState'
+    ],
+    'decode': decode_ReaderEventNotificationSpec
+}
+
+# 17.2.7.5.1 EventNotificationState Parameter
+def decode_EventNotificationState(data):
+    Type, Length, EventType, NotificationState = struct.unpack("!HHHB", data[:7])
+    NotificationState = NotificationState >> 7
+
+    if Type != TLV_struct['EventNotificationState']['type']:
+        return {}, data
+
+    par = {'Type': Type,
+           'Length': Length,
+           'EventType': EventType,
+           'NotificationState': NotificationState}
+
+    return par, data[7:]
+
+# 17.2.7.5.1 EventNotificationState Parameter
+TLV_struct['EventNotificationState'] = {
+    'type': 245,
+    'fields': [
+        'Type', 'Length', 'EventType', 'NotificationState'
+    ],
+    'decode': decode_EventNotificationState
+}
 
 # 17.1.21 ADD_ACCESSSPEC
 def encode_AddAccessSpec(msg):
@@ -1960,6 +2325,15 @@ TLV_struct['C1G2BlockWrite'] = {
     'encode': encode_C1G2Write
 }
 
+def decode_AccessReportSpec(data):
+    Type, Length, AccessReportTrigger = struct.unpack("!HHB", data[:5])
+
+    par = {'Type': Type,
+           'Length': Length,
+           'AccessReportTrigger': AccessReportTrigger}
+
+    return par, data[5:]
+
 
 def encode_AccessReportSpec(par):
     msgtype = TLV_struct['AccessReportSpec']['type']
@@ -1979,7 +2353,8 @@ TLV_struct['AccessReportSpec'] = {
         'Type',
         'AccessReportTrigger'
     ],
-    'encode': encode_AccessReportSpec
+    'encode': encode_AccessReportSpec,
+    'decode': decode_AccessReportSpec
 }
 
 
@@ -2178,6 +2553,29 @@ def encode_AntennaConfiguration(par):
                        len(data) + struct.calcsize(msg_header)) + data
     return data
 
+def decode_AntennaConfiguration(data):
+    Type, Length, AntennaID = struct.unpack("!HHH", data[:6])
+    body = data[6:]
+
+    if Type != TLV_struct['AntennaConfiguration']['type']:
+        return {}, data
+
+    par = {'Type': Type,
+           'Length': Length,
+           'AntennaID': AntennaID}
+
+    if getType(body) == TLV_struct['RFReceiver']['type']:
+        par['RFReceiver'], body = decode_RFReceiver(body)
+
+    if getType(body) == TLV_struct['RFTransmitter']['type']:
+        par['RFTransmitter'], body = decode_RFTransmitter(body)
+
+    if getType(body) == TLV_struct['C1G2InventoryCommand']['type']:
+        raise Exception("AirProtocolInventoryCommandSettings and "
+                        "C1G2InventoryCommand has not been implemented yet")
+
+    return par, data[Length:]
+
 TLV_struct['AntennaConfiguration'] = {
     'type': 222,
     'fields': [
@@ -2189,9 +2587,16 @@ TLV_struct['AntennaConfiguration'] = {
         # C1G2InventoryCommand?
         'C1G2InventoryCommand'
     ],
-    'encode': encode_AntennaConfiguration
+    'encode': encode_AntennaConfiguration,
+    'decode': decode_AntennaConfiguration
 }
 
+def decode_RFReceiver(data):
+    Type, Length, ReceiverSensitivity = struct.unpack("!HHH", data[:6])
+    par = {'Type': Type,
+           'Length': Length,
+           'ReceiverSensitivity': ReceiverSensitivity}
+    return par, data[6:]
 
 # 16.2.6.7 RFReceiver Parameter
 def encode_RFReceiver(par):
@@ -2208,9 +2613,19 @@ TLV_struct['RFReceiver'] = {
         'Type',
         'ReceiverSensitivity',
     ],
-    'encode': encode_RFReceiver
+    'encode': encode_RFReceiver,
+    'decode': decode_RFReceiver
 }
 
+
+def decode_RFTransmitter(data):
+    Type, Length, HopTableId, ChannelIndex, TransmitPower = struct.unpack("!HHHHH", data[:10])
+    par = {'Type': Type,
+           'Length': Length,
+           'HopTableId': HopTableId,
+           'ChannelIndex': ChannelIndex,
+           'TransmitPower': TransmitPower}
+    return par, data[10:]
 
 # 16.2.6.8 RFTransmitter Parameter
 def encode_RFTransmitter(par):
@@ -2231,7 +2646,8 @@ TLV_struct['RFTransmitter'] = {
         'ChannelIndex',
         'TransmitPower',
     ],
-    'encode': encode_RFTransmitter
+    'encode': encode_RFTransmitter,
+    'decode': decode_RFTransmitter
 }
 
 
@@ -2319,6 +2735,19 @@ TLV_struct['C1G2SingulationControl'] = {
 
 
 # 16.2.7.1 ROReportSpec Parameter
+def decode_ROReportSpec(data):
+    Type, Length, ROReportTrigger, N = struct.unpack("!HHBH", data[:7])
+    TagReportContentSelector, body = TLV_struct['TagReportContentSelector']['decode'](data[7:])
+
+    par = {'Type': Type,
+           'N': N,
+           'ROReportTrigger': ROReportTrigger,
+           'TagReportContentSelector': TagReportContentSelector}
+
+    return par, body
+
+
+# 16.2.7.1 ROReportSpec Parameter
 def encode_ROReportSpec(par):
     msgtype = TLV_struct['ROReportSpec']['type']
     n = int(par['N'])
@@ -2342,9 +2771,41 @@ TLV_struct['ROReportSpec'] = {
         'ROReportTrigger',
         'TagReportContentSelector'
     ],
-    'encode': encode_ROReportSpec
+    'encode': encode_ROReportSpec,
+    'decode': decode_ROReportSpec
 }
 
+
+# 16.2.7.1 TagReportContentSelector Parameter
+def decode_TagReportContentSelector(data):
+    Type, Length, EnableBits = struct.unpack("!HHH", data[:6])
+
+    EnableROSpecID = (EnableBits >> 15) & 1
+    EnableSpecIndex = (EnableBits >> 14) & 1
+    EnableInventoryParameterSpecID = (EnableBits >> 13) & 1
+    EnableAntennaID = (EnableBits >> 12) & 1
+    EnableChannelIndex = (EnableBits >> 11) & 1
+    EnablePeakRRSI = (EnableBits >> 10) & 1
+    EnableFirstSeenTimestamp = (EnableBits >> 9) & 1
+    EnableLastSeenTimestamp = (EnableBits >> 8) & 1
+    EnableTagSeenCount = (EnableBits >> 7) & 1
+    EnableAccessSpecID = (EnableBits >> 6) & 1
+
+    if Length != 6:
+        raise Exception("AirProtocolSpecificEPCMemorySelectorParameter is not implemented yet")
+
+    par = {'EnableROSpecID': EnableROSpecID,
+           'EnableSpecIndex': EnableSpecIndex,
+           'EnableInventoryParameterSpecID': EnableInventoryParameterSpecID,
+           'EnableAntennaID': EnableAntennaID,
+           'EnableChannelIndex': EnableChannelIndex,
+           'EnablePeakRRSI': EnablePeakRRSI,
+           'EnableFirstSeenTimestamp': EnableFirstSeenTimestamp,
+           'EnableLastSeenTimestamp': EnableLastSeenTimestamp,
+           'EnableTagSeenCount': EnableTagSeenCount,
+           'EnableAccessSpecID': EnableAccessSpecID}
+
+    return par, data[6:]
 
 # 16.2.7.1 TagReportContentSelector Parameter
 def encode_TagReportContentSelector(par):
@@ -2379,7 +2840,8 @@ TLV_struct['TagReportContentSelector'] = {
         'EnableTagSeenCount',
         'EnableAccessSpecID'
     ],
-    'encode': encode_TagReportContentSelector
+    'encode': encode_TagReportContentSelector,
+    'decode': decode_TagReportContentSelector
 }
 
 
