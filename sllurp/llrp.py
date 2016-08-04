@@ -414,7 +414,7 @@ class LLRPClient(LineReceiver):
 
         elif self.state == LLRPClient.STATE_SENT_READER_CONFIG:
             if msgName != 'SET_READER_CONFIG_RESPONSE':
-                logger.error('unexpected response %s when getting capabilities',
+                logger.error('unexpected response %s when getting reader cfg',
                              msgName)
                 return
 
@@ -637,6 +637,20 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_SENT_READER_CONFIG)
         self._deferreds['READER_CONFIG_RESPONSE'].append(onCompletion)
+
+    def send_GET_READER_CONFIG(self, antenna, GPI, GPO, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'GET_READER_CONFIG': {
+                'Ver':  1,
+                'Type': 2,
+                'ID':   0,
+                'RequestedData': Capability_Name2Type['All'],
+                'Antenna': antenna,
+                'GPO': GPO,
+                'GPI': GPI
+            }}))
+        self.setState(LLRPClient.STATE_SENT_READER_CONFIG)
+        self._deferreds['GET_READER_CONFIG_RESPONSE'].append(onCompletion)
 
     def send_ENABLE_EVENTS_AND_REPORTS(self, _, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
