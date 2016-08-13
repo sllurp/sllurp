@@ -132,7 +132,9 @@ def main():
             logger.info('selected recommended Tari of %d for %s', args.tari,
                         args.modulation)
 
+    # build the antennas tuple and transmit power map {antenna_id: tx power}
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
+    tx_power_map = dict([(antid, args.tx_power) for antid in enabled_antennas])
 
     # d.callback will be called when all connections have terminated normally.
     # use d.addCallback(<callable>) to define end-of-program behavior.
@@ -143,7 +145,7 @@ def main():
                                  duration=args.time,
                                  report_every_n_tags=args.every_n,
                                  antennas=enabled_antennas,
-                                 tx_power=args.tx_power,
+                                 tx_power=tx_power_map,
                                  modulation=args.modulation,
                                  tari=args.tari,
                                  session=args.session,

@@ -259,6 +259,12 @@ class LLRPClient(LineReceiver):
             self.antennas = [ant for ant in self.antennas
                              if ant <= gdc['MaxNumberOfAntennaSupported']]
 
+        # Backward-compatibility: create a map for tx power per antenna
+        if not isinstance(self.tx_power, (dict, )):
+            transmit_power = self.tx_power
+            self.tx_power = dict([(antid, transmit_power)
+                                  for antid in self.antennas])
+            logger.warn("tx_power map should be {anntena_id: transmit_power}")
         # check requested Tx power
         logger.debug('requested tx_power: %s', self.tx_power)
         bandtbl = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
@@ -269,17 +275,19 @@ class LLRPClient(LineReceiver):
             idx = v['Index']
             self.tx_power_table[idx] = int(v['TransmitPowerValue']) / 100.0
         logger.debug('tx_power_table: %s', self.tx_power_table)
-        if self.tx_power == 0:
-            # tx_power = 0 means max power
-            self.tx_power = find_p(max, self.tx_power_table)
-        elif self.tx_power not in range(len(self.tx_power_table)):
-            raise LLRPError('Invalid tx_power: requested={},'
-                            ' max_available={}, min_available={}'.format(
-                                self.tx_power,
-                                find_p(max, self.tx_power_table),
-                                find_p(min, self.tx_power_table)))
-        logger.debug('set tx_power: %s (%s dBm)', self.tx_power,
-                     self.tx_power_table[self.tx_power])
+        for antid, transmit_power in self.tx_power.items():
+            if transmit_power == 0:
+                # tx_power = 0 means max power
+                transmit_power = find_p(max, self.tx_power_table)
+                self.tx_power[antid] = transmit_power
+            elif transmit_power not in range(len(self.tx_power_table)):
+                raise LLRPError('Invalid tx_power for ant. {}: requested={},'
+                                ' max_available={}, min_available={}'.format(
+                                    antid, transmit_power,
+                                    find_p(max, self.tx_power_table),
+                                    find_p(min, self.tx_power_table)))
+            logger.debug('set tx_power: %s (%s dBm) ant. %s', transmit_power,
+                         self.tx_power_table[transmit_power], antid)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
         match = False  # have we matched the user's requested values yet?
