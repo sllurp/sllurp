@@ -875,10 +875,11 @@ class LLRPClient(LineReceiver):
         logger.debug('tx_power: %s (%s dBm)', tx_pow_idx, tx_pow_dbm)
 
         if self.state == LLRPClient.STATE_INVENTORYING:
-            self.pause(0.1)
+            self.pause(0.5)
 
     def pause(self, duration_seconds=0, force=False):
         """Pause an inventory operation for a set amount of time."""
+        logger.debug('pause(%s)', duration_seconds)
         if self.state != LLRPClient.STATE_INVENTORYING:
             if not force:
                 logger.info('ignoring pause() because not inventorying')
@@ -887,7 +888,7 @@ class LLRPClient(LineReceiver):
                 logger.info('forcing pause()')
 
         if duration_seconds:
-            logger.info('pausing for %d seconds', duration_seconds)
+            logger.info('pausing for %s seconds', duration_seconds)
 
         rospec = self.getROSpec()['ROSpec']
 
@@ -906,12 +907,14 @@ class LLRPClient(LineReceiver):
         self._deferreds['DISABLE_ROSPEC_RESPONSE'].append(d)
 
         if duration_seconds > 0:
-            startAgain = task.deferLater(reactor, duration_seconds, lambda: 0)
-            startAgain.addCallback(self.resume)
+            startAgain = task.deferLater(reactor, duration_seconds,
+                                         lambda: None)
+            startAgain.addCallback(lambda _: self.resume())
 
         return d
 
     def resume(self):
+        logger.debug('Resuming')
         if self.state in (LLRPClient.STATE_CONNECTED,
                           LLRPClient.STATE_DISCONNECTED):
             self.startInventory()
