@@ -764,8 +764,8 @@ class LLRPClient(LineReceiver):
 
         self.send_ADD_ROSPEC(rospec, onCompletion=d)
 
-    def getROSpec(self):
-        if self.rospec:
+    def getROSpec(self, force_new=False):
+        if self.rospec and not force_new:
             return self.rospec
 
         # create an ROSpec to define the reader's inventorying behavior
@@ -875,9 +875,9 @@ class LLRPClient(LineReceiver):
         logger.debug('tx_power: %s (%s dBm)', tx_pow_idx, tx_pow_dbm)
 
         if self.state == LLRPClient.STATE_INVENTORYING:
-            self.pause(0.5)
+            self.pause(0.5, force_regen_rospec=True)
 
-    def pause(self, duration_seconds=0, force=False):
+    def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
         """Pause an inventory operation for a set amount of time."""
         logger.debug('pause(%s)', duration_seconds)
         if self.state != LLRPClient.STATE_INVENTORYING:
@@ -890,7 +890,7 @@ class LLRPClient(LineReceiver):
         if duration_seconds:
             logger.info('pausing for %s seconds', duration_seconds)
 
-        rospec = self.getROSpec()['ROSpec']
+        rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
 
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'DISABLE_ROSPEC': {
