@@ -871,6 +871,9 @@ class LLRPClient(LineReceiver):
 
     def setTxPower(self, tx_power):
         tx_pow_idx, tx_pow_dbm = self.get_tx_power(tx_power)
+        if self.tx_power == tx_pow_idx:
+            return
+
         self.tx_power = tx_pow_idx
         logger.debug('tx_power: %s (%s dBm)', tx_pow_idx, tx_pow_dbm)
 
