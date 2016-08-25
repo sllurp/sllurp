@@ -4,8 +4,8 @@ import time
 import logging
 import pprint
 import struct
-from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
-    Message_Type2Name, Capability_Name2Type, AirProtocol, \
+from llrp_proto import LLRPROSpec, LLRPError, TLV_struct, TV_struct, \
+    TLV_Type2Name, TV_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION
 from binascii import hexlify
@@ -50,7 +50,7 @@ class LLRPMessage(object):
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
         msgid = self.msgdict[name]['ID']
         try:
-            encoder = Message_struct[name]['encode']
+            encoder = TLV_struct[name]['encode']
         except KeyError:
             raise LLRPError('Cannot find encoder for message type '
                             '{}'.format(name))
@@ -67,14 +67,23 @@ class LLRPMessage(object):
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
         data = ''.join(self.msgbytes)
+
         msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
                                                data[:self.full_hdr_len])
+
+        TV_encoding = msgtype >> 15  # Check encoding before deserialization
         ver = (msgtype >> 10) & BITMASK(3)
         msgtype = msgtype & BITMASK(10)
+
         try:
-            name = Message_Type2Name[msgtype]
-            logger.debug('deserializing %s command', name)
-            decoder = Message_struct[name]['decode']
+            if TV_encoding:
+                name = TV_Type2Name[msgtype]
+                logger.debug('deserializing %s command (TV encoded)', name)
+                decoder = TV_struct[name]['decode']
+            else:
+                name = TLV_Type2Name[msgtype]
+                logger.debug('deserializing %s command (TLV encoded)', name)
+                decoder = TLV_struct[name]['decode']
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
                             '{}'.format(msgtype))
@@ -134,6 +143,9 @@ class LLRPClient(LineReceiver):
     STATE_SENT_GET_CAPABILITIES = 9
     STATE_PAUSING = 10
     STATE_PAUSED = 11
+    STATE_SENT_READER_CONFIG = 12
+    STATE_SENT_ENABLE_EVENTS_AND_REPORTS = 13
+    STATE_SENT_START_ROSPEC = 14
 
     @classmethod
     def getStates(_):
@@ -359,7 +371,7 @@ class LLRPClient(LineReceiver):
 
             # a Deferred to call when we get GET_READER_CAPABILITIES_RESPONSE
             d = defer.Deferred()
-            d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
+            d.addCallback(self._setState_wrapper, LLRPClient.STATE_SENT_READER_CONFIG)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
             self.send_GET_READER_CAPABILITIES(onCompletion=d)
 
@@ -384,6 +396,26 @@ class LLRPClient(LineReceiver):
             except LLRPError as err:
                 logger.exception('Capabilities mismatch')
                 raise err
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
+            # a Deferred to call when we get GET_READER_CAPABILITIES_RESPONSE
+            d = defer.Deferred()
+            d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
+            d.addErrback(self.panic, 'SET_READER_CONFIG failed')
+            self.send_READER_CONFIG(onCompletion=d)
+
+        elif self.state == LLRPClient.STATE_SENT_READER_CONFIG:
+            if msgName != 'SET_READER_CONFIG_RESPONSE':
+                logger.error('unexpected response %s when getting reader cfg',
+                             msgName)
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error %s getting capabilities: %s', status, err)
+                return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -441,6 +473,21 @@ class LLRPClient(LineReceiver):
                 logger.error('ENABLE_ROSPEC failed with status %s: %s',
                              status, err)
                 logger.fatal('Error %s enabling ROSpec: %s', status, err)
+                return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
+        elif self.state == LLRPClient.STATE_SENT_START_ROSPEC:
+            if msgName != 'START_ROSPEC_RESPONSE':
+                logger.error('unexpected response %s when starting ROSpec',
+                             msgName)
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.error('START_ROSPEC failed with status %s: %s',
+                             status, err)
+                logger.fatal('Error %s starting ROSpec: %s', status, err)
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
@@ -571,6 +618,42 @@ class LLRPClient(LineReceiver):
         self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
         self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(onCompletion)
 
+    def send_READER_CONFIG(self, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'SET_READER_CONFIG': {
+                'Ver':  1,
+                'Type': 3,
+                'Code': 226,
+                'ID':   0,
+                'R': 0,
+                'Payload': 1
+            }}))
+        self.setState(LLRPClient.STATE_SENT_READER_CONFIG)
+        self._deferreds['READER_CONFIG_RESPONSE'].append(onCompletion)
+
+    def send_GET_READER_CONFIG(self, antenna, GPI, GPO, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'GET_READER_CONFIG': {
+                'Ver':  1,
+                'Type': 2,
+                'ID':   0,
+                'RequestedData': Capability_Name2Type['All'],
+                'Antenna': antenna,
+                'GPO': GPO,
+                'GPI': GPI
+            }}))
+        self.setState(LLRPClient.STATE_SENT_READER_CONFIG)
+        self._deferreds['GET_READER_CONFIG_RESPONSE'].append(onCompletion)
+
+    def send_ENABLE_EVENTS_AND_REPORTS(self, _, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'ENABLE_EVENTS_AND_REPORTS': {
+                'Ver':  1,
+                'Type': 64,
+                'ID':   0
+            }}))
+        self.setState(LLRPClient.STATE_INVENTORYING)
+
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'ADD_ROSPEC': {
@@ -593,6 +676,17 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_SENT_ENABLE_ROSPEC)
         self._deferreds['ENABLE_ROSPEC_RESPONSE'].append(onCompletion)
+
+    def send_START_ROSPEC(self, _, rospec, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'START_ROSPEC': {
+                'Ver':  1,
+                'Type': 22,
+                'ID':   0,
+                'ROSpecID': rospec['ROSpecID']
+            }}))
+        self.setState(LLRPClient.STATE_SENT_START_ROSPEC)
+        self._deferreds['START_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ADD_ACCESSSPEC(self, accessSpec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
@@ -649,7 +743,7 @@ class LLRPClient(LineReceiver):
     def startAccess(self, readWords=None, writeWords=None, target=None,
                     accessStopParam=None, accessSpecID=1, param=None,
                     *args):
-        m = Message_struct['AccessSpec']
+        m = TLV_struct['AccessSpec']
         if not target:
             target = {
                 'MB': 0,
@@ -746,20 +840,23 @@ class LLRPClient(LineReceiver):
             logger.warn('ignoring startInventory() while already inventorying')
             return None
 
-        rospec = self.getROSpec()['ROSpec']
-
         logger.info('starting inventory')
-
-        started = defer.Deferred()
-        started.addCallback(self._setState_wrapper,
-                            LLRPClient.STATE_INVENTORYING)
-        started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
         if self.duration:
             task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
+        rospec = self.getROSpec()['ROSpec']
+
+        d2 = defer.Deferred()
+        d2.addCallback(self.send_ENABLE_EVENTS_AND_REPORTS, onCompletion=None)
+        d2.addErrback(self.panic, 'START_ROSPEC failed')
+
+        d1 = defer.Deferred()
+        d1.addCallback(self.send_START_ROSPEC, rospec, onCompletion=d2)
+        d1.addErrback(self.panic, 'ENABLE_ROSPEC failed')
+
         d = defer.Deferred()
-        d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
+        d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=d1)
         d.addErrback(self.panic, 'ADD_ROSPEC failed')
 
         self.send_ADD_ROSPEC(rospec, onCompletion=d)
