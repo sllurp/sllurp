@@ -213,6 +213,10 @@ ROReportTrigger_Name2Type = {
     'None': 0,
     'Upon_N_Tags_Or_End_Of_AISpec': 1,
     'Upon_N_Tags_Or_End_Of_ROSpec': 2,
+    'Upon_N_Seconds': 3,
+    'Upon_N_Seconds_Or_End_Of_ROSpec': 4,
+    'Upon_N_Milliseconds': 5,
+    'Upon_N_Milliseconds_Or_End_Of_ROSpec': 6,
 }
 
 # 16.2.1.1.2.1 UHFRFModeTable, to be filled in by capabilities parser
