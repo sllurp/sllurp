@@ -3013,7 +3013,10 @@ class LLRPROSpec(dict):
                 },
             },
             'ROReportSpec': {
-                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
+                # XXX this does *not* cause the reader to produce
+                # RO_ACCESS_REPORT messages every 1s, as it looks like it
+                # should; instead they appear much more frequently.
+                'ROReportTrigger': 'Upon_N_Seconds',
                 'N': 1,
                 'TagReportContentSelector': tagReportContentSelector,
             },
