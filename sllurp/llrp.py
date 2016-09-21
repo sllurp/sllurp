@@ -154,12 +154,14 @@ class LLRPClient(LineReceiver):
                  antennas=(1,), tx_power=0, modulation=DEFAULT_MODULATION,
                  tari=0, start_inventory=True, reset_on_connect=True,
                  disconnect_when_done=True,
+                 report_timeout_ms=0,
                  tag_content_selector={},
                  session=2, tag_population=4):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
         self.report_every_n_tags = report_every_n_tags
+        self.report_timeout_ms = report_timeout_ms
         self.capabilities = {}
         self.reader_mode = None
         self.tx_power = tx_power
@@ -771,6 +773,7 @@ class LLRPClient(LineReceiver):
         # create an ROSpec to define the reader's inventorying behavior
         self.rospec = LLRPROSpec(self, 1, duration_sec=self.duration,
                                  report_every_n_tags=self.report_every_n_tags,
+                                 report_timeout_ms=self.report_timeout_ms,
                                  tx_power=self.tx_power,
                                  antennas=self.antennas,
                                  tag_content_selector=self.tag_content_selector,

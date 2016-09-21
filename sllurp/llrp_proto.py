@@ -2955,7 +2955,8 @@ def llrp_data2xml(msg):
 class LLRPROSpec(dict):
     def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
                  antennas=(1,), tx_power=91, duration_sec=None,
-                 report_every_n_tags=None, tag_content_selector={},
+                 report_every_n_tags=None, report_timeout_ms=0,
+                 tag_content_selector={},
                  session=2, tag_population=4):
         # Sanity checks
         if msgid <= 0:
@@ -3053,23 +3054,26 @@ class LLRPROSpec(dict):
             }
 
         if report_every_n_tags is not None:
-            logger.debug('will report every ~N=%d tags', report_every_n_tags)
+            if report_timeout_ms:
+                logger.info('will report every ~N=%d tags or %d ms',
+                            report_every_n_tags, report_timeout_ms)
+            else:
+                logger.info('will report every ~N=%d tags',
+                            report_every_n_tags)
             self['ROSpec']['ROReportSpec'].update({
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'N': report_every_n_tags,
             })
-            # del self['ROSpec']['ROReportSpec']
-            # XXX use AISpec TagObservationTrigger instead?
-            # self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
-            #         'AISpecStopTriggerType': 'Tag observation',
-            #         'TagObservationTrigger': {
-            #             'TriggerType': 'UponNTags',
-            #             'NumberOfTags': report_every_n_tags,
-            #             'NumberOfAttempts': 0,
-            #             'T': 0,
-            #             'Timeout': 1000,  # milliseconds
-            #         },
-            # })
+            self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
+                    'AISpecStopTriggerType': 'Tag observation',
+                    'TagObservationTrigger': {
+                        'TriggerType': 'UponNTags',
+                        'NumberOfTags': report_every_n_tags,
+                        'NumberOfAttempts': 0,
+                        'T': 0,
+                        'Timeout': 0,  # milliseconds
+                    },
+            })
 
     def __repr__(self):
         return llrp_data2xml(self)
