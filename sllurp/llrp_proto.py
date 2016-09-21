@@ -158,6 +158,14 @@ StopTrigger_Name2Type = {
 
 StopTrigger_Type2Name = reverse_dict(StopTrigger_Name2Type)
 
+TagObservationTrigger_Name2Type = {
+    'UponNTags': 0,
+    'UponSilenceMs': 1,
+    'UponNAttempts': 2,
+    'UponNUniqueTags': 3,
+    'UponUniqueSilenceMs': 4,
+}
+
 # 13.2.6.11 Connection attemp events
 ConnEvent_Name2Type = {
     'Success':                          0,
@@ -2015,11 +2023,17 @@ def encode_AISpecStopTrigger(par):
 
     data = struct.pack('!B', t_type)
     data += struct.pack('!I', int(duration))
+    if 'GPITriggerValue' in par:
+        # TODO implement GPITriggerValue Message_struct
+        data += encode('GPITriggerValue')(par['GPITriggerValue'])
+    if 'TagObservationTrigger' in par:
+        data += encode('TagObservationTrigger')(par['TagObservationTrigger'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len) + data
 
     return data
+
 
 Message_struct['AISpecStopTrigger'] = {
     'type': 184,
@@ -2031,6 +2045,44 @@ Message_struct['AISpecStopTrigger'] = {
         'TagObservationTrigger'
     ],
     'encode': encode_AISpecStopTrigger
+}
+
+
+# 17.2.4.2.1.1
+def encode_TagObservationTrigger(par):
+    msgtype = Message_struct['TagObservationTrigger']['type']
+    t_type = TagObservationTrigger_Name2Type[par['TriggerType']]
+    n_tags = int(par['NumberOfTags'])
+    n_attempts = int(par['NumberOfAttempts'])
+    t = int(par['T'])
+    timeout = int(par['Timeout'])
+
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!B', t_type)
+    data += struct.pack('!B', 0)
+    data += struct.pack('!H', n_tags)
+    data += struct.pack('!H', n_attempts)
+    data += struct.pack('!H', t)
+    data += struct.pack('!I', timeout)
+
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + msg_header_len) + data
+    return data
+
+
+Message_struct['TagObservationTrigger'] = {
+    'type': 185,
+    'fields': [
+        'Type',
+        'TriggerType',
+        'NumberOfTags',
+        'NumberOfAttempts',
+        'T',
+        'Timeout'
+    ],
+    'encode': encode_TagObservationTrigger
 }
 
 
@@ -2999,7 +3051,22 @@ class LLRPROSpec(dict):
 
         if report_every_n_tags is not None:
             logger.debug('will report every ~N=%d tags', report_every_n_tags)
-            self['ROSpec']['ROReportSpec']['N'] = report_every_n_tags
+            self['ROSpec']['ROReportSpec'].update({
+                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
+                'N': report_every_n_tags,
+            })
+            # del self['ROSpec']['ROReportSpec']
+            # XXX use AISpec TagObservationTrigger instead?
+            # self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
+            #         'AISpecStopTriggerType': 'Tag observation',
+            #         'TagObservationTrigger': {
+            #             'TriggerType': 'UponNTags',
+            #             'NumberOfTags': report_every_n_tags,
+            #             'NumberOfAttempts': 0,
+            #             'T': 0,
+            #             'Timeout': 1000,  # milliseconds
+            #         },
+            # })
 
     def __repr__(self):
         return llrp_data2xml(self)
