@@ -3071,7 +3071,7 @@ class LLRPROSpec(dict):
                         'NumberOfTags': report_every_n_tags,
                         'NumberOfAttempts': 0,
                         'T': 0,
-                        'Timeout': 0,  # milliseconds
+                        'Timeout': report_timeout_ms,  # milliseconds
                     },
             })
 
