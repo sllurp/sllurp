@@ -2951,8 +2951,8 @@ class LLRPROSpec(dict):
             'AISpec': {
                 'AntennaIDs': ' '.join(map(str, antennas)),
                 'AISpecStopTrigger': {
-                    'AISpecStopTriggerType': 'Duration',
-                    'DurationTriggerValue': 500,
+                    'AISpecStopTriggerType': 'Null',
+                    'DurationTriggerValue': 0,
                 },
                 'InventoryParameterSpec': {
                     'InventoryParameterSpecID': 1,
