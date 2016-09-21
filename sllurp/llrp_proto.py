@@ -158,6 +158,14 @@ StopTrigger_Name2Type = {
 
 StopTrigger_Type2Name = reverse_dict(StopTrigger_Name2Type)
 
+TagObservationTrigger_Name2Type = {
+    'UponNTags': 0,
+    'UponSilenceMs': 1,
+    'UponNAttempts': 2,
+    'UponNUniqueTags': 3,
+    'UponUniqueSilenceMs': 4,
+}
+
 # 13.2.6.11 Connection attemp events
 ConnEvent_Name2Type = {
     'Success':                          0,
@@ -213,6 +221,10 @@ ROReportTrigger_Name2Type = {
     'None': 0,
     'Upon_N_Tags_Or_End_Of_AISpec': 1,
     'Upon_N_Tags_Or_End_Of_ROSpec': 2,
+    'Upon_N_Seconds': 3,
+    'Upon_N_Seconds_Or_End_Of_ROSpec': 4,
+    'Upon_N_Milliseconds': 5,
+    'Upon_N_Milliseconds_Or_End_Of_ROSpec': 6,
 }
 
 # 16.2.1.1.2.1 UHFRFModeTable, to be filled in by capabilities parser
@@ -2011,11 +2023,17 @@ def encode_AISpecStopTrigger(par):
 
     data = struct.pack('!B', t_type)
     data += struct.pack('!I', int(duration))
+    if 'GPITriggerValue' in par:
+        # TODO implement GPITriggerValue Message_struct
+        data += encode('GPITriggerValue')(par['GPITriggerValue'])
+    if 'TagObservationTrigger' in par:
+        data += encode('TagObservationTrigger')(par['TagObservationTrigger'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len) + data
 
     return data
+
 
 Message_struct['AISpecStopTrigger'] = {
     'type': 184,
@@ -2027,6 +2045,44 @@ Message_struct['AISpecStopTrigger'] = {
         'TagObservationTrigger'
     ],
     'encode': encode_AISpecStopTrigger
+}
+
+
+# 17.2.4.2.1.1
+def encode_TagObservationTrigger(par):
+    msgtype = Message_struct['TagObservationTrigger']['type']
+    t_type = TagObservationTrigger_Name2Type[par['TriggerType']]
+    n_tags = int(par['NumberOfTags'])
+    n_attempts = int(par['NumberOfAttempts'])
+    t = int(par['T'])
+    timeout = int(par['Timeout'])
+
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!B', t_type)
+    data += struct.pack('!B', 0)
+    data += struct.pack('!H', n_tags)
+    data += struct.pack('!H', n_attempts)
+    data += struct.pack('!H', t)
+    data += struct.pack('!I', timeout)
+
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + msg_header_len) + data
+    return data
+
+
+Message_struct['TagObservationTrigger'] = {
+    'type': 185,
+    'fields': [
+        'Type',
+        'TriggerType',
+        'NumberOfTags',
+        'NumberOfAttempts',
+        'T',
+        'Timeout'
+    ],
+    'encode': encode_TagObservationTrigger
 }
 
 
@@ -2899,7 +2955,8 @@ def llrp_data2xml(msg):
 class LLRPROSpec(dict):
     def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
                  antennas=(1,), tx_power=91, duration_sec=None,
-                 report_every_n_tags=None, tag_content_selector={},
+                 report_every_n_tags=None, report_timeout_ms=0,
+                 tag_content_selector={},
                  session=2, tag_population=4):
         # Sanity checks
         if msgid <= 0:
@@ -2947,8 +3004,8 @@ class LLRPROSpec(dict):
             'AISpec': {
                 'AntennaIDs': ' '.join(map(str, antennas)),
                 'AISpecStopTrigger': {
-                    'AISpecStopTriggerType': 'Duration',
-                    'DurationTriggerValue': 500,
+                    'AISpecStopTriggerType': 'Null',
+                    'DurationTriggerValue': 0,
                 },
                 'InventoryParameterSpec': {
                     'InventoryParameterSpecID': 1,
@@ -2957,7 +3014,10 @@ class LLRPROSpec(dict):
                 },
             },
             'ROReportSpec': {
-                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
+                # XXX this does *not* cause the reader to produce
+                # RO_ACCESS_REPORT messages every 1s, as it looks like it
+                # should; instead they appear much more frequently.
+                'ROReportTrigger': 'Upon_N_Seconds',
                 'N': 1,
                 'TagReportContentSelector': tagReportContentSelector,
             },
@@ -2994,8 +3054,26 @@ class LLRPROSpec(dict):
             }
 
         if report_every_n_tags is not None:
-            logger.debug('will report every ~N=%d tags', report_every_n_tags)
-            self['ROSpec']['ROReportSpec']['N'] = report_every_n_tags
+            if report_timeout_ms:
+                logger.info('will report every ~N=%d tags or %d ms',
+                            report_every_n_tags, report_timeout_ms)
+            else:
+                logger.info('will report every ~N=%d tags',
+                            report_every_n_tags)
+            self['ROSpec']['ROReportSpec'].update({
+                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
+                'N': report_every_n_tags,
+            })
+            self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
+                    'AISpecStopTriggerType': 'Tag observation',
+                    'TagObservationTrigger': {
+                        'TriggerType': 'UponNTags',
+                        'NumberOfTags': report_every_n_tags,
+                        'NumberOfAttempts': 0,
+                        'T': 0,
+                        'Timeout': 0,  # milliseconds
+                    },
+            })
 
     def __repr__(self):
         return llrp_data2xml(self)
