@@ -100,8 +100,11 @@ class LLRPMessage(object):
 
         try:
             if msgName == 'READER_EVENT_NOTIFICATION':
-                return md['ReaderEventNotificationData']\
-                    ['ConnectionAttemptEvent']['Status'] == 'Success'
+                ev = md['ReaderEventNotificationData']
+                if 'ConnectionAttemptEvent' in ev:
+                    return ev['ConnectionAttemptEvent']['Status'] == 'Success'
+                elif 'AntennaEvent' in ev:
+                    return ev['AntennaEvent']['EventType'] == 'Connected'
             elif 'LLRPStatus' in md:
                 return md['LLRPStatus']['StatusCode'] == 'Success'
         except KeyError:
