@@ -8,8 +8,6 @@ import binascii
 import logging
 
 logLevel = logging.WARNING
-logging.basicConfig(level=logLevel,
-        format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
 logger = logging.getLogger('sllurp')
 logger.setLevel(logLevel)
 
@@ -205,4 +203,6 @@ class TestMessageStruct (unittest.TestCase):
             d[msg_struct['type']] = True
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logLevel,
+        format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
     unittest.main()
