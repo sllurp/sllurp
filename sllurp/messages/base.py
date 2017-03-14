@@ -44,8 +44,22 @@ LLRPMessageHeader = cs.Struct(
 
 
 class LLRPMessage(with_metaclass(LLRPMessageMeta)):
+    """Base class for LLRP messages.
+
+    Define a child class like this:
+
+        class MyMessage(LLRPMessage):
+            ty = 123
+
+            # optional fields
+            struct = cs.Struct(
+                'foo' / cs.Int8ub,
+                ...
+            )
+    """
     ty = None
     struct = None
+
     message_version = 2  # constant
     message_id = 0
 
