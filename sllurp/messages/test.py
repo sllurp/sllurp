@@ -1,5 +1,6 @@
 import unittest
-from sllurp.messages.base import LLRPMessage, LLRPMessageHeader
+from nose2.tools import params
+from sllurp.messages.base import LLRPMessage, LLRPMessageHeader, LLRPMessageMeta
 from sllurp.messages.capabilities import GetSupportedVersion, \
      GetReaderCapabilities
 
@@ -20,6 +21,12 @@ class TestMessageHeader(unittest.TestCase):
         assert parsed.type == 65
         assert parsed.length == len(built)
         assert parsed.message_id == 1
+
+
+class TestAllMessages(unittest.TestCase):
+    @params(*LLRPMessageMeta.message_classes.values())
+    def test_message(self, klazz):
+        self.assertIsNotNone(klazz())
 
 
 class TestMessage(unittest.TestCase):
