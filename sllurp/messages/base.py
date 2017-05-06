@@ -32,6 +32,15 @@ class LLRPMessageMeta(type):
         LLRPMessageMeta.message_classes[msgtype] = classobject
 
 
+LLRPParamHeader = cs.Struct(
+    cs.BitStruct(
+        cs.Padding(6),
+        'type' / cs.BitsInteger(10),
+        'length' / cs.Int16ub
+    )
+)
+
+
 LLRPMessageHeader = cs.Struct(
     cs.Embedded(cs.BitStruct(
         cs.Padding(3),
