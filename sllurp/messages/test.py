@@ -1,6 +1,7 @@
 import unittest
 from nose2.tools import params
-from sllurp.messages.base import LLRPMessage, LLRPMessageHeader, LLRPMessageMeta
+from sllurp.messages.base import LLRPMessage, LLRPMessageHeader, \
+     LLRPMessageMeta
 from sllurp.messages.capabilities import GetSupportedVersion, \
      GetReaderCapabilities
 
