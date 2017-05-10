@@ -1937,6 +1937,10 @@ def encode_ROSpecStartTrigger(par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = ''
+    if par['ROSpecStartTriggerType'] == 'Periodic':
+        data += encode('PeriodicTriggerValue')(par['PeriodicTriggerValue'])
+    elif par['ROSpecStartTriggerType'] == 'GPI':
+        data += encode('GPITriggerValue')(par['GPITriggerValue'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len, t_type) + data
@@ -1952,6 +1956,33 @@ Message_struct['ROSpecStartTrigger'] = {
         'GPITriggerValue'
     ],
     'encode': encode_ROSpecStartTrigger
+}
+
+
+def encode_PeriodicTriggerValue(par):
+    msgtype = Message_struct['PeriodicTriggerValue']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['Offset'])
+    data += struct.pack('!I', par['Period'])
+    if 'UTCTimestamp' in par:
+        data += encode('UTCTimestamp')(par['UTCTimestamp'])
+
+    data = struct.pack(msg_header, msgtype, len(data) + msg_header_len) + data
+    return data
+
+
+# 16.2.4.1.1.1 PeriodicTriggerValue Parameter
+Message_struct['PeriodicTriggerValue'] = {
+    'type': 180,
+    'fields': [
+        'Type',
+        'Offset',
+        'Period',
+        'UTCTimestamp'
+    ],
+    'encode': encode_PeriodicTriggerValue
 }
 
 
