@@ -27,7 +27,7 @@ class CsvLogger(object):
         tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
         for tag in tags:
             timestamp_us = tag['LastSeenTimestampUTC'][0]
-            antenna = tag['LastSeenTimestampUTC'][0]
+            antenna = tag['AntennaID'][0]
             epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
             rssi = tag['PeakRSSI'][0]
             self.rows.append((timestamp_us, reader, antenna, rssi, epc))
