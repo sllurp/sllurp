@@ -2970,7 +2970,8 @@ class LLRPROSpec(dict):
                             state, ','.join(ROSpecState_Name2Type.keys())))
 
         rmode = llrpcli.reader_mode
-        mode_index = rmode['ModeIdentifier']
+        #mode_index = rmode['ModeIdentifier']
+        mode_index = 1000
         tari = rmode['MaxTari']
 
         tagReportContentSelector = {
