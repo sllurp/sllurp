@@ -719,13 +719,23 @@ def decode_UTCTimestamp(data):
 
     return par, data[length:]
 
+
+def encode_UTCTimestamp(par):
+    msgtype = Message_struct['UTCTimestamp']['type']
+    msg = '!HHQ'
+    msg_len = struct.calcsize(msg_header)
+    data = struct.pack(msg, msgtype, msg_len, par['Microseconds'])
+    return data
+
+
 Message_struct['UTCTimestamp'] = {
-    'type':   128,
+    'type': 128,
     'fields': [
         'Type',
         'Microseconds'
     ],
-    'decode': decode_UTCTimestamp
+    'decode': decode_UTCTimestamp,
+    'encode': encode_UTCTimestamp,
 }
 
 
