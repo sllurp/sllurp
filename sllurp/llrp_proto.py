@@ -3092,7 +3092,7 @@ class LLRPROSpec(dict):
         if duration_sec is not None:
             self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
                 'ROSpecStopTriggerType': 'Duration',
-                'DurationTriggerValue': duration_sec * 1000,
+                'DurationTriggerValue': int(duration_sec * 1000)
             }
 
         if report_every_n_tags is not None:
