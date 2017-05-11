@@ -85,6 +85,8 @@ def parse_args():
                         help='reconnect on connection failure or loss')
     parser.add_argument('-i', '--start-period', type=int,
                         help='period (ms) between inventory starts')
+    parser.add_argument('-g', '--stagger', type=int,
+                        help='delay (ms) between connecting to readers')
     args = parser.parse_args()
 
 
@@ -128,9 +130,16 @@ def main():
     csvlogger = CsvLogger(args.csvfile)
     fac.addTagReportCallback(csvlogger.tag_cb)
 
+    delay = 0
     for host in args.host:
         logging.info('Connecting to %s:%d...', host, args.port)
-        reactor.connectTCP(host, args.port, fac, timeout=3)
+        if args.stagger is not None:
+            task.deferLater(reactor, delay,
+                            reactor.connectTCP,
+                            host, args.port, fac, timeout=3)
+            delay += args.stagger
+        else:
+            reactor.connectTCP(host, args.port, fac, timeout=3)
 
     # catch ctrl-C and stop inventory before disconnecting
     reactor.addSystemEventTrigger('before', 'shutdown', finish)
