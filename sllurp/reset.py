@@ -5,6 +5,7 @@ import logging
 from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
+from sllurp.inventory import init_logging
 
 logger = logging.getLogger('sllurp')
 
@@ -28,22 +29,10 @@ def parse_args ():
             help='show debugging output')
     args = parser.parse_args()
 
-def init_logging ():
-    logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
-    formatter = logging.Formatter(logFormat)
-    stderr = logging.StreamHandler()
-    stderr.setFormatter(formatter)
-
-    root = logging.getLogger()
-    root.setLevel(logLevel)
-    root.handlers = [stderr,]
-
-    logger.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
 
 def main ():
     parse_args()
-    init_logging()
+    init_logging(args)
 
     onFinish = defer.Deferred()
     onFinish.addCallback(finish)

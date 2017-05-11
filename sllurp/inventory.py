@@ -100,7 +100,7 @@ def parse_args():
     args = parser.parse_args()
 
 
-def init_logging():
+def init_logging(args):
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
     logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
     formatter = logging.Formatter(logFormat)
@@ -121,7 +121,7 @@ def init_logging():
 
 def main():
     parse_args()
-    init_logging()
+    init_logging(args)
 
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:

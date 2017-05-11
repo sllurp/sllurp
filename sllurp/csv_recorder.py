@@ -7,12 +7,12 @@ from twisted.internet import reactor, defer, task
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
     Modulation_DefaultTari
+from sllurp.inventory import init_logging
 
 
 numTags = 0
 args = None
-logging.basicConfig(level=logging.INFO)
-logging.getLogger('sllurp').setLevel(logging.WARN)
+logger = logging.getLogger('sllurp')
 csvlogger = None
 
 
@@ -58,6 +58,8 @@ def parse_args():
                         help='port (default {})'.format(llrp.LLRP_PORT))
     parser.add_argument('-t', '--time', type=float,
                         help='seconds to inventory (default forever)')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='show debugging output')
     parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
                         dest='every_n', metavar='N',
                         help='issue a TagReport every N tags')
@@ -93,6 +95,7 @@ def parse_args():
 def main():
     global csvlogger
     parse_args()
+    init_logging(args)
 
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:
