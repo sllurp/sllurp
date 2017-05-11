@@ -134,6 +134,7 @@ def main():
     for host in args.host:
         if ':' in host:
             host, port = host.split(':', 1)
+            port = int(port)
         else:
             port = args.port
         logging.info('Connecting to %s:%d...', host, port)
