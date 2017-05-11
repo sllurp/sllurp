@@ -142,7 +142,8 @@ def main():
             port = args.port
         logging.info('Connecting to %s:%d...', host, port)
         if args.stagger is not None:
-            task.deferLater(reactor, delay,
+            logging.debug('Will connect to %s:%d in %d ms', host, port, delay)
+            task.deferLater(reactor, delay/1000.0,
                             reactor.connectTCP,
                             host, port, fac, timeout=3)
             delay += args.stagger
