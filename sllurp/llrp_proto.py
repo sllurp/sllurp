@@ -2998,7 +2998,8 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=91, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={},
-                 session=2, tag_population=4):
+                 session=2, tag_population=4,
+                 rospec_period=None):
         # Sanity checks
         if msgid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3064,6 +3065,14 @@ class LLRPROSpec(dict):
                 'TagReportContentSelector': tagReportContentSelector,
             },
         }
+
+        if rospec_period is not None:
+            x = self['ROSpec']['ROBoundarySpec']['ROSpecStartTrigger']
+            x['ROSpecStartTriggerType'] = 'Periodic'
+            x['PeriodicTriggerValue'] = {
+                'Offset': 0,
+                'Period': rospec_period,
+            }
 
         # patch up per-antenna config
         for antid in antennas:
