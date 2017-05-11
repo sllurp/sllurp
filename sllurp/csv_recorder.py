@@ -2,7 +2,7 @@ from __future__ import print_function
 import argparse
 import csv
 import logging
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, task
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
