@@ -172,7 +172,12 @@ def main():
     fac.addTagReportCallback(tagReportCallback)
 
     for host in args.host:
-        reactor.connectTCP(host, args.port, fac, timeout=3)
+        if ':' in host:
+            host, port = host.split(':', 1)
+            port = int(port)
+        else:
+            port = args.port
+        reactor.connectTCP(host, port, fac, timeout=3)
 
     # catch ctrl-C and stop inventory before disconnecting
     reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)

@@ -53,7 +53,12 @@ def main ():
     factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED, shutdownReader)
 
     for host in args.host:
-        reactor.connectTCP(host, args.port, factory, timeout=3)
+        if ':' in host:
+            host, port = host.split(':', 1)
+            port = int(port)
+        else:
+            port = args.port
+        reactor.connectTCP(host, port, factory, timeout=3)
 
     reactor.run()
 

@@ -132,14 +132,18 @@ def main():
 
     delay = 0
     for host in args.host:
-        logging.info('Connecting to %s:%d...', host, args.port)
+        if ':' in host:
+            host, port = host.split(':', 1)
+        else:
+            port = args.port
+        logging.info('Connecting to %s:%d...', host, port)
         if args.stagger is not None:
             task.deferLater(reactor, delay,
                             reactor.connectTCP,
-                            host, args.port, fac, timeout=3)
+                            host, port, fac, timeout=3)
             delay += args.stagger
         else:
-            reactor.connectTCP(host, args.port, fac, timeout=3)
+            reactor.connectTCP(host, port, fac, timeout=3)
 
     # catch ctrl-C and stop inventory before disconnecting
     reactor.addSystemEventTrigger('before', 'shutdown', finish)
