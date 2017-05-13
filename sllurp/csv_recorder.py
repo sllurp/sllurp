@@ -17,18 +17,21 @@ csvlogger = None
 
 
 class CsvLogger(object):
-    def __init__(self, filename):
+    def __init__(self, filename, epc=None):
         self.rows = []
         self.filename = filename
         self.num_tags = 0
+        self.epc = epc
 
     def tag_cb(self, llrp_msg):
         reader = llrp_msg.peername[0]
         tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
         for tag in tags:
+            epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
+            if self.epc is not None and epc != self.epc:
+                return
             timestamp_us = tag['LastSeenTimestampUTC'][0]
             antenna = tag['AntennaID'][0]
-            epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
             rssi = tag['PeakRSSI'][0]
             self.rows.append((timestamp_us, reader, antenna, rssi, epc))
             self.num_tags += tag['TagSeenCount'][0]
@@ -89,6 +92,8 @@ def parse_args():
                         help='period (ms) between inventory starts')
     parser.add_argument('-g', '--stagger', type=int,
                         help='delay (ms) between connecting to readers')
+    parser.add_argument('-e', '--epc', type=str,
+                        help='log only a specific epc')
     args = parser.parse_args()
 
 
@@ -130,7 +135,7 @@ def main():
                                  },
                                  rospec_period=args.start_period)
 
-    csvlogger = CsvLogger(args.csvfile)
+    csvlogger = CsvLogger(args.csvfile, epc=args.epc)
     fac.addTagReportCallback(csvlogger.tag_cb)
 
     delay = 0
