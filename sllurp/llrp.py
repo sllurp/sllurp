@@ -159,8 +159,7 @@ class LLRPClient(LineReceiver):
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
-                 session=2, tag_population=4,
-                 rospec_period=None):
+                 session=2, tag_population=4):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -185,7 +184,6 @@ class LLRPClient(LineReceiver):
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
-        self.rospec_period = rospec_period
 
         logger.info('using antennas: %s', self.antennas)
 
@@ -762,7 +760,8 @@ class LLRPClient(LineReceiver):
                             LLRPClient.STATE_INVENTORYING)
         started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
-        if self.duration and not self.rospec_period:
+        if self.duration:
+            # XXX use rospec stop condition instead
             task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
         d = defer.Deferred()
@@ -783,8 +782,7 @@ class LLRPClient(LineReceiver):
                                  antennas=self.antennas,
                                  tag_content_selector=self.tag_content_selector,
                                  session=self.session,
-                                 tag_population=self.tag_population,
-                                 rospec_period=self.rospec_period)
+                                 tag_population=self.tag_population)
         logger.debug('ROSpec: %s', self.rospec)
         return self.rospec
 

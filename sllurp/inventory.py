@@ -164,8 +164,7 @@ def main():
                                      'EnableLastSeenTimestamp': True,
                                      'EnableTagSeenCount': True,
                                      'EnableAccessSpecID': False
-                                 },
-                                 rospec_period=args.start_period)
+                                 })
 
     # tagReportCallback will be called every time the reader sends a TagReport
     # message (i.e., when it has "seen" tags).

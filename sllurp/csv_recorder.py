@@ -132,8 +132,7 @@ def main():
                                      'EnableLastSeenTimestamp': True,
                                      'EnableTagSeenCount': True,
                                      'EnableAccessSpecID': False
-                                 },
-                                 rospec_period=args.start_period)
+                                 })
 
     csvlogger = CsvLogger(args.csvfile, epc=args.epc)
     fac.addTagReportCallback(csvlogger.tag_cb)
