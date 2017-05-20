@@ -88,8 +88,6 @@ def parse_args():
     parser.add_argument('-r', '--reconnect', action='store_true',
                         default=False,
                         help='reconnect on connection failure or loss')
-    parser.add_argument('-i', '--start-period', type=int,
-                        help='period (ms) between inventory starts')
     parser.add_argument('-g', '--stagger', type=int,
                         help='delay (ms) between connecting to readers')
     parser.add_argument('-e', '--epc', type=str,
