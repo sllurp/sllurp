@@ -3056,12 +3056,9 @@ class LLRPROSpec(dict):
                 },
             },
             'ROReportSpec': {
-                # XXX this does *not* cause the reader to produce
-                # RO_ACCESS_REPORT messages every 1s, as it looks like it
-                # should; instead they appear much more frequently.
-                'ROReportTrigger': 'Upon_N_Seconds',
-                'N': 1,
+                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'TagReportContentSelector': tagReportContentSelector,
+                'N': 0,
             },
         }
 
@@ -3094,6 +3091,10 @@ class LLRPROSpec(dict):
                 'ROSpecStopTriggerType': 'Duration',
                 'DurationTriggerValue': int(duration_sec * 1000)
             }
+            self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
+                'AISpecStopTriggerType': 'Duration',
+                'DurationTriggerValue': int(duration_sec * 1000)
+            }
 
         if report_every_n_tags is not None:
             if report_timeout_ms:
@@ -3102,10 +3103,6 @@ class LLRPROSpec(dict):
             else:
                 logger.info('will report every ~N=%d tags',
                             report_every_n_tags)
-            self['ROSpec']['ROReportSpec'].update({
-                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
-                'N': report_every_n_tags,
-            })
             self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
                     'AISpecStopTriggerType': 'Tag observation',
                     'TagObservationTrigger': {
