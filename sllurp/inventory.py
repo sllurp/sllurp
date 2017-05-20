@@ -8,14 +8,13 @@ from twisted.internet import reactor, defer
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
     Modulation_DefaultTari
+from sllurp.log import init_logging
 
 startTime = None
 endTime = None
 
 numTags = 0
 logger = logging.getLogger('sllurp')
-
-args = None
 
 
 def startTimeMeasurement():
@@ -60,7 +59,6 @@ def tagReportCallback(llrpMsg):
 
 
 def parse_args():
-    global args
     parser = argparse.ArgumentParser(description='Simple RFID Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
                         nargs='+')
@@ -95,31 +93,12 @@ def parse_args():
     parser.add_argument('-r', '--reconnect', action='store_true',
                         default=False,
                         help='reconnect on connection failure or loss')
-    args = parser.parse_args()
-
-
-def init_logging(args):
-    logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
-    formatter = logging.Formatter(logFormat)
-    stderr = logging.StreamHandler()
-    stderr.setFormatter(formatter)
-
-    root = logging.getLogger()
-    root.setLevel(logLevel)
-    root.handlers = [stderr]
-
-    if args.logfile:
-        fHandler = logging.FileHandler(args.logfile)
-        fHandler.setFormatter(formatter)
-        root.addHandler(fHandler)
-
-    logger.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
+    return parser.parse_args()
 
 
 def main():
-    parse_args()
-    init_logging(args)
+    args = parse_args()
+    init_logging(debug=args.debug, logfile=args.logfile)
 
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:

@@ -7,11 +7,10 @@ from twisted.internet import reactor, defer, task
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
     Modulation_DefaultTari
-from sllurp.inventory import init_logging
+from sllurp.log import init_logging
 
 
 numTags = 0
-args = None
 logger = logging.getLogger('sllurp')
 csvlogger = None
 
@@ -52,7 +51,6 @@ def finish():
 
 
 def parse_args():
-    global args
     parser = argparse.ArgumentParser(description='Simple RFID Inventory')
     parser.add_argument('csvfile', help='CSV file to write')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
@@ -92,13 +90,13 @@ def parse_args():
                         help='delay (ms) between connecting to readers')
     parser.add_argument('-e', '--epc', type=str,
                         help='log only a specific epc')
-    args = parser.parse_args()
+    return parser.parse_args()
 
 
 def main():
     global csvlogger
-    parse_args()
-    init_logging(args)
+    args = parse_args()
+    init_logging(debug=args.debug, logfile=args.logfile)
 
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:
