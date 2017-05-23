@@ -33,6 +33,8 @@ def read(filename):
         return f.read()
 
 
+test_deps = ['nose2']
+
 setup(
     name='sllurp',
     version=find_version('sllurp', '__init__.py'),
@@ -54,7 +56,8 @@ setup(
     keywords='rfid llrpyc reader',
     packages=['sllurp'],
     install_requires=['twisted'],
-    tests_require=['nose2'],
+    tests_require=test_deps,
+    extras_require={'test': test_deps},
     entry_points={
         'console_scripts': [
             'inventory=sllurp.inventory:main',

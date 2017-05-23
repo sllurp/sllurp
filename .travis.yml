@@ -11,7 +11,7 @@ before_install:
     - pip install --upgrade pip
 
 install:
-    - pip install -e .
+    - pip install -e .[test]
 
 script:
     - nose2 sllurp
