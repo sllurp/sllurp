@@ -1,0 +1,2 @@
+include sllurp/*.py
+include README.md

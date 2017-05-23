@@ -1,17 +1,15 @@
 language: python
 python: 2.7
-
-cache:
-    pip: true
-    directories: .venv
-
-before_install:
-    - virtualenv .venv
-    - source .venv/bin/activate
-    - pip install --upgrade pip
+cache: pip
 
 install:
-    - pip install -e .[test]
+    - pip --version
+    - pip install tox
+    - tox --version
 
 script:
-    - nose2 sllurp
+    - tox -v
+
+after_failure:
+    - cat .tox/log/*
+    - cat .tox/*/log/*
