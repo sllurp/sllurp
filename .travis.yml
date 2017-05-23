@@ -2,16 +2,16 @@ language: python
 python: 2.7
 
 cache:
-        pip: true
-        directories: .venv
+    pip: true
+    directories: .venv
 
 before_install:
-        virtualenv .venv
-        source .venv/bin/activate
-        pip install --upgrade pip
+    - virtualenv .venv
+    - source .venv/bin/activate
+    - pip install --upgrade pip
 
 install:
-        pip install -e .
+    - pip install -e .
 
 script:
-        nose2 sllurp
+    - nose2 sllurp
