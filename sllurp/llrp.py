@@ -478,7 +478,6 @@ class LLRPClient(LineReceiver):
                              msgName)
 
             if lmsg.isSuccess():
-                logger.info('reader finished inventory')
                 if self.disconnecting:
                     self.setState(LLRPClient.STATE_DISCONNECTED)
                 else:
@@ -894,8 +893,9 @@ class LLRPClient(LineReceiver):
         logger.debug('pause(%s)', duration_seconds)
         if self.state != LLRPClient.STATE_INVENTORYING:
             if not force:
-                logger.info('ignoring pause() because not inventorying')
-                return
+                logger.info('ignoring pause(); not inventorying (state==%s)',
+                            self.getStateName(self.state))
+                return None
             else:
                 logger.info('forcing pause()')
 
@@ -933,7 +933,8 @@ class LLRPClient(LineReceiver):
             return
 
         if self.state != LLRPClient.STATE_PAUSED:
-            logger.debug('cannot resume() if not paused; ignoring')
+            logger.debug('cannot resume() if not paused (state=%s); ignoring',
+                         self.getStateName(self.state))
             return None
 
         logger.info('resuming')
@@ -970,7 +971,8 @@ class LLRPClientFactory(ClientFactory):
         self.protocols = []
 
     def startedConnecting(self, connector):
-        logger.info('connecting...')
+        dst = connector.getDestination()
+        logger.info('connecting to %s:%d...', dst.host, dst.port)
 
     def addStateCallback(self, state, cb):
         assert state in self._state_callbacks
