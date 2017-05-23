@@ -68,7 +68,7 @@ def parse_args():
                         help='seconds to inventory (default forever)')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='show debugging output')
-    parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
+    parser.add_argument('-n', '--report-every-n-tags', type=int,
                         dest='every_n', metavar='N',
                         help='issue a TagReport every N tags')
     parser.add_argument('-a', '--antennas', default='1',
