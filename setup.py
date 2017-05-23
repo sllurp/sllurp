@@ -29,7 +29,8 @@ def read(filename):
     """
     Get the long description from a file.
     """
-    with codecs.open(filename, encoding='utf-8') as f:
+    fname = os.path.join(here, filename)
+    with codecs.open(fname, encoding='utf-8') as f:
         return f.read()
 
 
