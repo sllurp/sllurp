@@ -1,4 +1,17 @@
 language: python
 python: 2.7
-install: pip install -e .
-script: nose2 sllurp
+
+cache:
+        pip: true
+        directories: .venv
+
+before_install:
+        virtualenv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+
+install:
+        pip install -e .
+
+script:
+        nose2 sllurp
