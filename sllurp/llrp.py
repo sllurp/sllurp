@@ -24,13 +24,15 @@ class LLRPMessage(object):
     hdr_len = struct.calcsize(hdr_fmt)  # == 6 bytes
     full_hdr_fmt = hdr_fmt + 'I'
     full_hdr_len = struct.calcsize(full_hdr_fmt)  # == 10 bytes
-    msgdict = None
-    msgbytes = None
 
     def __init__(self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
             raise LLRPError('Provide either a message dict or a sequence'
                             ' of bytes.')
+        self.proto = None
+        self.peername = None
+        self.msgdict = None
+        self.msgbytes = None
         if msgdict:
             self.msgdict = LLRPMessageDict(msgdict)
             if not msgbytes:
@@ -39,7 +41,6 @@ class LLRPMessage(object):
             self.msgbytes = msgbytes
             if not msgdict:
                 self.deserialize()
-        self.peername = None
 
     def serialize(self):
         if self.msgdict is None:
@@ -315,6 +316,7 @@ class LLRPClient(LineReceiver):
         """Implements the LLRP client state machine."""
         logger.debug('LLRPMessage received in state %s: %s', self.state, lmsg)
         msgName = lmsg.getName()
+        lmsg.proto = self
         lmsg.peername = self.peername
 
         # call per-message callbacks
