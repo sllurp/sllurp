@@ -953,11 +953,12 @@ class LLRPClient(LineReceiver):
 
 
 class LLRPClientFactory(ClientFactory):
-    def __init__(self, onFinish=None, reconnect=False, **kwargs):
+    def __init__(self, start_first=False, onFinish=None, reconnect=False, **kwargs):
         self.onFinish = onFinish
         self.reconnect = reconnect
         self.reconnect_delay = 1.0  # seconds
         self.client_args = kwargs
+        self.start_first = start_first
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
@@ -982,7 +983,12 @@ class LLRPClientFactory(ClientFactory):
         self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
     def buildProtocol(self, _):
-        proto = LLRPClient(factory=self, **self.client_args)
+        clargs = self.client_args
+        logger.debug('start_inventory: %s', clargs['start_inventory'])
+        if self.start_first and not self.protocols:
+            # this is the first protocol, so let's start it inventorying
+            clargs['start_inventory'] = True
+        proto = LLRPClient(factory=self, **clargs)
 
         # register state-change callbacks with new client
         for state, cbs in self._state_callbacks.items():
