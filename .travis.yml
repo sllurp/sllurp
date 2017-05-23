@@ -1,4 +1,4 @@
 language: python
 python: 2.7
-install: pip install -r .pip-requirements.txt
-script: nosetests --with-doctest
+install: pip install -e .
+script: nose2 sllurp

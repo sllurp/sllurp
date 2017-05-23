@@ -54,6 +54,7 @@ setup(
     keywords='rfid llrpyc reader',
     packages=['sllurp'],
     install_requires=['twisted'],
+    tests_require=['nose2'],
     entry_points={
         'console_scripts': [
             'inventory=sllurp.inventory:main',
