@@ -225,7 +225,7 @@ class LLRPClient(LineReceiver):
 
         logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
                     self.peer_port)
-        self.factory.protocols.add(self)
+        self.factory.protocols.append(self)
 
     def setState(self, newstate, onComplete=None):
         assert newstate is not None
@@ -967,7 +967,7 @@ class LLRPClientFactory(ClientFactory):
         # message callbacks to pass to connected clients
         self._message_callbacks = defaultdict(list)
 
-        self.protocols = set()
+        self.protocols = []
 
     def startedConnecting(self, connector):
         logger.info('connecting...')
