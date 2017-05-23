@@ -27,13 +27,15 @@ class CsvLogger(object):
 
     def next_proto(self, curr_proto):
         protos = self.factory.protocols
-        next_p = [(protos.index(curr_proto) + 1) % len(protos)]
+        next_p = protos[(protos.index(curr_proto) + 1) % len(protos)]
+        logger.debug('After %s comes %s', curr_proto.peername, next_p.peername)
         return next_p
 
     def tag_cb(self, llrp_msg):
         # TODO pause this reader and switch to the next one
-        logger.info('proto: %s', llrp_msg.proto)
-        reader = llrp_msg.peername[0]
+        host, port = llrp_msg.peername
+        reader = '{}:{}'.format(host, port)
+        logger.info('RO_ACCESS_REPORT from %s', reader)
         tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
         for tag in tags:
             epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
@@ -45,8 +47,13 @@ class CsvLogger(object):
             self.rows.append((timestamp_us, reader, antenna, rssi, epc))
             self.num_tags += tag['TagSeenCount'][0]
         with self.lock:
-            llrp_msg.proto.pause()
-            self.next_proto(llrp_msg.proto).resume()
+            logger.debug('Will pause %r', llrp_msg.proto)
+            next_p = self.next_proto(llrp_msg.proto)
+            logger.debug('Next proto: %r', next_p)
+            d = llrp_msg.proto.pause()
+            if d is not None:
+                d.addCallback(lambda _: next_p.resume())
+                d.addErrback(print, 'argh')
 
     def flush(self):
         logging.info('Writing %d rows to %s...', len(self.rows), self.filename)
@@ -74,7 +81,7 @@ def parse_args():
                         help='seconds to inventory (default forever)')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='show debugging output')
-    parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
+    parser.add_argument('-n', '--report-every-n-tags', type=int,
                         dest='every_n', metavar='N',
                         help='issue a TagReport every N tags')
     parser.add_argument('-a', '--antennas', default='1',
@@ -119,7 +126,8 @@ def main():
 
     enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
 
-    fac = llrp.LLRPClientFactory(duration=args.time,
+    fac = llrp.LLRPClientFactory(start_first=True,
+                                 duration=args.time,
                                  report_every_n_tags=args.every_n,
                                  antennas=enabled_antennas,
                                  tx_power=args.tx_power,
@@ -127,7 +135,7 @@ def main():
                                  tari=args.tari,
                                  session=args.session,
                                  tag_population=args.population,
-                                 start_inventory=True,
+                                 start_inventory=False,
                                  disconnect_when_done=(args.time > 0),
                                  reconnect=args.reconnect,
                                  tag_content_selector={
@@ -153,7 +161,6 @@ def main():
             port = int(port)
         else:
             port = args.port
-        logging.info('Connecting to %s:%d...', host, port)
         if args.stagger is not None:
             logging.debug('Will connect to %s:%d in %d ms', host, port, delay)
             task.deferLater(reactor, delay/1000.0,
