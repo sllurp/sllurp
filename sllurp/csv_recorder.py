@@ -2,6 +2,7 @@ from __future__ import print_function
 import argparse
 import csv
 import logging
+import threading
 from twisted.internet import reactor, defer, task
 
 import sllurp.llrp as llrp
@@ -16,13 +17,22 @@ csvlogger = None
 
 
 class CsvLogger(object):
-    def __init__(self, filename, epc=None):
+    def __init__(self, filename, epc=None, factory=None):
         self.rows = []
         self.filename = filename
         self.num_tags = 0
         self.epc = epc
+        self.factory = factory
+        self.lock = threading.Lock()
+
+    def next_proto(self, curr_proto):
+        protos = self.factory.protocols
+        next_p = [(protos.index(curr_proto) + 1) % len(protos)]
+        return next_p
 
     def tag_cb(self, llrp_msg):
+        # TODO pause this reader and switch to the next one
+        logger.info('proto: %s', llrp_msg.proto)
         reader = llrp_msg.peername[0]
         tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
         for tag in tags:
@@ -34,6 +44,9 @@ class CsvLogger(object):
             rssi = tag['PeakRSSI'][0]
             self.rows.append((timestamp_us, reader, antenna, rssi, epc))
             self.num_tags += tag['TagSeenCount'][0]
+        with self.lock:
+            llrp_msg.proto.pause()
+            self.next_proto(llrp_msg.proto).resume()
 
     def flush(self):
         logging.info('Writing %d rows to %s...', len(self.rows), self.filename)
@@ -130,7 +143,7 @@ def main():
                                      'EnableAccessSpecID': False
                                  })
 
-    csvlogger = CsvLogger(args.csvfile, epc=args.epc)
+    csvlogger = CsvLogger(args.csvfile, epc=args.epc, factory=fac)
     fac.addTagReportCallback(csvlogger.tag_cb)
 
     delay = 0
