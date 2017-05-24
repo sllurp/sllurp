@@ -1,3 +1,6 @@
+"""Reset command.
+"""
+
 import time
 import logging
 from twisted.internet import reactor, defer

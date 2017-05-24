@@ -1,3 +1,6 @@
+"""Command-line wrapper for sllurp commands.
+"""
+
 from collections import namedtuple
 import logging
 import click

@@ -1,3 +1,6 @@
+"""Inventory command.
+"""
+
 from __future__ import print_function, division
 import argparse
 import logging
