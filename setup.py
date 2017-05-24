@@ -56,7 +56,7 @@ setup(
     ],
     keywords='rfid llrpyc reader',
     packages=['sllurp'],
-    install_requires=['twisted'],
+    install_requires=['construct', 'twisted'],
     tests_require=test_deps,
     extras_require={'test': test_deps},
     entry_points={
