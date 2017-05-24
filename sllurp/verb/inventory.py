@@ -8,7 +8,6 @@ from twisted.internet import reactor, defer
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
     Modulation_DefaultTari
-from sllurp.log import init_logging
 
 startTime = None
 endTime = None
@@ -96,10 +95,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    init_logging(debug=args.debug, logfile=args.logfile)
-
+def main(args):
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:
         t_suggested = Modulation_DefaultTari[args.modulation]
@@ -162,7 +158,3 @@ def main():
     startTimeMeasurement()
 
     reactor.run()
-
-
-if __name__ == '__main__':
-    main()
