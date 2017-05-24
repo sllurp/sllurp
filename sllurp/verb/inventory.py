@@ -1,63 +1,48 @@
-from __future__ import print_function
+from __future__ import print_function, division
 import argparse
 import logging
 import pprint
 import time
 from twisted.internet import reactor, defer
 
-import sllurp.llrp as llrp
+from sllurp.llrp import LLRPClientFactory
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
     Modulation_DefaultTari
 
-startTime = None
-endTime = None
+start_time = None
 
-numTags = 0
-logger = logging.getLogger('sllurp')
-
-
-def startTimeMeasurement():
-    global startTime
-    startTime = time.time()
+numtags = 0
+logger = logging.getLogger(__name__)
 
 
-def stopTimeMeasurement():
-    global endTime
-    endTime = time.time()
-
-
-def finish(_):
-    global startTime
-    global endTime
-
-    # stop runtime measurement to determine rates
-    stopTimeMeasurement()
-    runTime = (endTime - startTime) if (endTime > startTime) else 0
-
-    logger.info('total # of tags seen: %d (%d tags/second)', numTags,
-                numTags/runTime)
+def finish(*args):
+    runtime = max(time.time() - start_time, 0)
+    logger.info('total # of tags seen: %d (%d tags/second)', numtags,
+                numtags/runtime)
     if reactor.running:
         reactor.stop()
 
 
-def politeShutdown(factory):
+def shutdown(factory):
     return factory.politeShutdown()
 
 
-def tagReportCallback(llrpMsg):
+def tag_report_cb(llrp_msg):
     """Function to run each time the reader reports seeing tags."""
-    global numTags
-    tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
+    global numtags
+    tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
         logger.info('saw tag(s): %s', pprint.pformat(tags))
+        for tag in tags:
+            numtags += tag['TagSeenCount'][0]
     else:
         logger.info('no tags seen')
         return
-    for tag in tags:
-        numTags += tag['TagSeenCount'][0]
 
 
 def main(args):
+    global start_time
+
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:
         t_suggested = Modulation_DefaultTari[args.modulation]
@@ -76,34 +61,34 @@ def main(args):
     d = defer.Deferred()
     d.addCallback(finish)
 
-    fac = llrp.LLRPClientFactory(onFinish=d,
-                                 duration=args.time,
-                                 report_every_n_tags=args.every_n,
-                                 antennas=enabled_antennas,
-                                 tx_power=args.tx_power,
-                                 modulation=args.modulation,
-                                 tari=args.tari,
-                                 session=args.session,
-                                 tag_population=args.population,
-                                 start_inventory=True,
-                                 disconnect_when_done=(args.time > 0),
-                                 reconnect=args.reconnect,
-                                 tag_content_selector={
-                                     'EnableROSpecID': False,
-                                     'EnableSpecIndex': False,
-                                     'EnableInventoryParameterSpecID': False,
-                                     'EnableAntennaID': True,
-                                     'EnableChannelIndex': False,
-                                     'EnablePeakRRSI': True,
-                                     'EnableFirstSeenTimestamp': False,
-                                     'EnableLastSeenTimestamp': True,
-                                     'EnableTagSeenCount': True,
-                                     'EnableAccessSpecID': False
-                                 })
+    fac = LLRPClientFactory(onFinish=d,
+                            duration=args.time,
+                            report_every_n_tags=args.every_n,
+                            antennas=enabled_antennas,
+                            tx_power=args.tx_power,
+                            modulation=args.modulation,
+                            tari=args.tari,
+                            session=args.session,
+                            tag_population=args.population,
+                            start_inventory=True,
+                            disconnect_when_done=(args.time > 0),
+                            reconnect=args.reconnect,
+                            tag_content_selector={
+                                'EnableROSpecID': False,
+                                'EnableSpecIndex': False,
+                                'EnableInventoryParameterSpecID': False,
+                                'EnableAntennaID': True,
+                                'EnableChannelIndex': False,
+                                'EnablePeakRRSI': True,
+                                'EnableFirstSeenTimestamp': False,
+                                'EnableLastSeenTimestamp': True,
+                                'EnableTagSeenCount': True,
+                                'EnableAccessSpecID': False
+                            })
 
-    # tagReportCallback will be called every time the reader sends a TagReport
+    # tag_report_cb will be called every time the reader sends a TagReport
     # message (i.e., when it has "seen" tags).
-    fac.addTagReportCallback(tagReportCallback)
+    fac.addTagReportCallback(tag_report_cb)
 
     for host in args.host:
         if ':' in host:
@@ -114,9 +99,9 @@ def main(args):
         reactor.connectTCP(host, port, fac, timeout=3)
 
     # catch ctrl-C and stop inventory before disconnecting
-    reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)
+    reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
 
     # start runtime measurement to determine rates
-    startTimeMeasurement()
+    start_time = time.time()
 
     reactor.run()
