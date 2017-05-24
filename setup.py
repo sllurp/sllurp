@@ -29,9 +29,12 @@ def read(filename):
     """
     Get the long description from a file.
     """
-    with codecs.open(filename, encoding='utf-8') as f:
+    fname = os.path.join(here, filename)
+    with codecs.open(fname, encoding='utf-8') as f:
         return f.read()
 
+
+test_deps = ['nose2']
 
 setup(
     name='sllurp',
@@ -54,6 +57,8 @@ setup(
     keywords='rfid llrpyc reader',
     packages=['sllurp'],
     install_requires=['twisted'],
+    tests_require=test_deps,
+    extras_require={'test': test_deps},
     entry_points={
         'console_scripts': [
             'inventory=sllurp.inventory:main',

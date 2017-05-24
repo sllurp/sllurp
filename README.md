@@ -29,23 +29,21 @@ sllurp is distributed under version 3 of the GNU General Public License.  See
 
 ## Quick Start
 
-Install a version of [Twisted][] appropriate for your Python installation.
-Non-Windows users can simply `pip install -r .pip-requirements.txt`.
-Windows users must choose the appropriate `.exe` installer at the Twisted
-website, and install [zope.interface][] with the same parameters.
+```shell
+$ virtualenv .venv
+$ source .venv/bin/activate
+$ pip install .
+```
 
 To connect to a reader and perform EPC Gen 2 inventory for 10 seconds:
 
 1. Figure out your reader's IP address `ip.add.re.ss`
-2. `bin/inventory ip.add.re.ss`
+2. `inventory ip.add.re.ss`
 
-Run `bin/inventory -h` to see options.
+Run `inventory -h` to see options.
 
 If the reader gets into a funny state because you're debugging against it, you
 can stop all ROSpecs by running `bin/reset ip.add.re.ss`.
-
-(On Windows, substitute `bin\windows\inventory.bat` for the inventory script,
-and do the same for the reset script.)
 
 [Twisted]: http://twistedmatrix.com/
 [zope.interface]: https://pypi.python.org/pypi/zope.interface#download

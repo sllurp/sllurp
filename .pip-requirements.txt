@@ -1,3 +1,0 @@
-Twisted>=15.5.0
-construct>=2.8.10
-nose2>=0.6.5
