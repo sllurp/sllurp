@@ -2,12 +2,12 @@ import time
 import logging
 from twisted.internet import reactor, defer
 
-import sllurp.llrp as llrp
+from sllurp.llrp import LLRPClientFactory, LLRPClient
 
 logger = logging.getLogger(__name__)
 
 
-def shutdownReader(proto):
+def shutdown(proto):
     host, port = proto.peername
     logger.info('Shutting down reader %s:%d', host, port)
     return proto.stopPolitely(disconnect=True)
@@ -21,11 +21,10 @@ def main(host, port):
     onFinish = defer.Deferred()
     onFinish.addCallback(finish)
 
-    factory = llrp.LLRPClientFactory(reset_on_connect=False,
-                                     start_inventory=False,
-                                     onFinish=onFinish)
-    factory.addStateCallback(llrp.LLRPClient.STATE_CONNECTED,
-                             shutdownReader)
+    factory = LLRPClientFactory(reset_on_connect=False,
+                                start_inventory=False,
+                                onFinish=onFinish)
+    factory.addStateCallback(LLRPClient.STATE_CONNECTED, shutdown)
 
     for host in host:
         if ':' in host:
