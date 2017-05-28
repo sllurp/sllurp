@@ -21,6 +21,10 @@ def finish(*args):
 
 
 def main(host, port):
+    if not host:
+        logger.info('No readers specified.')
+        return 0
+
     onFinish = defer.Deferred()
     onFinish.addCallback(finish)
 

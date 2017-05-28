@@ -46,6 +46,10 @@ def tag_report_cb(llrp_msg):
 def main(args):
     global start_time
 
+    if not args.host:
+        logger.info('No readers specified.')
+        return 0
+
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:
         t_suggested = Modulation_DefaultTari[args.modulation]
