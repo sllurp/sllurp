@@ -28,7 +28,7 @@ setup(
     url='https://github.com/ransford/sllurp',
     license='GPLv3',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
@@ -37,7 +37,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Topic :: Scientific/Engineering :: Information Analysis',
     ],
-    keywords='rfid llrpyc reader',
+    keywords='llrp rfid reader',
     packages=['sllurp'],
     install_requires=['twisted'],
     tests_require=test_deps,
