@@ -238,10 +238,14 @@ Modulation_Name2Type = {
     'M8': 3,
     'WISP5pre': 0,
     'WISP5': 0,
+    'R1000': 0,
+    'R420': 0,
 }
 Modulation_DefaultTari = {
     'WISP5pre': 12500,
     'WISP5': 6250,
+    'R1000': 7140,
+    'R420': 6250,
 }
 DEFAULT_MODULATION = 'M4'
 
