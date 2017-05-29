@@ -719,13 +719,23 @@ def decode_UTCTimestamp(data):
 
     return par, data[length:]
 
+
+def encode_UTCTimestamp(par):
+    msgtype = Message_struct['UTCTimestamp']['type']
+    msg = '!HHQ'
+    msg_len = struct.calcsize(msg_header)
+    data = struct.pack(msg, msgtype, msg_len, par['Microseconds'])
+    return data
+
+
 Message_struct['UTCTimestamp'] = {
-    'type':   128,
+    'type': 128,
     'fields': [
         'Type',
         'Microseconds'
     ],
-    'decode': decode_UTCTimestamp
+    'decode': decode_UTCTimestamp,
+    'encode': encode_UTCTimestamp,
 }
 
 
@@ -1927,6 +1937,10 @@ def encode_ROSpecStartTrigger(par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = ''
+    if par['ROSpecStartTriggerType'] == 'Periodic':
+        data += encode('PeriodicTriggerValue')(par['PeriodicTriggerValue'])
+    elif par['ROSpecStartTriggerType'] == 'GPI':
+        data += encode('GPITriggerValue')(par['GPITriggerValue'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len, t_type) + data
@@ -1942,6 +1956,33 @@ Message_struct['ROSpecStartTrigger'] = {
         'GPITriggerValue'
     ],
     'encode': encode_ROSpecStartTrigger
+}
+
+
+def encode_PeriodicTriggerValue(par):
+    msgtype = Message_struct['PeriodicTriggerValue']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['Offset'])
+    data += struct.pack('!I', par['Period'])
+    if 'UTCTimestamp' in par:
+        data += encode('UTCTimestamp')(par['UTCTimestamp'])
+
+    data = struct.pack(msg_header, msgtype, len(data) + msg_header_len) + data
+    return data
+
+
+# 16.2.4.1.1.1 PeriodicTriggerValue Parameter
+Message_struct['PeriodicTriggerValue'] = {
+    'type': 180,
+    'fields': [
+        'Type',
+        'Offset',
+        'Period',
+        'UTCTimestamp'
+    ],
+    'encode': encode_PeriodicTriggerValue
 }
 
 
@@ -2970,7 +3011,8 @@ class LLRPROSpec(dict):
                             state, ','.join(ROSpecState_Name2Type.keys())))
 
         rmode = llrpcli.reader_mode
-        mode_index = rmode['ModeIdentifier']
+        #mode_index = rmode['ModeIdentifier']
+        mode_index = 1000
         tari = rmode['MaxTari']
 
         tagReportContentSelector = {
@@ -3014,12 +3056,9 @@ class LLRPROSpec(dict):
                 },
             },
             'ROReportSpec': {
-                # XXX this does *not* cause the reader to produce
-                # RO_ACCESS_REPORT messages every 1s, as it looks like it
-                # should; instead they appear much more frequently.
-                'ROReportTrigger': 'Upon_N_Seconds',
-                'N': 1,
+                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'TagReportContentSelector': tagReportContentSelector,
+                'N': 0,
             },
         }
 
@@ -3050,7 +3089,11 @@ class LLRPROSpec(dict):
         if duration_sec is not None:
             self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
                 'ROSpecStopTriggerType': 'Duration',
-                'DurationTriggerValue': duration_sec * 1000,
+                'DurationTriggerValue': int(duration_sec * 1000)
+            }
+            self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
+                'AISpecStopTriggerType': 'Duration',
+                'DurationTriggerValue': int(duration_sec * 1000)
             }
 
         if report_every_n_tags is not None:
@@ -3060,10 +3103,6 @@ class LLRPROSpec(dict):
             else:
                 logger.info('will report every ~N=%d tags',
                             report_every_n_tags)
-            self['ROSpec']['ROReportSpec'].update({
-                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
-                'N': report_every_n_tags,
-            })
             self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
                     'AISpecStopTriggerType': 'Tag observation',
                     'TagObservationTrigger': {

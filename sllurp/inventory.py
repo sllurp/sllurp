@@ -8,14 +8,13 @@ from twisted.internet import reactor, defer
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
     Modulation_DefaultTari
+from sllurp.log import init_logging
 
 startTime = None
 endTime = None
 
 numTags = 0
 logger = logging.getLogger('sllurp')
-
-args = None
 
 
 def startTimeMeasurement():
@@ -60,7 +59,6 @@ def tagReportCallback(llrpMsg):
 
 
 def parse_args():
-    global args
     parser = argparse.ArgumentParser(description='Simple RFID Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
                         nargs='+')
@@ -70,7 +68,7 @@ def parse_args():
                         help='seconds to inventory (default forever)')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='show debugging output')
-    parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
+    parser.add_argument('-n', '--report-every-n-tags', type=int,
                         dest='every_n', metavar='N',
                         help='issue a TagReport every N tags')
     parser.add_argument('-a', '--antennas', default='1',
@@ -95,31 +93,12 @@ def parse_args():
     parser.add_argument('-r', '--reconnect', action='store_true',
                         default=False,
                         help='reconnect on connection failure or loss')
-    args = parser.parse_args()
-
-
-def init_logging():
-    logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
-    formatter = logging.Formatter(logFormat)
-    stderr = logging.StreamHandler()
-    stderr.setFormatter(formatter)
-
-    root = logging.getLogger()
-    root.setLevel(logLevel)
-    root.handlers = [stderr]
-
-    if args.logfile:
-        fHandler = logging.FileHandler(args.logfile)
-        fHandler.setFormatter(formatter)
-        root.addHandler(fHandler)
-
-    logger.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
+    return parser.parse_args()
 
 
 def main():
-    parse_args()
-    init_logging()
+    args = parse_args()
+    init_logging(debug=args.debug, logfile=args.logfile)
 
     # special case default Tari values
     if args.modulation in Modulation_DefaultTari:
@@ -169,7 +148,12 @@ def main():
     fac.addTagReportCallback(tagReportCallback)
 
     for host in args.host:
-        reactor.connectTCP(host, args.port, fac, timeout=3)
+        if ':' in host:
+            host, port = host.split(':', 1)
+            port = int(port)
+        else:
+            port = args.port
+        reactor.connectTCP(host, port, fac, timeout=3)
 
     # catch ctrl-C and stop inventory before disconnecting
     reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)

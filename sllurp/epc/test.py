@@ -38,7 +38,6 @@ class SGTIN_96_Tests(unittest.TestCase):
         # actually do it
         parsed = sgtin_96.parse_sgtin_96(epc)
         full_gtin = gtin.combine_gtin_with_check_digit(parsed["company_prefix"])
-        print parsed, full_gtin
 
         self.assertEqual(parsed['serial'], parsed_serial)
         self.assertEqual(parsed['company_prefix'], parsed_company_prefix)

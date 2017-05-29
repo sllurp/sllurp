@@ -24,13 +24,15 @@ class LLRPMessage(object):
     hdr_len = struct.calcsize(hdr_fmt)  # == 6 bytes
     full_hdr_fmt = hdr_fmt + 'I'
     full_hdr_len = struct.calcsize(full_hdr_fmt)  # == 10 bytes
-    msgdict = None
-    msgbytes = None
 
     def __init__(self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
             raise LLRPError('Provide either a message dict or a sequence'
                             ' of bytes.')
+        self.proto = None
+        self.peername = None
+        self.msgdict = None
+        self.msgbytes = None
         if msgdict:
             self.msgdict = LLRPMessageDict(msgdict)
             if not msgbytes:
@@ -39,7 +41,6 @@ class LLRPMessage(object):
             self.msgbytes = msgbytes
             if not msgdict:
                 self.deserialize()
-        self.peername = None
 
     def serialize(self):
         if self.msgdict is None:
@@ -224,7 +225,7 @@ class LLRPClient(LineReceiver):
 
         logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
                     self.peer_port)
-        self.factory.protocols.add(self)
+        self.factory.protocols.append(self)
 
     def setState(self, newstate, onComplete=None):
         assert newstate is not None
@@ -315,6 +316,7 @@ class LLRPClient(LineReceiver):
         """Implements the LLRP client state machine."""
         logger.debug('LLRPMessage received in state %s: %s', self.state, lmsg)
         msgName = lmsg.getName()
+        lmsg.proto = self
         lmsg.peername = self.peername
 
         # call per-message callbacks
@@ -476,7 +478,6 @@ class LLRPClient(LineReceiver):
                              msgName)
 
             if lmsg.isSuccess():
-                logger.info('reader finished inventory')
                 if self.disconnecting:
                     self.setState(LLRPClient.STATE_DISCONNECTED)
                 else:
@@ -760,8 +761,9 @@ class LLRPClient(LineReceiver):
                             LLRPClient.STATE_INVENTORYING)
         started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
-        if self.duration:
-            task.deferLater(reactor, self.duration, self.stopPolitely, True)
+        #if self.duration:
+        #    # XXX use rospec stop condition instead
+        #    task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
         d = defer.Deferred()
         d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
@@ -891,8 +893,9 @@ class LLRPClient(LineReceiver):
         logger.debug('pause(%s)', duration_seconds)
         if self.state != LLRPClient.STATE_INVENTORYING:
             if not force:
-                logger.info('ignoring pause() because not inventorying')
-                return
+                logger.info('ignoring pause(); not inventorying (state==%s)',
+                            self.getStateName(self.state))
+                return None
             else:
                 logger.info('forcing pause()')
 
@@ -930,7 +933,8 @@ class LLRPClient(LineReceiver):
             return
 
         if self.state != LLRPClient.STATE_PAUSED:
-            logger.debug('cannot resume() if not paused; ignoring')
+            logger.debug('cannot resume() if not paused (state=%s); ignoring',
+                         self.getStateName(self.state))
             return None
 
         logger.info('resuming')
@@ -949,11 +953,12 @@ class LLRPClient(LineReceiver):
 
 
 class LLRPClientFactory(ClientFactory):
-    def __init__(self, onFinish=None, reconnect=False, **kwargs):
+    def __init__(self, start_first=False, onFinish=None, reconnect=False, **kwargs):
         self.onFinish = onFinish
         self.reconnect = reconnect
         self.reconnect_delay = 1.0  # seconds
         self.client_args = kwargs
+        self.start_first = start_first
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
@@ -964,10 +969,11 @@ class LLRPClientFactory(ClientFactory):
         # message callbacks to pass to connected clients
         self._message_callbacks = defaultdict(list)
 
-        self.protocols = set()
+        self.protocols = []
 
     def startedConnecting(self, connector):
-        logger.info('connecting...')
+        dst = connector.getDestination()
+        logger.info('connecting to %s:%d...', dst.host, dst.port)
 
     def addStateCallback(self, state, cb):
         assert state in self._state_callbacks
@@ -977,7 +983,12 @@ class LLRPClientFactory(ClientFactory):
         self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
     def buildProtocol(self, _):
-        proto = LLRPClient(factory=self, **self.client_args)
+        clargs = self.client_args
+        logger.debug('start_inventory: %s', clargs['start_inventory'])
+        if self.start_first and not self.protocols:
+            # this is the first protocol, so let's start it inventorying
+            clargs['start_inventory'] = True
+        proto = LLRPClient(factory=self, **clargs)
 
         # register state-change callbacks with new client
         for state, cbs in self._state_callbacks.items():

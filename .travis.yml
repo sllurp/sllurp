@@ -1,4 +1,15 @@
 language: python
 python: 2.7
-install: pip install -r .pip-requirements.txt
-script: nosetests --with-doctest
+cache: pip
+
+install:
+    - pip --version
+    - pip install tox
+    - tox --version
+
+script:
+    - tox -v
+
+after_failure:
+    - cat .tox/log/*
+    - cat .tox/*/log/*
