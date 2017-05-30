@@ -7,7 +7,6 @@ import click
 from . import log
 from .verb import reset as _reset
 from .verb import inventory as _inventory
-from .llrp import LLRP_PORT
 from .llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION
 
 

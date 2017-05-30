@@ -3,7 +3,7 @@ import argparse
 import csv
 import logging
 import threading
-from twisted.internet import reactor, defer, task
+from twisted.internet import reactor, task
 
 import sllurp.llrp as llrp
 from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
@@ -65,8 +65,8 @@ class CsvLogger(object):
 
 def finish():
     csvlogger.flush()
-    #if reactor.running:
-    #    reactor.stop()
+    # if reactor.running:
+    #     reactor.stop()
     logging.info('Total tags seen: %d', csvlogger.num_tags)
 
 
