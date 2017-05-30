@@ -17,7 +17,7 @@ def read(filename):
         return f.read()
 
 
-test_deps = ['nose2']
+test_deps = ['nose2', 'flake8']
 
 setup(
     name='sllurp',
@@ -42,6 +42,7 @@ setup(
     install_requires=['click', 'twisted'],
     tests_require=test_deps,
     extras_require={'test': test_deps},
+    test_suite='nose2.collector.collector',
     entry_points={
         'console_scripts': [
             'sllurp=sllurp.cli:cli',
