@@ -29,24 +29,16 @@ sllurp is distributed under version 3 of the GNU General Public License.  See
 
 ## Quick Start
 
-```shell
-$ virtualenv .venv
-$ source .venv/bin/activate
-$ pip install .
-```
+    $ virtualenv .venv
+    $ source .venv/bin/activate
+    $ pip install .
+    $ sllurp inventory ip.add.re.ss
 
-To connect to a reader and perform EPC Gen 2 inventory for 10 seconds:
+Run `sllurp --help` and `sllurp inventory --help` to see options.
 
-1. Figure out your reader's IP address `ip.add.re.ss`
-2. `inventory ip.add.re.ss`
-
-Run `inventory -h` to see options.
-
-If the reader gets into a funny state because you're debugging against it, you
-can stop all ROSpecs by running `bin/reset ip.add.re.ss`.
-
-[Twisted]: http://twistedmatrix.com/
-[zope.interface]: https://pypi.python.org/pypi/zope.interface#download
+If the reader gets into a funny state because you're debugging against it
+(e.g., if your program or sllurp has crashed), you can set it back to an idle
+state by running `sllurp reset ip.add.re.ss`.
 
 ## Reader API
 
@@ -73,7 +65,10 @@ reactor.run()
 [Twisted]: http://twistedmatrix.com/
 
 ## Getting More Information From Tag Reports
-When initializing LLRPClientFactory, pass in tag_content_selector:
+
+When initializing LLRPClientFactory, set flags in the tag_content_selector
+dictionary argument:
+
 ```python
 llrp.LLRPClientFactory(tag_content_selector={
     'EnableROSpecID': False,

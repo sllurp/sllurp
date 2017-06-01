@@ -1,8 +1,8 @@
-"""Sllurp logging tools
+"""
+Logging setup
 """
 
 import logging
-logger = logging.getLogger(__name__)
 
 
 def init_logging(debug=False, logfile=None):
@@ -21,4 +21,4 @@ def init_logging(debug=False, logfile=None):
         fHandler.setFormatter(formatter)
         root.addHandler(fHandler)
 
-    logger.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
+    root.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
