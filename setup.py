@@ -27,7 +27,7 @@ install_deps = [
 
 setup(
     name='sllurp',
-    version='0.1.8.1',
+    version='0.2.0',
     description=read('README.md'),
     author='Ben Ransford',
     author_email='ben@ransford.org',
