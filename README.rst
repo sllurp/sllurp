@@ -1,3 +1,6 @@
+.. image:: http://img.shields.io/pypi/v/sllurp.svg
+    :target: https://pypi.python.org/pypi/sllurp
+
 .. image:: https://travis-ci.org/ransford/sllurp.svg?branch=master
     :target: https://travis-ci.org/ransford/sllurp
 
