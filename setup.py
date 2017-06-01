@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-from setuptools import setup
+from setuptools import setup, find_packages
 import os
 import re
 import codecs
@@ -43,7 +43,7 @@ setup(
         'Programming Language :: Python :: 2.7',
     ],
     keywords='llrp rfid reader',
-    packages=['sllurp'],
+    packages=find_packages(),
     install_requires=install_deps,
     tests_require=test_deps,
     extras_require={'test': test_deps},
