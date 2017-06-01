@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-from setuptools import setup
+from setuptools import setup, find_packages
 import os
 import re
 import codecs
@@ -17,34 +17,40 @@ def read(filename):
         return f.read()
 
 
-test_deps = ['nose2']
+test_deps = ['nose2', 'flake8']
+install_deps = [
+    'click',
+    'twisted',
+    'six',
+]
+
 
 setup(
     name='sllurp',
-    version='0.1.8.1',
+    version='0.2.0',
     description=read('README.md'),
     author='Ben Ransford',
     author_email='ben@ransford.org',
     url='https://github.com/ransford/sllurp',
     license='GPLv3',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
-        'Topic :: Scientific/Engineering :: Information Analysis',
     ],
-    keywords='rfid llrpyc reader',
-    packages=['sllurp'],
-    install_requires=['twisted'],
+    keywords='llrp rfid reader',
+    packages=find_packages(),
+    install_requires=install_deps,
     tests_require=test_deps,
     extras_require={'test': test_deps},
+    test_suite='nose2.collector.collector',
     entry_points={
         'console_scripts': [
-            'inventory=sllurp.inventory:main',
+            'sllurp=sllurp.cli:cli',
         ],
     },
 )

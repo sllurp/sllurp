@@ -208,6 +208,14 @@ class LLRPClient(LineReceiver):
         self.rospec = None
 
     def addStateCallback(self, state, cb):
+        """Add a callback to run upon a state transition.
+
+        When an LLRPClient `proto` enters `state`, `cb(proto)` will be called.
+
+        Args:
+            state: A state from LLRPClient.STATE_*.
+            cb: A callable that takes an LLRPClient argument.
+        """
         self._state_callbacks[state].append(cb)
 
     def addMessageCallback(self, msg_type, cb):
@@ -962,7 +970,7 @@ class LLRPClientFactory(ClientFactory):
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
-        self._state_callbacks = {}
+        self._state_callbacks = defaultdict(list)
         for _, st_num in LLRPClient.getStates():
             self._state_callbacks[st_num] = []
 
@@ -976,7 +984,6 @@ class LLRPClientFactory(ClientFactory):
         logger.info('connecting to %s:%d...', dst.host, dst.port)
 
     def addStateCallback(self, state, cb):
-        assert state in self._state_callbacks
         self._state_callbacks[state].append(cb)
 
     def addTagReportCallback(self, cb):
