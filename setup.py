@@ -18,6 +18,12 @@ def read(filename):
 
 
 test_deps = ['nose2', 'flake8']
+install_deps = [
+    'click',
+    'twisted',
+    'six',
+]
+
 
 setup(
     name='sllurp',
@@ -35,11 +41,10 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
-        'Topic :: Scientific/Engineering :: Information Analysis',
     ],
     keywords='llrp rfid reader',
     packages=['sllurp'],
-    install_requires=['click', 'twisted'],
+    install_requires=install_deps,
     tests_require=test_deps,
     extras_require={'test': test_deps},
     test_suite='nose2.collector.collector',
