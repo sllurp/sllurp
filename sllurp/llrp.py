@@ -990,7 +990,7 @@ class LLRPClientFactory(ClientFactory):
         self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
     def buildProtocol(self, _):
-        clargs = self.client_args
+        clargs = self.client_args.copy()
         logger.debug('start_inventory: %s', clargs['start_inventory'])
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
