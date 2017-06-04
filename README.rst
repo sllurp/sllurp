@@ -15,27 +15,41 @@ with not much effort to other LLRP-compatible readers:
 - Impinj Speedway xPortal
 - Motorola MC9190-Z (handheld)
 
-File an issue on this GitHub project if you would like help getting another
-kind of reader to work.
+File an issue on GitHub_ if you would like help getting another kind of reader
+to work.
 
 sllurp is distributed under version 3 of the GNU General Public License.  See
 ``LICENSE.txt`` for details.
 
+.. _GitHub: https://github.com/ransford/sllurp/
+
 Quick Start
 -----------
 
-::
+Install from PyPI_::
 
+    $ virtualenv .venv
+    $ source .venv/bin/activate
+    $ pip install sllurp
+    $ sllurp inventory ip.add.re.ss
+
+Run ``sllurp --help`` and ``sllurp inventory --help`` to see options.
+
+Or install from GitHub_::
+
+    $ git clone https://github.com/ransford/sllurp.git
+    $ cd sllurp
     $ virtualenv .venv
     $ source .venv/bin/activate
     $ pip install .
     $ sllurp inventory ip.add.re.ss
 
-Run ``sllurp --help`` and ``sllurp inventory --help`` to see options.
-
 If the reader gets into a funny state because you're debugging against it
 (e.g., if your program or sllurp has crashed), you can set it back to an idle
 state by running ``sllurp reset ip.add.re.ss``.
+
+.. _PyPI: https://pypi.python.org/pypi/sllurp
+.. _GitHub: https://github.com/ransford/sllurp/
 
 Reader API
 ----------
@@ -116,7 +130,7 @@ The "nuclear option" for resetting a reader is:
 If You Find a Bug
 -----------------
 
-Start an issue on this GitHub project!
+Start an issue on GitHub_!
 
 Bug reports are most useful when they're accompanied by verbose error messages.
 Turn sllurp's log level up to DEBUG, which you can do by specifying the `-d`
@@ -128,6 +142,8 @@ command-line option to ``sllurp``.  You can log to a logfile with the ``-l
   import logger
   sllurp_logger = logging.getLogger('sllurp')
   sllurp_logger.setLevel(logging.DEBUG)
+
+.. _GitHub: https://github.com/ransford/sllurp/
 
 Contributing
 ------------

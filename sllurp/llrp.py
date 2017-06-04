@@ -990,7 +990,7 @@ class LLRPClientFactory(ClientFactory):
         self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
     def buildProtocol(self, _):
-        clargs = self.client_args
+        clargs = self.client_args.copy()
         logger.debug('start_inventory: %s', clargs['start_inventory'])
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
@@ -1042,7 +1042,7 @@ class LLRPClientFactory(ClientFactory):
 
     def pauseInventory(self, seconds=0):
         for proto in self.protocols:
-            proto.pause(seconds)
+            proto.pause(duration_seconds=seconds)
 
     def setTxPower(self, tx_power, peername=None):
         """Set the transmit power on one or all readers
