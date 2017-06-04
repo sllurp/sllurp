@@ -32,7 +32,6 @@ class CsvLogger(object):
         return next_p
 
     def tag_cb(self, llrp_msg):
-        # TODO pause this reader and switch to the next one
         host, port = llrp_msg.peername
         reader = '{}:{}'.format(host, port)
         logger.info('RO_ACCESS_REPORT from %s', reader)
@@ -47,9 +46,11 @@ class CsvLogger(object):
             self.rows.append((timestamp_us, reader, antenna, rssi, epc))
             self.num_tags += tag['TagSeenCount'][0]
         with self.lock:
-            logger.debug('Will pause %r', llrp_msg.proto)
+            logger.debug('This proto: %r (%s)', llrp_msg.proto,
+                         llrp.LLRPClient.getStateName(llrp_msg.proto.state))
             next_p = self.next_proto(llrp_msg.proto)
-            logger.debug('Next proto: %r', next_p)
+            logger.debug('Next proto: %r (%s)', next_p,
+                         llrp.LLRPClient.getStateName(next_p.state))
             d = llrp_msg.proto.pause()
             if d is not None:
                 d.addCallback(lambda _: next_p.resume())
