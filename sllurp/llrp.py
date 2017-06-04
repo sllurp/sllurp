@@ -1042,7 +1042,7 @@ class LLRPClientFactory(ClientFactory):
 
     def pauseInventory(self, seconds=0):
         for proto in self.protocols:
-            proto.pause(seconds)
+            proto.pause(duration_seconds=seconds)
 
     def setTxPower(self, tx_power, peername=None):
         """Set the transmit power on one or all readers
