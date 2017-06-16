@@ -378,11 +378,11 @@ class LLRPClient(LineReceiver):
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
             self.send_GET_READER_CAPABILITIES(onCompletion=d)
 
-        # in state SENT_GET_CAPABILITIES, expect only GET_CAPABILITIES_RESPONSE;
+        # in state SENT_GET_CAPABILITIES, expect GET_CAPABILITIES_RESPONSE;
         # respond to this message by advancing to state CONNECTED.
         elif self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
             if msgName != 'GET_READER_CAPABILITIES_RESPONSE':
-                logger.error('unexpected response %s when getting capabilities',
+                logger.error('unexpected response %s getting capabilities',
                              msgName)
                 return
 
@@ -392,7 +392,8 @@ class LLRPClient(LineReceiver):
                 logger.fatal('Error %s getting capabilities: %s', status, err)
                 return
 
-            self.capabilities = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
+            self.capabilities = \
+                lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
             logger.debug('Capabilities: %s', pprint.pformat(self.capabilities))
             try:
                 self.parseCapabilities(self.capabilities)
@@ -583,7 +584,8 @@ class LLRPClient(LineReceiver):
                 'RequestedData': Capability_Name2Type['All']
             }}))
         self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
-        self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(onCompletion)
+        self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(
+            onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
@@ -691,7 +693,8 @@ class LLRPClient(LineReceiver):
         elif writeWords:
             opSpecParam['MB'] = writeWords['MB']
             opSpecParam['WordPtr'] = writeWords['WordPtr']
-            opSpecParam['WriteDataWordCount'] = writeWords['WriteDataWordCount']
+            opSpecParam['WriteDataWordCount'] = \
+                writeWords['WriteDataWordCount']
             opSpecParam['WriteData'] = writeWords['WriteData']
             if 'OpSpecID' in writeWords:
                 opSpecParam['OpSpecID'] = writeWords['OpSpecID']
@@ -769,9 +772,9 @@ class LLRPClient(LineReceiver):
                             LLRPClient.STATE_INVENTORYING)
         started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
-        #if self.duration:
-        #    # XXX use rospec stop condition instead
-        #    task.deferLater(reactor, self.duration, self.stopPolitely, True)
+        # if self.duration:
+        #     # XXX use rospec stop condition instead
+        #     task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
         d = defer.Deferred()
         d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
@@ -784,14 +787,15 @@ class LLRPClient(LineReceiver):
             return self.rospec
 
         # create an ROSpec to define the reader's inventorying behavior
-        self.rospec = LLRPROSpec(self, 1, duration_sec=self.duration,
-                                 report_every_n_tags=self.report_every_n_tags,
-                                 report_timeout_ms=self.report_timeout_ms,
-                                 tx_power=self.tx_power,
-                                 antennas=self.antennas,
-                                 tag_content_selector=self.tag_content_selector,
-                                 session=self.session,
-                                 tag_population=self.tag_population)
+        self.rospec = \
+            LLRPROSpec(self, 1, duration_sec=self.duration,
+                       report_every_n_tags=self.report_every_n_tags,
+                       report_timeout_ms=self.report_timeout_ms,
+                       tx_power=self.tx_power,
+                       antennas=self.antennas,
+                       tag_content_selector=self.tag_content_selector,
+                       session=self.session,
+                       tag_population=self.tag_population)
         logger.debug('ROSpec: %s', self.rospec)
         return self.rospec
 
@@ -961,7 +965,8 @@ class LLRPClient(LineReceiver):
 
 
 class LLRPClientFactory(ClientFactory):
-    def __init__(self, start_first=False, onFinish=None, reconnect=False, **kwargs):
+    def __init__(self, start_first=False, onFinish=None, reconnect=False,
+                 **kwargs):
         self.onFinish = onFinish
         self.reconnect = reconnect
         self.reconnect_delay = 1.0  # seconds

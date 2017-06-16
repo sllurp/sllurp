@@ -2,15 +2,13 @@
 """
 
 from __future__ import print_function, division
-import argparse
 import logging
 import pprint
 import time
 from twisted.internet import reactor, defer
 
 from sllurp.llrp import LLRPClientFactory
-from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
-    Modulation_DefaultTari
+from sllurp.llrp_proto import Modulation_DefaultTari
 
 start_time = None
 
