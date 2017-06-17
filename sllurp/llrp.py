@@ -273,8 +273,8 @@ class LLRPClient(LineReceiver):
         gdc = capdict['GeneralDeviceCapabilities']
         if max(self.antennas) > gdc['MaxNumberOfAntennaSupported']:
             reqd = ','.join(map(str, self.antennas))
-            avail = ','.join(map(str,
-                             range(1, gdc['MaxNumberOfAntennaSupported']+1)))
+            gdcmax = gdc['MaxNumberOfAntennaSupported']
+            avail = ','.join(map(str, range(1, gdcmax + 1)))
             logger.warn('Invalid antenna set specified: requested=%s,'
                         ' available=%s; ignoring invalid antennas',
                         reqd, avail)
@@ -361,10 +361,9 @@ class LLRPClient(LineReceiver):
                 return
 
             if not lmsg.isSuccess():
+                rend = lmsg.msgdict[msgName]['ReaderEventNotificationData']
                 try:
-                    status = lmsg.msgdict[msgName]\
-                        ['ReaderEventNotificationData']\
-                        ['ConnectionAttemptEvent']['Status']
+                    status = rend['ConnectionAttemptEvent']['Status']
                 except KeyError:
                     status = '(unknown status)'
                 logger.fatal('Could not start session on reader: %s', status)

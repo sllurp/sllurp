@@ -74,6 +74,7 @@ def tagReportCallback(llrpMsg):
             result = tag["OpSpecResult"].get("Result")
             logger.debug("result: %s", result)
 
+
 def parse_args():
     global args
     parser = argparse.ArgumentParser(description='Simple RFID Lock')
