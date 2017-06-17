@@ -3082,7 +3082,7 @@ class LLRPROSpec(dict):
     def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
                  antennas=(1,), tx_power=91, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
-                 tag_content_selector={},
+                 tag_content_selector={}, mode_index=0, tari=None,
                  session=2, tag_population=4):
         # Sanity checks
         if msgid <= 0:
@@ -3095,10 +3095,8 @@ class LLRPROSpec(dict):
             raise LLRPError('invalid ROSpec state {} (need [{}])'.format(
                             state, ','.join(ROSpecState_Name2Type.keys())))
 
-        rmode = llrpcli.reader_mode
-        # mode_index = rmode['ModeIdentifier']
-        mode_index = 1000
-        tari = rmode['MaxTari']
+        if tari is None:
+            tari = llrpcli.reader_mode['MaxTari']
 
         tagReportContentSelector = {
             'EnableROSpecID': False,

@@ -74,6 +74,7 @@ def main(args):
                             modulation=args.modulation,
                             tari=args.tari,
                             session=args.session,
+                            mode_index=args.mode_index,
                             tag_population=args.population,
                             start_inventory=True,
                             disconnect_when_done=(args.time > 0),
