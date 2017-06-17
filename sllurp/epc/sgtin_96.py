@@ -75,5 +75,6 @@ def parse_sgtin_96_to_uri(sgtin_96):
     '''Given a SGTIN-96 hex string, parse each segment.
     Returns a tag URI string.'''
     tag_dict = parse_sgtin_96(sgtin_96)
-    uri_template = "urn:epc:id:sgtin:{company_prefix}.{item_reference}.{serial}"
+    uri_template = ("urn:epc:id:sgtin:{company_prefix}."
+                    "{item_reference}.{serial}")
     return uri_template.format(**tag_dict)

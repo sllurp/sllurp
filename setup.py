@@ -2,7 +2,6 @@
 
 from setuptools import setup, find_packages
 import os
-import re
 import codecs
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -27,7 +26,7 @@ install_deps = [
 
 setup(
     name='sllurp',
-    version='0.2.2',
+    version='0.2.3',
     description='RFID reader control library',
     long_description=read('README.rst'),
     author='Ben Ransford',
