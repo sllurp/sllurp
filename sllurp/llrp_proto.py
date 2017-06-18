@@ -29,7 +29,7 @@ from collections import defaultdict
 from binascii import hexlify
 from util import BIT, BITMASK, func, reverse_dict
 import llrp_decoder
-from llrp_errors import LLRPError
+from llrp_errors import LLRPError, ReaderConfigurationError
 
 #
 # Define exported symbols
@@ -3082,7 +3082,8 @@ class LLRPROSpec(dict):
     def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
                  antennas=(1,), tx_power=91, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
-                 tag_content_selector={}, mode_index=0, tari=None,
+                 tag_content_selector={}, mode_index=None,
+                 mode_identifier=None, tari=None,
                  session=2, tag_population=4):
         # Sanity checks
         if msgid <= 0:
@@ -3097,6 +3098,13 @@ class LLRPROSpec(dict):
 
         if tari is None:
             tari = llrpcli.reader_mode['MaxTari']
+
+        if mode_index is None:
+            # BUG: Impinj Speedway Revolution readers, and possibly others,
+            # seem to want a ModeIdentifier value for the ModeIndex parameter
+            # rather than an actual index into the array of modes.
+            # https://github.com/ransford/sllurp/issues/63
+            mode_index = llrpcli.reader_mode['ModeIdentifier']
 
         tagReportContentSelector = {
             'EnableROSpecID': False,
