@@ -20,5 +20,3 @@ def init_logging(debug=False, logfile=None):
         fHandler = logging.FileHandler(logfile)
         fHandler.setFormatter(formatter)
         root.addHandler(fHandler)
-
-    root.log(logLevel, 'log level: %s', logging.getLevelName(logLevel))
