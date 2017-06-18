@@ -1,10 +1,11 @@
 """Command-line wrapper for sllurp commands.
 """
 
+from __future__ import print_function
 from collections import namedtuple
 import logging
 import click
-from . import log
+from . import log, __version__
 from .verb import reset as _reset
 from .verb import inventory as _inventory
 from .llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION
@@ -58,6 +59,11 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 mode_index=mode_index, reconnect=reconnect)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
+
+
+@cli.command()
+def version():
+    print(__version__)
 
 
 @cli.command()
