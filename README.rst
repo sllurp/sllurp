@@ -145,6 +145,19 @@ command-line option to ``sllurp``.  You can log to a logfile with the ``-l
 
 .. _GitHub: https://github.com/ransford/sllurp/
 
+Known Issues
+------------
+
+Reader mode selection is confusing_, not least because the LLRP specification
+traditionally conflated ``ModeIndex`` and ``ModeIdentifier``.  If you're using
+``sllurp inventory``, you probably want to use ``--mode-identifier N`` instead
+of ``-mode-index``.  Check your reader's manual to see what mode identifiers it
+supports via the ``C1G2RFControl`` parameter, or run ``sllurp --debug
+inventory`` against a reader to see a dump of the supported modes in the
+capabilities description.
+
+.. _confusing: https://github.com/ransford/sllurp/issues/63#issuecomment-309233937
+
 Contributing
 ------------
 
