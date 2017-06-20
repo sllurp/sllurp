@@ -7,7 +7,7 @@ import struct
 from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
-    DEFAULT_MODULATION
+    DEFAULT_MODULATION, ReaderConfigurationError
 from binascii import hexlify
 from util import BITMASK
 from twisted.internet import reactor, task, defer
@@ -160,7 +160,7 @@ class LLRPClient(LineReceiver):
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
-                 mode_index=0,
+                 mode_index=None, mode_identifier=None,
                  session=2, tag_population=4):
         self.factory = factory
         self.setRawMode()
@@ -175,6 +175,7 @@ class LLRPClient(LineReceiver):
         self.session = session
         self.tag_population = tag_population
         self.mode_index = mode_index
+        self.mode_identifier = mode_identifier
         self.antennas = antennas
         self.duration = duration
         self.peername = None
@@ -263,25 +264,20 @@ class LLRPClient(LineReceiver):
            - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
            - self.tx_power_table (list of dBm values)
            - self.reader_mode (dictionary of mode settings, e.g., Tari)
-        """
-        def find_p(p, arr):
-            """Return the first value in arr for which p is True"""
-            m = p(arr)
-            for idx, val in enumerate(arr):
-                if val == m:
-                    return idx
 
+           Raises ReaderConfigurationError if requested settings are not within
+           reader's capabilities.
+        """
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
-        if max(self.antennas) > gdc['MaxNumberOfAntennaSupported']:
+        max_ant = gdc['MaxNumberOfAntennaSupported']
+        if max(self.antennas) > max_ant:
             reqd = ','.join(map(str, self.antennas))
-            gdcmax = gdc['MaxNumberOfAntennaSupported']
-            avail = ','.join(map(str, range(1, gdcmax + 1)))
-            logger.warn('Invalid antenna set specified: requested=%s,'
-                        ' available=%s; ignoring invalid antennas',
-                        reqd, avail)
-            self.antennas = [ant for ant in self.antennas
-                             if ant <= gdc['MaxNumberOfAntennaSupported']]
+            avail = ','.join(map(str, range(1, max_ant + 1)))
+            errmsg = ('Invalid antenna set specified: requested={},'
+                      ' available={}; ignoring invalid antennas'.format(
+                          reqd, avail))
+            raise ReaderConfigurationError(errmsg)
         logger.debug('set antennas: %s', self.antennas)
 
         # parse available transmit power entries, set self.tx_power
@@ -293,20 +289,42 @@ class LLRPClient(LineReceiver):
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
         match = False  # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
-        logger.info('requested modulation: %s', self.modulation)
-        for v in regcap['UHFBandCapabilities']['UHFRFModeTable'].values():
-            match = v['Mod'] == Modulation_Name2Type[self.modulation]
-            if self.tari:
-                match = match and (v['MaxTari'] == self.tari)
-            if match:
-                self.reader_mode = dict(v)
-        if not self.reader_mode:
-            taristr = ' and Tari={}'.format(self.tari) if self.tari else ''
-            logger.warn('Could not find reader mode matching '
-                        'modulation=%s%s', self.modulation, taristr)
-            self.reader_mode = dict(regcap['UHFBandCapabilities']
-                                    ['UHFRFModeTable']
-                                    ['UHFC1G2RFModeTableEntry0'])
+        modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
+
+        # select a mode by matching available modes to requested parameters:
+        # favor mode_identifier over mode_index over modulation
+        if self.mode_identifier is not None:
+            try:
+                mode = [v for _, v in modes.items()
+                        if v['ModeIdentifier'] == self.mode_identifier][0]
+            except IndexError:
+                raise ReaderConfigurationError('Invalid mode_identifier')
+            self.reader_mode = mode
+
+        elif self.mode_index is not None:
+            mode_list = [modes[k] for k in sorted(modes.keys())]
+            try:
+                self.reader_mode = mode_list[self.mode_index]
+            except IndexError:
+                raise ReaderConfigurationError('Invalid mode_index')
+
+        elif self.modulation is not None:
+            try:
+                mo = [v for _, v in modes.items()
+                      if v['Mod'] == Modulation_Name2Type[self.modulation]][0]
+            except IndexError:
+                raise ReaderConfigurationError('Invalid modulation')
+            self.reader_mode = mo
+
+        else:
+            logger.info('Using default mode (index 0)')
+            self.reader_mode = modes[0]
+
+        if self.tari is not None and self.tari > self.reader_mode['MaxTari']:
+            raise ReaderConfigurationError('Requested Tari is greater than'
+                                           ' MaxTari for selected mode'
+                                           ' {}'.format(self.reader_mode))
+
         logger.info('using reader mode: %s', self.reader_mode)
 
     def processDeferreds(self, msgName, isSuccess):
@@ -796,7 +814,7 @@ class LLRPClient(LineReceiver):
                        antennas=self.antennas,
                        tag_content_selector=self.tag_content_selector,
                        session=self.session,
-                       mode_index=self.mode_index,
+                       mode_index=self.reader_mode['ModeIdentifier'],
                        tari=self.tari,
                        tag_population=self.tag_population)
         logger.debug('ROSpec: %s', self.rospec)
