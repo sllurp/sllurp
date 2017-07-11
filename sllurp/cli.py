@@ -8,7 +8,7 @@ import click
 from . import log, __version__
 from .verb import reset as _reset
 from .verb import inventory as _inventory
-from .llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION
+from .llrp_proto import Modulation_Name2Type
 
 
 logger = logging.getLogger(__name__)
@@ -34,8 +34,7 @@ def cli(debug, logfile):
 @click.option('-X', '--tx-power', type=int, default=0,
               help='transmit power (default 0=max power)')
 @click.option('-M', '--modulation', type=click.Choice(mods),
-              default=DEFAULT_MODULATION,
-              help='modulation (default={})'.format(DEFAULT_MODULATION))
+              help='Reader-to-Tag Modulation')
 @click.option('-T', '--tari', type=int, default=0,
               help='Tari value (default 0=auto)')
 @click.option('-s', '--session', type=int, default=2,
