@@ -49,10 +49,10 @@ def main(args):
         return 0
 
     # special case default Tari values
+    tari = args.tari
     if args.modulation in Modulation_DefaultTari:
         t_suggested = Modulation_DefaultTari[args.modulation]
         if args.tari:
-            tari = args.tari
             logger.warn('recommended Tari for %s is %d', args.modulation,
                         t_suggested)
         else:
