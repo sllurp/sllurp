@@ -52,10 +52,11 @@ def main(args):
     if args.modulation in Modulation_DefaultTari:
         t_suggested = Modulation_DefaultTari[args.modulation]
         if args.tari:
+            tari = args.tari
             logger.warn('recommended Tari for %s is %d', args.modulation,
                         t_suggested)
         else:
-            args.tari = t_suggested
+            tari = t_suggested
             logger.info('selected recommended Tari of %d for %s', args.tari,
                         args.modulation)
 
@@ -72,7 +73,7 @@ def main(args):
                             antennas=enabled_antennas,
                             tx_power=args.tx_power,
                             modulation=args.modulation,
-                            tari=args.tari,
+                            tari=tari,
                             session=args.session,
                             mode_index=args.mode_index,
                             mode_identifier=args.mode_identifier,

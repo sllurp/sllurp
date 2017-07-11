@@ -9,7 +9,7 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION, ReaderConfigurationError
 from binascii import hexlify
-from util import BITMASK
+from util import BITMASK, natural_keys
 from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ClientFactory
 from twisted.protocols.basic import LineReceiver
@@ -290,7 +290,7 @@ class LLRPClient(LineReceiver):
         match = False  # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
-        mode_list = [modes[k] for k in sorted(modes.keys())]
+        mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
 
         # select a mode by matching available modes to requested parameters:
         # favor mode_identifier over mode_index over modulation
@@ -298,11 +298,12 @@ class LLRPClient(LineReceiver):
             logger.debug('Setting mode from mode_identifier=%s',
                          self.mode_identifier)
             try:
-                mode = [v for _, v in modes.items()
-                        if v['ModeIdentifier'] == self.mode_identifier][0]
+                mode = [mo for mo in mode_list
+                        if mo['ModeIdentifier'] == self.mode_identifier][0]
+                self.reader_mode = mode
+                self.mode_index = mode_list.index(mode)
             except IndexError:
                 raise ReaderConfigurationError('Invalid mode_identifier')
-            self.reader_mode = mode
 
         elif self.mode_index is not None:
             logger.debug('Setting mode from mode_index=%s',
@@ -316,11 +317,12 @@ class LLRPClient(LineReceiver):
             logger.debug('Setting mode from modulation=%s',
                          self.modulation)
             try:
-                mo = [v for _, v in modes.items()
-                      if v['Mod'] == Modulation_Name2Type[self.modulation]][0]
+                mo = [mo for mo in mode_list
+                      if mo['Mod'] == Modulation_Name2Type[self.modulation]][0]
+                self.reader_mode = mo
+                self.mode_index = mode_list.index(mo)
             except IndexError:
                 raise ReaderConfigurationError('Invalid modulation')
-            self.reader_mode = mo
 
         else:
             logger.info('Using default mode (index 0)')
@@ -820,7 +822,7 @@ class LLRPClient(LineReceiver):
                        antennas=self.antennas,
                        tag_content_selector=self.tag_content_selector,
                        session=self.session,
-                       mode_index=self.reader_mode['ModeIdentifier'],
+                       mode_index=self.mode_index,
                        tari=self.tari,
                        tag_population=self.tag_population)
         logger.debug('ROSpec: %s', self.rospec)
