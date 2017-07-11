@@ -26,7 +26,7 @@ install_deps = [
 
 setup(
     name='sllurp',
-    version='0.2.6',
+    version='0.2.6.1',
     description='RFID reader control library',
     long_description=read('README.rst'),
     author='Ben Ransford',
