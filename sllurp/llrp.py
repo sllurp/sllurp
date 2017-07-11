@@ -4,10 +4,11 @@ import time
 import logging
 import pprint
 import struct
-from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
+from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
-    DEFAULT_MODULATION, ReaderConfigurationError
+    DEFAULT_MODULATION
+from .llrp_errors import ReaderConfigurationError
 from binascii import hexlify
 from util import BITMASK, natural_keys
 from twisted.internet import reactor, task, defer
@@ -287,7 +288,6 @@ class LLRPClient(LineReceiver):
         self.setTxPower(self.tx_power)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
-        match = False  # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
         mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
