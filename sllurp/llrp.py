@@ -9,7 +9,7 @@ from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION, ReaderConfigurationError
 from binascii import hexlify
-from util import BITMASK
+from util import BITMASK, natural_keys
 from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ClientFactory
 from twisted.protocols.basic import LineReceiver
@@ -290,7 +290,7 @@ class LLRPClient(LineReceiver):
         match = False  # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
-        mode_list = [modes[k] for k in sorted(modes.keys())]
+        mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
 
         # select a mode by matching available modes to requested parameters:
         # favor mode_identifier over mode_index over modulation
