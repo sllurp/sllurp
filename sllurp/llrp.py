@@ -290,10 +290,13 @@ class LLRPClient(LineReceiver):
         match = False  # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
+        mode_list = [modes[k] for k in sorted(modes.keys())]
 
         # select a mode by matching available modes to requested parameters:
         # favor mode_identifier over mode_index over modulation
         if self.mode_identifier is not None:
+            logger.debug('Setting mode from mode_identifier=%s',
+                         self.mode_identifier)
             try:
                 mode = [v for _, v in modes.items()
                         if v['ModeIdentifier'] == self.mode_identifier][0]
@@ -302,13 +305,16 @@ class LLRPClient(LineReceiver):
             self.reader_mode = mode
 
         elif self.mode_index is not None:
-            mode_list = [modes[k] for k in sorted(modes.keys())]
+            logger.debug('Setting mode from mode_index=%s',
+                         self.mode_index)
             try:
                 self.reader_mode = mode_list[self.mode_index]
             except IndexError:
                 raise ReaderConfigurationError('Invalid mode_index')
 
         elif self.modulation is not None:
+            logger.debug('Setting mode from modulation=%s',
+                         self.modulation)
             try:
                 mo = [v for _, v in modes.items()
                       if v['Mod'] == Modulation_Name2Type[self.modulation]][0]
@@ -318,7 +324,7 @@ class LLRPClient(LineReceiver):
 
         else:
             logger.info('Using default mode (index 0)')
-            self.reader_mode = modes[0]
+            self.reader_mode = mode_list[0]
 
         if self.tari is not None and self.tari > self.reader_mode['MaxTari']:
             raise ReaderConfigurationError('Requested Tari is greater than'
