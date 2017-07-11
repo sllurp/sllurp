@@ -287,7 +287,6 @@ class LLRPClient(LineReceiver):
         self.setTxPower(self.tx_power)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
-        match = False  # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
         mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
