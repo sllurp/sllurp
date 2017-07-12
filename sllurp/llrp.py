@@ -4,12 +4,13 @@ import time
 import logging
 import pprint
 import struct
-from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
+from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION
+from .llrp_errors import ReaderConfigurationError
 from binascii import hexlify
-from util import BITMASK
+from util import BITMASK, natural_keys
 from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ClientFactory
 from twisted.protocols.basic import LineReceiver
@@ -160,6 +161,7 @@ class LLRPClient(LineReceiver):
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
+                 mode_index=None, mode_identifier=None,
                  session=2, tag_population=4):
         self.factory = factory
         self.setRawMode()
@@ -173,6 +175,8 @@ class LLRPClient(LineReceiver):
         self.tari = tari
         self.session = session
         self.tag_population = tag_population
+        self.mode_index = mode_index
+        self.mode_identifier = mode_identifier
         self.antennas = antennas
         self.duration = duration
         self.peername = None
@@ -261,25 +265,20 @@ class LLRPClient(LineReceiver):
            - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
            - self.tx_power_table (list of dBm values)
            - self.reader_mode (dictionary of mode settings, e.g., Tari)
-        """
-        def find_p(p, arr):
-            """Return the first value in arr for which p is True"""
-            m = p(arr)
-            for idx, val in enumerate(arr):
-                if val == m:
-                    return idx
 
+           Raises ReaderConfigurationError if requested settings are not within
+           reader's capabilities.
+        """
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
-        if max(self.antennas) > gdc['MaxNumberOfAntennaSupported']:
+        max_ant = gdc['MaxNumberOfAntennaSupported']
+        if max(self.antennas) > max_ant:
             reqd = ','.join(map(str, self.antennas))
-            avail = ','.join(map(str,
-                             range(1, gdc['MaxNumberOfAntennaSupported']+1)))
-            logger.warn('Invalid antenna set specified: requested=%s,'
-                        ' available=%s; ignoring invalid antennas',
-                        reqd, avail)
-            self.antennas = [ant for ant in self.antennas
-                             if ant <= gdc['MaxNumberOfAntennaSupported']]
+            avail = ','.join(map(str, range(1, max_ant + 1)))
+            errmsg = ('Invalid antenna set specified: requested={},'
+                      ' available={}; ignoring invalid antennas'.format(
+                          reqd, avail))
+            raise ReaderConfigurationError(errmsg)
         logger.debug('set antennas: %s', self.antennas)
 
         # parse available transmit power entries, set self.tx_power
@@ -289,22 +288,51 @@ class LLRPClient(LineReceiver):
         self.setTxPower(self.tx_power)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
-        match = False  # have we matched the user's requested values yet?
         regcap = capdict['RegulatoryCapabilities']
-        logger.info('requested modulation: %s', self.modulation)
-        for v in regcap['UHFBandCapabilities']['UHFRFModeTable'].values():
-            match = v['Mod'] == Modulation_Name2Type[self.modulation]
-            if self.tari:
-                match = match and (v['MaxTari'] == self.tari)
-            if match:
-                self.reader_mode = dict(v)
-        if not self.reader_mode:
-            taristr = ' and Tari={}'.format(self.tari) if self.tari else ''
-            logger.warn('Could not find reader mode matching '
-                        'modulation=%s%s', self.modulation, taristr)
-            self.reader_mode = dict(regcap['UHFBandCapabilities']
-                                    ['UHFRFModeTable']
-                                    ['UHFC1G2RFModeTableEntry0'])
+        modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
+        mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
+
+        # select a mode by matching available modes to requested parameters:
+        # favor mode_identifier over mode_index over modulation
+        if self.mode_identifier is not None:
+            logger.debug('Setting mode from mode_identifier=%s',
+                         self.mode_identifier)
+            try:
+                mode = [mo for mo in mode_list
+                        if mo['ModeIdentifier'] == self.mode_identifier][0]
+                self.reader_mode = mode
+                self.mode_index = mode_list.index(mode)
+            except IndexError:
+                raise ReaderConfigurationError('Invalid mode_identifier')
+
+        elif self.mode_index is not None:
+            logger.debug('Setting mode from mode_index=%s',
+                         self.mode_index)
+            try:
+                self.reader_mode = mode_list[self.mode_index]
+            except IndexError:
+                raise ReaderConfigurationError('Invalid mode_index')
+
+        elif self.modulation is not None:
+            logger.debug('Setting mode from modulation=%s',
+                         self.modulation)
+            try:
+                mo = [mo for mo in mode_list
+                      if mo['Mod'] == Modulation_Name2Type[self.modulation]][0]
+                self.reader_mode = mo
+                self.mode_index = mode_list.index(mo)
+            except IndexError:
+                raise ReaderConfigurationError('Invalid modulation')
+
+        else:
+            logger.info('Using default mode (index 0)')
+            self.reader_mode = mode_list[0]
+
+        if self.tari is not None and self.tari > self.reader_mode['MaxTari']:
+            raise ReaderConfigurationError('Requested Tari is greater than'
+                                           ' MaxTari for selected mode'
+                                           ' {}'.format(self.reader_mode))
+
         logger.info('using reader mode: %s', self.reader_mode)
 
     def processDeferreds(self, msgName, isSuccess):
@@ -361,10 +389,9 @@ class LLRPClient(LineReceiver):
                 return
 
             if not lmsg.isSuccess():
+                rend = lmsg.msgdict[msgName]['ReaderEventNotificationData']
                 try:
-                    status = lmsg.msgdict[msgName]\
-                        ['ReaderEventNotificationData']\
-                        ['ConnectionAttemptEvent']['Status']
+                    status = rend['ConnectionAttemptEvent']['Status']
                 except KeyError:
                     status = '(unknown status)'
                 logger.fatal('Could not start session on reader: %s', status)
@@ -378,11 +405,11 @@ class LLRPClient(LineReceiver):
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
             self.send_GET_READER_CAPABILITIES(onCompletion=d)
 
-        # in state SENT_GET_CAPABILITIES, expect only GET_CAPABILITIES_RESPONSE;
+        # in state SENT_GET_CAPABILITIES, expect GET_CAPABILITIES_RESPONSE;
         # respond to this message by advancing to state CONNECTED.
         elif self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
             if msgName != 'GET_READER_CAPABILITIES_RESPONSE':
-                logger.error('unexpected response %s when getting capabilities',
+                logger.error('unexpected response %s getting capabilities',
                              msgName)
                 return
 
@@ -392,7 +419,8 @@ class LLRPClient(LineReceiver):
                 logger.fatal('Error %s getting capabilities: %s', status, err)
                 return
 
-            self.capabilities = lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
+            self.capabilities = \
+                lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
             logger.debug('Capabilities: %s', pprint.pformat(self.capabilities))
             try:
                 self.parseCapabilities(self.capabilities)
@@ -583,7 +611,8 @@ class LLRPClient(LineReceiver):
                 'RequestedData': Capability_Name2Type['All']
             }}))
         self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
-        self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(onCompletion)
+        self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(
+            onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
@@ -691,7 +720,8 @@ class LLRPClient(LineReceiver):
         elif writeWords:
             opSpecParam['MB'] = writeWords['MB']
             opSpecParam['WordPtr'] = writeWords['WordPtr']
-            opSpecParam['WriteDataWordCount'] = writeWords['WriteDataWordCount']
+            opSpecParam['WriteDataWordCount'] = \
+                writeWords['WriteDataWordCount']
             opSpecParam['WriteData'] = writeWords['WriteData']
             if 'OpSpecID' in writeWords:
                 opSpecParam['OpSpecID'] = writeWords['OpSpecID']
@@ -769,9 +799,9 @@ class LLRPClient(LineReceiver):
                             LLRPClient.STATE_INVENTORYING)
         started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
-        #if self.duration:
-        #    # XXX use rospec stop condition instead
-        #    task.deferLater(reactor, self.duration, self.stopPolitely, True)
+        # if self.duration:
+        #     # XXX use rospec stop condition instead
+        #     task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
         d = defer.Deferred()
         d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
@@ -784,14 +814,17 @@ class LLRPClient(LineReceiver):
             return self.rospec
 
         # create an ROSpec to define the reader's inventorying behavior
-        self.rospec = LLRPROSpec(self, 1, duration_sec=self.duration,
-                                 report_every_n_tags=self.report_every_n_tags,
-                                 report_timeout_ms=self.report_timeout_ms,
-                                 tx_power=self.tx_power,
-                                 antennas=self.antennas,
-                                 tag_content_selector=self.tag_content_selector,
-                                 session=self.session,
-                                 tag_population=self.tag_population)
+        self.rospec = \
+            LLRPROSpec(self, 1, duration_sec=self.duration,
+                       report_every_n_tags=self.report_every_n_tags,
+                       report_timeout_ms=self.report_timeout_ms,
+                       tx_power=self.tx_power,
+                       antennas=self.antennas,
+                       tag_content_selector=self.tag_content_selector,
+                       session=self.session,
+                       mode_index=self.mode_index,
+                       tari=self.tari,
+                       tag_population=self.tag_population)
         logger.debug('ROSpec: %s', self.rospec)
         return self.rospec
 
@@ -961,7 +994,8 @@ class LLRPClient(LineReceiver):
 
 
 class LLRPClientFactory(ClientFactory):
-    def __init__(self, start_first=False, onFinish=None, reconnect=False, **kwargs):
+    def __init__(self, start_first=False, onFinish=None, reconnect=False,
+                 **kwargs):
         self.onFinish = onFinish
         self.reconnect = reconnect
         self.reconnect_delay = 1.0  # seconds
@@ -990,7 +1024,7 @@ class LLRPClientFactory(ClientFactory):
         self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
     def buildProtocol(self, _):
-        clargs = self.client_args
+        clargs = self.client_args.copy()
         logger.debug('start_inventory: %s', clargs['start_inventory'])
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
@@ -1042,7 +1076,7 @@ class LLRPClientFactory(ClientFactory):
 
     def pauseInventory(self, seconds=0):
         for proto in self.protocols:
-            proto.pause(seconds)
+            proto.pause(duration_seconds=seconds)
 
     def setTxPower(self, tx_power, peername=None):
         """Set the transmit power on one or all readers

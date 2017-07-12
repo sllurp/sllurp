@@ -2,15 +2,13 @@
 """
 
 from __future__ import print_function, division
-import argparse
 import logging
 import pprint
 import time
 from twisted.internet import reactor, defer
 
 from sllurp.llrp import LLRPClientFactory
-from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
-    Modulation_DefaultTari
+from sllurp.llrp_proto import Modulation_DefaultTari
 
 start_time = None
 
@@ -51,13 +49,14 @@ def main(args):
         return 0
 
     # special case default Tari values
+    tari = args.tari
     if args.modulation in Modulation_DefaultTari:
         t_suggested = Modulation_DefaultTari[args.modulation]
         if args.tari:
             logger.warn('recommended Tari for %s is %d', args.modulation,
                         t_suggested)
         else:
-            args.tari = t_suggested
+            tari = t_suggested
             logger.info('selected recommended Tari of %d for %s', args.tari,
                         args.modulation)
 
@@ -74,8 +73,10 @@ def main(args):
                             antennas=enabled_antennas,
                             tx_power=args.tx_power,
                             modulation=args.modulation,
-                            tari=args.tari,
+                            tari=tari,
                             session=args.session,
+                            mode_index=args.mode_index,
+                            mode_identifier=args.mode_identifier,
                             tag_population=args.population,
                             start_inventory=True,
                             disconnect_when_done=(args.time > 0),

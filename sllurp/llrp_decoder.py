@@ -1,6 +1,5 @@
 import struct
 import logging
-from llrp_errors import *
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +23,13 @@ tve_param_formats = {
     16: ('AccessSpecID', '!I')
 }
 
-def decode_tve_parameter (data):
+
+def decode_tve_parameter(data):
     """Generic byte decoding function for TVE parameters.
 
     Given an array of bytes, tries to interpret a TVE parameter from the
-    beginning of the array.  Returns the decoded data and the number of bytes it
-    read."""
+    beginning of the array.  Returns the decoded data and the number of bytes
+    it read."""
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
     (msgtype,) = struct.unpack(tve_header, data[:tve_header_len])
@@ -40,7 +40,7 @@ def decode_tve_parameter (data):
     try:
         param_name, param_fmt = tve_param_formats[msgtype]
         logger.debug('found %s (type=%s)', param_name, msgtype)
-    except KeyError as err:
+    except KeyError:
         return None, 0
 
     # decode the body
@@ -52,6 +52,6 @@ def decode_tve_parameter (data):
     except struct.error:
         return None, 0
 
-def decode_parameter (data):
+
+def decode_parameter(data):
     """Decode a single parameter."""
-    pass

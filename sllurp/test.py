@@ -7,69 +7,81 @@ import sllurp.llrp_errors
 import binascii
 import logging
 
+
 logLevel = logging.WARNING
 logging.basicConfig(level=logLevel,
-        format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
+                    format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
 logger = logging.getLogger('sllurp')
 logger.setLevel(logLevel)
 
-def randhex (numdigits):
+
+def randhex(numdigits):
     """Return a string with numdigits hexadecimal digits."""
     assert type(numdigits) is int
-    return '{{:0{}x}}'.format(numdigits).format(random.randrange(16**numdigits))
+    return '{{:0{}x}}'.format(numdigits).format(
+        random.randrange(16**numdigits))
 
-def hex_to_bytes (hexdata):
+
+def hex_to_bytes(hexdata):
     binrep = binascii.unhexlify(hexdata)
     assert len(binrep) == (len(hexdata) / 2)
     return binrep
 
-def bytes_to_hex (bindata):
+
+def bytes_to_hex(bindata):
     ascrep = binascii.hexlify(bindata)
     assert len(ascrep) == (len(bindata) * 2)
     return ascrep
 
-class mock_stream (object):
+
+class MockStream(object):
     _bytes = None
-    def __init__ (self, mybytes):
+
+    def __init__(self, mybytes):
         self._bytes = mybytes
-    def recv (self, length):
+
+    def recv(self, length):
         if length > len(self._bytes):
             length = len(self._bytes)
         data = self._bytes[:length]
         self._bytes = self._bytes[length:]
         return data
-    def waiting (self):
+
+    def waiting(self):
         return len(self._bytes)
 
-class mock_conn (object):
+
+class MockConn(object):
     stream = None
-    def __init__ (self, mybytes):
-        self.stream = mock_stream(mybytes)
-    def write (self, mybytes):
+
+    def __init__(self, mybytes):
+        self.stream = MockStream(mybytes)
+
+    def write(self, mybytes):
         pass
 
-class FauxClient (object):
-    def __init__ (self):
+
+class FauxClient(object):
+    def __init__(self):
         self.reader_mode = {'ModeIdentifier': 'M4', 'MaxTari': 7250}
 
-class TestROSpec (unittest.TestCase):
-    def setUp (self):
-        pass
-    def test_start (self):
+
+class TestROSpec(unittest.TestCase):
+    def test_start(self):
         fx = FauxClient()
         rospec = sllurp.llrp.LLRPROSpec(fx, 1)
         rospec_str = repr(rospec)
         self.assertNotEqual(rospec_str, '')
-    def tearDown (self):
-        pass
 
-class TestReaderEventNotification (unittest.TestCase):
-    def test_decode (self):
-        data = binascii.unhexlify('043f000000200ab288c900f600160080000c0004f8' \
-                '535baadaff010000060000')
+
+class TestReaderEventNotification(unittest.TestCase):
+    def test_decode(self):
+        data = binascii.unhexlify('043f000000200ab288c900f600160080000c0004f8'
+                                  '535baadaff010000060000')
         client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        client.transport = mock_conn('')
+        client.transport = MockConn('')
         client.dataReceived(data)
+
 
 class TestDecodeROAccessReport (unittest.TestCase):
     _r = """
@@ -129,27 +141,32 @@ class TestDecodeROAccessReport (unittest.TestCase):
     _binr = None
     _client = None
     _tags_seen = 0
-    def tagcb (self, llrpmsg):
+
+    def tagcb(self, llrpmsg):
         self._tags_seen += 1
-    def setUp (self):
+
+    def setUp(self):
         self._r = self._r.rstrip().lstrip().replace('\n', '').replace(' ', '')
         self._binr = hex_to_bytes(self._r)
         self.assertEqual(len(self._r), 3982)
         self.assertEqual(len(self._binr), 1991)
-        self._mock_conn = mock_conn(self._binr)
+        self._mock_conn = MockConn(self._binr)
         logger.debug('%d bytes waiting', self._mock_conn.stream.waiting())
         self._client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        self._client.transport = mock_conn('')
+        self._client.transport = MockConn('')
         self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
+
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
         self._client.state = sllurp.llrp.LLRPClient.STATE_INVENTORYING
         self._client.dataReceived(self._binr)
         self.assertEqual(self._tags_seen, 45)
-    def tearDown (self):
+
+    def tearDown(self):
         pass
 
-class TestEncodings (unittest.TestCase):
+
+class TestEncodings(unittest.TestCase):
     tagReportContentSelector = {
         'EnableROSpecID': False,
         'EnableSpecIndex': False,
@@ -161,13 +178,14 @@ class TestEncodings (unittest.TestCase):
         'EnableLastSeenTimestamp': True,
         'EnableTagSeenCount': True,
         'EnableAccessSpecID': False}
-    def test_roreportspec (self):
-        par = {'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
-            'N': 1}
-        par['TagReportContentSelector'] = self.tagReportContentSelector
-        data = sllurp.llrp_proto.encode_ROReportSpec(par)
 
-    def test_tagreportcontentselector (self):
+    def test_roreportspec(self):
+        par = {'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+               'N': 1}
+        par['TagReportContentSelector'] = self.tagReportContentSelector
+        sllurp.llrp_proto.encode_ROReportSpec(par)
+
+    def test_tagreportcontentselector(self):
         par = self.tagReportContentSelector
         data = sllurp.llrp_proto.encode_TagReportContentSelector(par)
         self.assertEqual(len(data), 48 / 8)
@@ -178,10 +196,11 @@ class TestEncodings (unittest.TestCase):
         flags = int(binascii.hexlify(data[4:]), 16) >> 6
         self.assertEqual(flags, 0b0001011110)
 
-class TestMessageStruct (unittest.TestCase):
+
+class TestMessageStruct(unittest.TestCase):
     s = sllurp.llrp_proto.Message_struct
 
-    def test_can_encode_or_decode (self):
+    def test_can_encode_or_decode(self):
         for msg_name, msg_struct in self.s.items():
             self.assertIsInstance(msg_struct, dict)
             self.assertTrue('decode' in msg_struct or 'encode' in msg_struct)
@@ -190,19 +209,20 @@ class TestMessageStruct (unittest.TestCase):
             if 'encode' in msg_struct:
                 self.assertTrue(callable(msg_struct['encode']))
 
-    def test_has_fields (self):
+    def test_has_fields(self):
         for msg_name, msg_struct in self.s.items():
             self.assertIsInstance(msg_struct, dict)
             self.assertIn('fields', msg_struct)
             self.assertIsInstance(msg_struct['fields'], list)
 
-    def test_unique_types (self):
+    def test_unique_types(self):
         d = {}
         for msg_name, msg_struct in self.s.items():
             self.assertIn('type', msg_struct)
             self.assertIsInstance(msg_struct['type'], int)
             self.assertNotIn(msg_struct['type'], d)
             d[msg_struct['type']] = True
+
 
 if __name__ == '__main__':
     unittest.main()

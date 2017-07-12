@@ -4,7 +4,8 @@ import gtin
 import logging
 
 logLevel = logging.WARNING
-logging.basicConfig(level=logLevel, format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
+logging.basicConfig(level=logLevel,
+                    format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
 logger = logging.getLogger('sllurp')
 logger.setLevel(logLevel)
 
@@ -18,10 +19,12 @@ class SGTIN_96_Tests(unittest.TestCase):
         self.assertEqual(gtin.calculate_check_digit("084663228621"), 0)
 
     def test_check_digit_combined(self):
-        self.assertEqual(gtin.combine_gtin_with_check_digit("0846632485751"), "08466324857515")
+        self.assertEqual(gtin.combine_gtin_with_check_digit(
+            "0846632485751"), "08466324857515")
 
     def test_check_digit_combined_2(self):
-        self.assertEqual(gtin.combine_gtin_with_check_digit("084663228621"), "0846632286210")
+        self.assertEqual(gtin.combine_gtin_with_check_digit(
+            "084663228621"), "0846632286210")
 
     def test_epc_96_decode(self):
         # input
@@ -37,7 +40,8 @@ class SGTIN_96_Tests(unittest.TestCase):
 
         # actually do it
         parsed = sgtin_96.parse_sgtin_96(epc)
-        full_gtin = gtin.combine_gtin_with_check_digit(parsed["company_prefix"])
+        full_gtin = gtin.combine_gtin_with_check_digit(
+            parsed["company_prefix"])
 
         self.assertEqual(parsed['serial'], parsed_serial)
         self.assertEqual(parsed['company_prefix'], parsed_company_prefix)
