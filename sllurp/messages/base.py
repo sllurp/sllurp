@@ -35,6 +35,14 @@ class LLRPMessageMeta(type):
         msgtype = attrs['ty']
         LLRPMessageMeta.message_classes[msgtype] = classobject
 
+        try:
+            msg_struct = attrs['struct']
+            classobject._struct = cs.Struct(cs.Embedded(LLRPMessageHeader))
+            if msg_struct is not None:
+                classobject._struct += cs.Embedded(msg_struct)
+        except KeyError:
+            pass
+
 
 LLRPParamHeader = cs.Struct(
     cs.BitStruct(
@@ -64,7 +72,7 @@ class LLRPMessage(with_metaclass(LLRPMessageMeta)):
         class MyMessage(LLRPMessage):
             ty = 123
 
-            # optional fields
+            # optional Struct defining fields
             struct = cs.Struct(
                 'foo' / cs.Int8ub,
                 ...
@@ -72,6 +80,7 @@ class LLRPMessage(with_metaclass(LLRPMessageMeta)):
     """
     ty = None
     struct = None
+    _struct = None
 
     message_version = 2  # constant
     message_id = 0
@@ -82,20 +91,34 @@ class LLRPMessage(with_metaclass(LLRPMessageMeta)):
         return cls.message_id
 
     def __init__(self, **kwargs):
-        self.fields = dict(**kwargs)
-
-        self._struct = cs.Struct(
-            cs.Embedded(LLRPMessageHeader),
-        )
-        if self.struct:
-            self._struct += cs.Embedded(self.struct)
+        self._container = cs.Container(**kwargs)
 
     def length(self):
         return self._struct.sizeof()
 
+    def __len__(self):
+        return self.length()
+
+    def __getattr__(self, attr):
+        return getattr(self._container, attr)
+
     def build(self):
+        """Serialize this message into a byte sequence.
+        """
         fields = cs.Container(type=self.ty,
                               length=self.length(),
                               message_id=LLRPMessage.next_message_id(),
-                              **self.fields)
+                              **self._container)
         return self._struct.build(fields)
+
+    @classmethod
+    def from_bytes(cls, msgbytes):
+        """Return an instance of this message built from a byte sequence.
+        """
+        header = LLRPMessageHeader.parse(msgbytes[:10])
+        msgclass = LLRPMessageMeta.class_for(header.type)
+        if msgclass.struct is not None:
+            container = msgclass._struct.parse(msgbytes)
+            return msgclass(**container)
+        else:
+            return msgclass()

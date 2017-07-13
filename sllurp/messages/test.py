@@ -35,10 +35,36 @@ class TestMessage(unittest.TestCase):
         LLRPMessage.message_id = 0
 
 
+class TestBytesToClass(TestMessage):
+    def test_build_from_struct(self):
+        built = b'\x08\x01' \
+                b'\x00\x00\x00\x0b' \
+                b'\x00\x00\x00\x01\x7b'
+        grc = GetReaderCapabilities._struct.parse(built)
+        self.assertEqual(grc.requested_data, 0x7b)
+
+    def test_bytes_to_class(self):
+        built = b'\x08\x01' \
+                b'\x00\x00\x00\x0b' \
+                b'\x00\x00\x00\x01\x7b'
+        msg = LLRPMessage.from_bytes(built)
+        self.assertEqual(len(msg), 0x0b)
+        self.assertIsInstance(msg, GetReaderCapabilities)
+        self.assertEqual(msg.ty, GetReaderCapabilities.ty)
+        self.assertEqual(msg.requested_data, 0x7b)
+
+    def test_bytes_to_empty_class(self):
+        built = b'\x08\x2e' \
+                b'\x00\x00\x00\x0a' \
+                b'\x00\x00\x00\x01'
+        msg = LLRPMessage.from_bytes(built)
+        self.assertIsInstance(msg, GetSupportedVersion)
+
+
 class TestGetSupportedVersion(TestMessage):
     def test_build_message(self):
         gsv = GetSupportedVersion()
-        self.assertEqual(gsv._struct.sizeof(), 10)
+        self.assertEqual(gsv.length(), 10)
         built = b'\x08\x2e' \
                 b'\x00\x00\x00\x0a' \
                 b'\x00\x00\x00\x01'
@@ -49,10 +75,10 @@ class TestGetSupportedVersion(TestMessage):
 class TestGetReaderCapabilities(TestMessage):
     def test_build_message(self):
         grc = GetReaderCapabilities(requested_data=123)
-        self.assertEqual(grc._struct.sizeof(), 11)
-        self.assertEqual(grc.length(), 11)
+        self.assertEqual(len(grc), 11)
 
         built = b'\x08\x01' \
                 b'\x00\x00\x00\x0b' \
                 b'\x00\x00\x00\x01\x7b'
         self.assertEqual(grc.build(), built)
+        self.assertEqual(grc.requested_data, 0x7b)
