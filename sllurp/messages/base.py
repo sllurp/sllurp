@@ -27,6 +27,10 @@ class LLRPMessageMeta(type):
 
         return type.__new__(metaname, classname, baseclasses, attrs)
 
+    @classmethod
+    def class_for(cls, msgtype):
+        return LLRPMessageMeta.message_classes[msgtype]
+
     def __init__(classobject, classname, baseclasses, attrs):
         msgtype = attrs['ty']
         LLRPMessageMeta.message_classes[msgtype] = classobject
