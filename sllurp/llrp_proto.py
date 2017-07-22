@@ -313,6 +313,60 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
 }
 
 
+# GET_READER_CONFIG
+def encode_GetReaderConfig(msg):
+    req = msg['RequestedData']
+    ant = msg.get('AntennaID', 0)
+    gpipn = msg.get('GPIPortNum', 0)
+    gpopn = msg.get('GPOPortNum', 0)
+    return struct.pack('!BHHH', req, ant, gpipn, gpopn)
+
+
+Message_struct['GET_READER_CONFIG'] = {
+    'type': 2,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'RequestedData',
+        'AntennaID',
+        'GPIPortNum',
+        'GPOPortNum'
+    ],
+    'encode': encode_GetReaderConfig
+}
+
+
+def decode_GetReaderConfigResponse(data):
+    msg = LLRPMessageDict()
+    logger.debug(func())
+
+    ret, body = decode('LLRPStatus')(data)
+    msg['LLRPStatus'] = ret
+
+    logger.debug('TODO: decode rest of GET_READER_CONFIG_RESPONSE')
+    return msg
+
+
+Message_struct['GET_READER_CONFIG_RESPONSE'] = {
+    'type': 12,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus',
+        'Identification',
+        'AntennaProperties',
+        'AntennaConfiguration',
+        'ReaderEventNotificationSpec',
+        'ROReportSpec',
+        'AccessReportSpec',
+        'LLRPConfigurationStateValue',
+        'KeepaliveSpec',
+        'GPIPortCurrentState',
+        'GPOWriteData',
+        'EventsAndReports',
+    ],
+    'decode': decode_GetReaderConfigResponse
+}
+
+
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
     return encode('ROSpec')(msg['ROSpec'])
