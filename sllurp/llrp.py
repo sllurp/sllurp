@@ -612,6 +612,7 @@ class LLRPClient(LineReceiver):
         logger.error('panic(): %s', args)
         logger.error(failure.getErrorMessage())
         logger.error(failure.getTraceback())
+        return failure
 
     def complain(self, failure, *args):
         logger.warn('complain(): %s', args)
