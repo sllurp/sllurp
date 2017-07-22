@@ -3205,6 +3205,39 @@ class LLRPROSpec(dict):
                 },
             })
 
+        # XXX override everything
+        self['ROSpec'] = {
+            'ROSpecID': 19,
+            'Priority': 0,
+            'CurrentState': 'Disabled',
+            'ROBoundarySpec': {
+                'ROSpecStartTrigger': {
+                    'ROSpecStartTriggerType': 'Null',
+                },
+                'ROSpecStopTrigger': {
+                    'ROSpecStopTriggerType': 'Null',
+                    'DurationTriggerValue': 0,
+                },
+            },
+            'AISpec': {
+                'AntennaIDs': '0',
+                'AISpecStopTrigger': {
+                    'AISpecStopTriggerType': 'Null',
+                    'DurationTriggerValue': 0,
+                },
+                'InventoryParameterSpec': {
+                    'InventoryParameterSpecID': 1,
+                    'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
+                    'AntennaConfiguration': [],
+                },
+            },
+            'ROReportSpec': {
+                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
+                'TagReportContentSelector': tagReportContentSelector,
+                'N': 0,
+            },
+        }
+
     def __repr__(self):
         return llrp_data2xml(self)
 
