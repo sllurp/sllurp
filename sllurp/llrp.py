@@ -133,12 +133,13 @@ class LLRPClient(LineReceiver):
     STATE_CONNECTED = 3
     STATE_SENT_ADD_ROSPEC = 4
     STATE_SENT_ENABLE_ROSPEC = 5
-    STATE_INVENTORYING = 6
-    STATE_SENT_DELETE_ROSPEC = 7
-    STATE_SENT_DELETE_ACCESSSPEC = 8
-    STATE_SENT_GET_CAPABILITIES = 9
-    STATE_PAUSING = 10
-    STATE_PAUSED = 11
+    STATE_SENT_START_ROSPEC = 7
+    STATE_INVENTORYING = 7
+    STATE_SENT_DELETE_ROSPEC = 8
+    STATE_SENT_DELETE_ACCESSSPEC = 9
+    STATE_SENT_GET_CAPABILITIES = 10
+    STATE_PAUSING = 11
+    STATE_PAUSED = 12
 
     @classmethod
     def getStates(_):
@@ -454,6 +455,23 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
+        # in state SENT_ENABLE_ROSPEC, expect only ENABLE_ROSPEC_RESPONSE;
+        # respond to favorable ENABLE_ROSPEC_RESPONSE by starting the enabled
+        # ROSpec and advancing to state SENT_START_ROSPEC.
+        elif self.state == LLRPClient.STATE_SENT_ENABLE_ROSPEC:
+            if msgName != 'ENABLE_ROSPEC_RESPONSE':
+                logger.error('unexpected response %s when enabling ROSpec',
+                             msgName)
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error %s enabling ROSpec: %s', status, err)
+                return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
         # in state PAUSING, we have sent a DISABLE_ROSPEC, so expect only
         # DISABLE_ROSPEC_RESPONSE.  advance to state PAUSED.
         elif self.state == LLRPClient.STATE_PAUSING:
@@ -470,20 +488,24 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-        # in state SENT_ENABLE_ROSPEC, expect only ENABLE_ROSPEC_RESPONSE;
-        # respond to favorable ENABLE_ROSPEC_RESPONSE by starting the enabled
-        # ROSpec and advancing to state INVENTORYING.
-        elif self.state == LLRPClient.STATE_SENT_ENABLE_ROSPEC:
-            if msgName != 'ENABLE_ROSPEC_RESPONSE':
-                logger.error('unexpected response %s when enabling ROSpec',
+        # in state SENT_START_ROSPEC, expect only START_ROSPEC_RESPONSE;
+        # respond to favorable START_ROSPEC_RESPONSE by advancing to state
+        # INVENTORYING.
+        elif self.state == LLRPClient.STATE_SENT_START_ROSPEC:
+            if msgName == 'RO_ACCESS_REPORT':
+                return
+            if msgName == 'READER_EVENT_NOTIFICATION':
+                return
+            if msgName != 'START_ROSPEC_RESPONSE':
+                logger.error('unexpected response %s when starting ROSpec',
                              msgName)
 
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
-                logger.error('ENABLE_ROSPEC failed with status %s: %s',
+                logger.error('START_ROSPEC failed with status %s: %s',
                              status, err)
-                logger.fatal('Error %s enabling ROSpec: %s', status, err)
+                logger.fatal('Error %s starting ROSpec: %s', status, err)
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
@@ -615,14 +637,21 @@ class LLRPClient(LineReceiver):
             onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
-            'ADD_ROSPEC': {
-                'Ver':  1,
-                'Type': 20,
-                'ID':   0,
-                'ROSpecID': rospec['ROSpecID'],
-                'ROSpec': rospec,
-            }}))
+        logger.debug('about to send_ADD_ROSPEC')
+        try:
+            add_rospec = LLRPMessage(msgdict={
+                'ADD_ROSPEC': {
+                    'Ver':  1,
+                    'Type': 20,
+                    'ID':   0,
+                    'ROSpecID': rospec['ROSpecID'],
+                    'ROSpec': rospec,
+                }})
+        except Exception as ex:
+            logger.exception(ex)
+        else:
+            self.sendLLRPMessage(add_rospec)
+        logger.debug('sent ADD_ROSPEC')
         self.setState(LLRPClient.STATE_SENT_ADD_ROSPEC)
         self._deferreds['ADD_ROSPEC_RESPONSE'].append(onCompletion)
 
@@ -636,6 +665,17 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_SENT_ENABLE_ROSPEC)
         self._deferreds['ENABLE_ROSPEC_RESPONSE'].append(onCompletion)
+
+    def send_START_ROSPEC(self, _, rospec, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'START_ROSPEC': {
+                'Ver':  1,
+                'Type': 22,
+                'ID':   0,
+                'ROSpecID': rospec['ROSpecID']
+            }}))
+        self.setState(LLRPClient.STATE_SENT_START_ROSPEC)
+        self._deferreds['START_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ADD_ACCESSSPEC(self, accessSpec, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
@@ -794,20 +834,26 @@ class LLRPClient(LineReceiver):
 
         logger.info('starting inventory')
 
-        started = defer.Deferred()
-        started.addCallback(self._setState_wrapper,
-                            LLRPClient.STATE_INVENTORYING)
-        started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
+        # upside-down chain of callbacks: add, enable, start ROSpec
+        started_rospec = defer.Deferred()
+        started_rospec.addCallback(self._setState_wrapper,
+                                   LLRPClient.STATE_INVENTORYING)
+        started_rospec.addErrback(self.panic, 'START_ROSPEC failed')
+        logger.debug('made started_rospec')
 
-        # if self.duration:
-        #     # XXX use rospec stop condition instead
-        #     task.deferLater(reactor, self.duration, self.stopPolitely, True)
+        enabled_rospec = defer.Deferred()
+        enabled_rospec.addCallback(self.send_START_ROSPEC, rospec,
+                                   onCompletion=started_rospec)
+        enabled_rospec.addErrback(self.panic, 'ENABLE_ROSPEC failed')
+        logger.debug('made enabled_rospec')
 
-        d = defer.Deferred()
-        d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
-        d.addErrback(self.panic, 'ADD_ROSPEC failed')
+        added_rospec = defer.Deferred()
+        added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
+                                  onCompletion=enabled_rospec)
+        added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
+        logger.debug('made added_rospec')
 
-        self.send_ADD_ROSPEC(rospec, onCompletion=d)
+        self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec)
 
     def getROSpec(self, force_new=False):
         if self.rospec and not force_new:
