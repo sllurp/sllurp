@@ -131,15 +131,17 @@ class LLRPClient(LineReceiver):
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
     STATE_CONNECTED = 3
-    STATE_SENT_ADD_ROSPEC = 4
-    STATE_SENT_ENABLE_ROSPEC = 5
-    STATE_SENT_START_ROSPEC = 7
-    STATE_INVENTORYING = 7
-    STATE_SENT_DELETE_ROSPEC = 8
-    STATE_SENT_DELETE_ACCESSSPEC = 9
-    STATE_SENT_GET_CAPABILITIES = 10
-    STATE_PAUSING = 11
-    STATE_PAUSED = 12
+    STATE_SENT_GET_CONFIG = 4
+    STATE_SENT_SET_CONFIG = 5
+    STATE_SENT_ADD_ROSPEC = 15
+    STATE_SENT_ENABLE_ROSPEC = 16
+    STATE_SENT_START_ROSPEC = 17
+    STATE_INVENTORYING = 18
+    STATE_SENT_DELETE_ROSPEC = 19
+    STATE_SENT_DELETE_ACCESSSPEC = 20
+    STATE_SENT_GET_CAPABILITIES = 21
+    STATE_PAUSING = 22
+    STATE_PAUSED = 23
 
     @classmethod
     def getStates(_):
@@ -431,6 +433,25 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
+            d = defer.Deferred()
+            d.addCallback(self._setState_wrapper,
+                          LLRPClient.STATE_SENT_GET_CONFIG)
+            d.addErrback(self.panic, 'GET_READER_CONFIG failed')
+            self.send_GET_READER_CONFIG(onCompletion=d)
+
+        elif self.state == LLRPClient.STATE_SENT_GET_CONFIG:
+            if msgName not in ('GET_READER_CONFIG_RESPONSE',
+                               'DELETE_ACCESSSPEC_RESPONSE'):
+                logger.error('unexpected response %s getting config',
+                             msgName)
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error %s getting reader config: %s', status, err)
+                return
+
             if self.reset_on_connect:
                 d = self.stopPolitely(disconnect=False)
                 if self.start_inventory:
@@ -635,6 +656,18 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
         self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(
+            onCompletion)
+
+    def send_GET_READER_CONFIG(self, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'GET_READER_CONFIG': {
+                'Ver':  1,
+                'Type': 2,
+                'ID':   0,
+                'RequestedData': Capability_Name2Type['All']
+            }}))
+        self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
+        self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
