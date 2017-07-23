@@ -403,7 +403,19 @@ Message_struct['SET_READER_CONFIG'] = {
 def decode_SetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     ret, body = decode('LLRPStatus')(data)
+    if ret:
+        msg['LLRPStatus'] = ret
     return msg
+
+
+Message_struct['SET_READER_CONFIG_RESPONSE'] = {
+    'type': 13,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus',
+    ],
+    'decode': decode_SetReaderConfigResponse
+}
 
 
 # 16.1.3 ADD_ROSPEC
