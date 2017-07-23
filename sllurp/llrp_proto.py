@@ -371,7 +371,14 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
 def encode_SetReaderConfig(msg):
     reset_flag = int(msg.get('ResetToFactoryDefaults', False))
     reset = (reset_flag << 7) & 0xff
-    return struct.pack('!B', reset)
+    data = struct.pack('!B', reset)
+    if 'ROReportSpec' in msg:
+        data += encode('ROReportSpec')(msg['ROReportSpec'])
+    if 'ReaderEventNotificationSpec' in msg:
+        data += encode('ReaderEventNotificationSpec')(
+            msg['ReaderEventNotificationSpec'])
+    # XXX other params
+    return data
 
 
 Message_struct['SET_READER_CONFIG'] = {
@@ -2496,6 +2503,30 @@ Message_struct['ROReportSpec'] = {
         'TagReportContentSelector'
     ],
     'encode': encode_ROReportSpec
+}
+
+
+def encode_ReaderEventNotificationSpec(par):
+    msgtype = Message_struct['ReaderEventNotificationSpec']['type']
+    states = par['EventNotificationState']
+
+    data = ''
+    for ev_type, flag in states.items():
+        parlen = struct.calcsize('!HHHB')
+        data += struct.pack('!HHHB', 245, parlen, ev_type,
+                            (int(bool(flag)) << 7) & 0xff)
+
+    data = struct.pack('!HH', msgtype,
+                       len(data) + struct.calcsize('!HH')) + data
+    return data
+
+
+Message_struct['ReaderEventNotificationSpec'] = {
+    'type': 244,
+    'fields': [
+        'EventNotificationState',
+    ],
+    'encode': encode_ReaderEventNotificationSpec
 }
 
 
