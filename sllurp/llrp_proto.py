@@ -2874,7 +2874,8 @@ Message_struct['EPC-96'] = {
         'Type',
         'EPC'
     ],
-    'decode': decode_EPC96
+    'decode': decode_EPC96,
+    'tv_encoded': True,
 }
 
 
@@ -2905,7 +2906,8 @@ Message_struct['ROSpecID'] = {
         'Type',
         'ROSpecID'
     ],
-    'decode': decode_ROSpecID
+    'decode': decode_ROSpecID,
+    'tv_encoded': True,
 }
 
 
@@ -3378,10 +3380,18 @@ class LLRPMessageDict(dict):
 
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
-for m in Message_struct:
-    if 'type' in Message_struct[m]:
-        i = Message_struct[m]['type']
-        Message_Type2Name[i] = m
-    else:
+for msgname, msgstruct in Message_struct.iteritems():
+    try:
+        ty = msgstruct['type']
+    except KeyError:
         logging.debug('Pseudo-warning: Message_struct type {} '
                       'lacks "type" field'.format(m))
+        continue
+
+    try:
+        if msgstruct['tv_encoded']:
+            continue
+    except KeyError:
+        pass
+
+    Message_Type2Name[ty] = msgname
