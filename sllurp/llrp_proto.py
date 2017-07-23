@@ -367,6 +367,38 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
 }
 
 
+# SET_READER_CONFIG
+def encode_SetReaderConfig(msg):
+    reset_flag = int(msg.get('ResetToFactoryDefaults', False))
+    reset = (reset_flag << 7) & 0xff
+    return struct.pack('!B', reset)
+
+
+Message_struct['SET_READER_CONFIG'] = {
+    'type': 3,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'ResetToFactoryDefaults',
+        'ReaderEventNotificationSpec',
+        'AntennaProperties',
+        'AntennaConfiguration',
+        'ROReportSpec',
+        'AccessReportSpec',
+        'KeepaliveSpec',
+        'GPOWriteData',
+        'GPIPortCurrentState',
+        'EventsAndReports',
+    ],
+    'encode': encode_SetReaderConfig,
+}
+
+
+def decode_SetReaderConfigResponse(data):
+    msg = LLRPMessageDict()
+    ret, body = decode('LLRPStatus')(data)
+    return msg
+
+
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
     return encode('ROSpec')(msg['ROSpec'])

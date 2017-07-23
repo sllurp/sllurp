@@ -883,7 +883,7 @@ class LLRPClient(LineReceiver):
 
         added_rospec = defer.Deferred()
         added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
-                                  onCompletion=enabled_rospec)
+                                 onCompletion=enabled_rospec)
         added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
         logger.debug('made added_rospec')
 
