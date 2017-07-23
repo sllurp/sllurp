@@ -452,6 +452,26 @@ class LLRPClient(LineReceiver):
                 logger.fatal('Error %s getting reader config: %s', status, err)
                 return
 
+            self.processDeferreds(msgName, lmsg.isSuccess())
+
+            d = defer.Deferred()
+            d.addCallback(self._setState_wrapper,
+                          LLRPClient.STATE_SENT_SET_CONFIG)
+            d.addErrback(self.panic, 'SET_READER_CONFIG failed')
+            self.send_SET_READER_CONFIG(onCompletion=d)
+
+        elif self.state == LLRPClient.STATE_SENT_SET_CONFIG:
+            if msgName not in ('SET_READER_CONFIG_RESPONSE',):
+                logger.error('unexpected response %s setting config',
+                             msgName)
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error %s setting reader config: %s', status, err)
+                return
+
             if self.reset_on_connect:
                 d = self.stopPolitely(disconnect=False)
                 if self.start_inventory:
@@ -668,6 +688,18 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
+            onCompletion)
+
+    def send_SET_READER_CONFIG(self, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'SET_READER_CONFIG': {
+                'Ver':  1,
+                'Type': 3,
+                'ID':   0,
+                'ResetToFactoryDefaults': False,
+            }}))
+        self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
+        self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
