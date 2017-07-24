@@ -313,6 +313,125 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
 }
 
 
+# GET_READER_CONFIG
+def encode_GetReaderConfig(msg):
+    req = msg['RequestedData']
+    ant = msg.get('AntennaID', 0)
+    gpipn = msg.get('GPIPortNum', 0)
+    gpopn = msg.get('GPOPortNum', 0)
+    return struct.pack('!BHHH', req, ant, gpipn, gpopn)
+
+
+Message_struct['GET_READER_CONFIG'] = {
+    'type': 2,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'RequestedData',
+        'AntennaID',
+        'GPIPortNum',
+        'GPOPortNum'
+    ],
+    'encode': encode_GetReaderConfig
+}
+
+
+def decode_GetReaderConfigResponse(data):
+    msg = LLRPMessageDict()
+    logger.debug(func())
+
+    ret, body = decode('LLRPStatus')(data)
+    msg['LLRPStatus'] = ret
+
+    logger.debug('TODO: decode rest of GET_READER_CONFIG_RESPONSE')
+    return msg
+
+
+Message_struct['GET_READER_CONFIG_RESPONSE'] = {
+    'type': 12,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus',
+        'Identification',
+        'AntennaProperties',
+        'AntennaConfiguration',
+        'ReaderEventNotificationSpec',
+        'ROReportSpec',
+        'AccessReportSpec',
+        'LLRPConfigurationStateValue',
+        'KeepaliveSpec',
+        'GPIPortCurrentState',
+        'GPOWriteData',
+        'EventsAndReports',
+    ],
+    'decode': decode_GetReaderConfigResponse
+}
+
+
+# SET_READER_CONFIG
+def encode_SetReaderConfig(msg):
+    reset_flag = int(msg.get('ResetToFactoryDefaults', False))
+    reset = (reset_flag << 7) & 0xff
+    data = struct.pack('!B', reset)
+    if 'ROReportSpec' in msg:
+        data += encode('ROReportSpec')(msg['ROReportSpec'])
+    if 'ReaderEventNotificationSpec' in msg:
+        data += encode('ReaderEventNotificationSpec')(
+            msg['ReaderEventNotificationSpec'])
+    # XXX other params
+    return data
+
+
+Message_struct['SET_READER_CONFIG'] = {
+    'type': 3,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'ResetToFactoryDefaults',
+        'ReaderEventNotificationSpec',
+        'AntennaProperties',
+        'AntennaConfiguration',
+        'ROReportSpec',
+        'AccessReportSpec',
+        'KeepaliveSpec',
+        'GPOWriteData',
+        'GPIPortCurrentState',
+        'EventsAndReports',
+    ],
+    'encode': encode_SetReaderConfig,
+}
+
+
+def decode_SetReaderConfigResponse(data):
+    msg = LLRPMessageDict()
+    ret, body = decode('LLRPStatus')(data)
+    if ret:
+        msg['LLRPStatus'] = ret
+    return msg
+
+
+Message_struct['SET_READER_CONFIG_RESPONSE'] = {
+    'type': 13,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus',
+    ],
+    'decode': decode_SetReaderConfigResponse
+}
+
+
+# ENABLE_EVENTS_AND_REPORTS
+def encode_EnableEventsAndReports(msg):
+    return ''
+
+
+Message_struct['ENABLE_EVENTS_AND_REPORTS'] = {
+    'type': 64,
+    'fields': [
+        'Ver', 'Type', 'ID',
+    ],
+    'encode': encode_EnableEventsAndReports
+}
+
+
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
     return encode('ROSpec')(msg['ROSpec'])
@@ -659,8 +778,9 @@ def decode_ReaderEventNotification(data):
         msg['ReaderEventNotificationData'] = ret
 
     # Check the end of the message
-        if len(body) > 0:
-            raise LLRPError('junk at end of message: ' + bin2dump(body))
+    if len(body):
+        logger.debug('Unprocessed bytes in READER_EVENT_NOTIFICATION: %s',
+                     hexlify(body))
 
     return msg
 
@@ -2413,6 +2533,30 @@ Message_struct['ROReportSpec'] = {
 }
 
 
+def encode_ReaderEventNotificationSpec(par):
+    msgtype = Message_struct['ReaderEventNotificationSpec']['type']
+    states = par['EventNotificationState']
+
+    data = ''
+    for ev_type, flag in states.items():
+        parlen = struct.calcsize('!HHHB')
+        data += struct.pack('!HHHB', 245, parlen, ev_type,
+                            (int(bool(flag)) << 7) & 0xff)
+
+    data = struct.pack('!HH', msgtype,
+                       len(data) + struct.calcsize('!HH')) + data
+    return data
+
+
+Message_struct['ReaderEventNotificationSpec'] = {
+    'type': 244,
+    'fields': [
+        'EventNotificationState',
+    ],
+    'encode': encode_ReaderEventNotificationSpec
+}
+
+
 # 16.2.7.1 TagReportContentSelector Parameter
 def encode_TagReportContentSelector(par):
     msgtype = Message_struct['TagReportContentSelector']['type']
@@ -2745,7 +2889,8 @@ Message_struct['EPC-96'] = {
         'Type',
         'EPC'
     ],
-    'decode': decode_EPC96
+    'decode': decode_EPC96,
+    'tv_encoded': True,
 }
 
 
@@ -2776,7 +2921,8 @@ Message_struct['ROSpecID'] = {
         'Type',
         'ROSpecID'
     ],
-    'decode': decode_ROSpecID
+    'decode': decode_ROSpecID,
+    'tv_encoded': True,
 }
 
 
@@ -3127,7 +3273,7 @@ class LLRPROSpec(dict):
             'CurrentState': state,
             'ROBoundarySpec': {
                 'ROSpecStartTrigger': {
-                    'ROSpecStartTriggerType': 'Immediate',
+                    'ROSpecStartTriggerType': 'Null',
                 },
                 'ROSpecStopTrigger': {
                     'ROSpecStopTriggerType': 'Null',
@@ -3216,10 +3362,18 @@ class LLRPMessageDict(dict):
 
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
-for m in Message_struct:
-    if 'type' in Message_struct[m]:
-        i = Message_struct[m]['type']
-        Message_Type2Name[i] = m
-    else:
+for msgname, msgstruct in Message_struct.iteritems():
+    try:
+        ty = msgstruct['type']
+    except KeyError:
         logging.debug('Pseudo-warning: Message_struct type {} '
                       'lacks "type" field'.format(m))
+        continue
+
+    try:
+        if msgstruct['tv_encoded']:
+            continue
+    except KeyError:
+        pass
+
+    Message_Type2Name[ty] = msgname
