@@ -778,8 +778,9 @@ def decode_ReaderEventNotification(data):
         msg['ReaderEventNotificationData'] = ret
 
     # Check the end of the message
-        if len(body) > 0:
-            raise LLRPError('junk at end of message: ' + bin2dump(body))
+    if len(body):
+        logger.debug('Unprocessed bytes in READER_EVENT_NOTIFICATION: %s',
+                     hexlify(body))
 
     return msg
 
