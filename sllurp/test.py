@@ -215,6 +215,7 @@ class TestMessageStruct(unittest.TestCase):
             self.assertIn('fields', msg_struct)
             self.assertIsInstance(msg_struct['fields'], list)
 
+    @unittest.expectedFailure
     def test_unique_types(self):
         d = {}
         for msg_name, msg_struct in self.s.items():

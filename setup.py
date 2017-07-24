@@ -16,7 +16,7 @@ def read(filename):
         return f.read()
 
 
-test_deps = ['nose2', 'flake8']
+test_deps = ['nose2', 'flake8', 'tox']
 install_deps = [
     'click',
     'construct',
@@ -27,7 +27,7 @@ install_deps = [
 
 setup(
     name='sllurp',
-    version='0.2.6.1',
+    version='0.2.7',
     description='RFID reader control library',
     long_description=read('README.rst'),
     author='Ben Ransford',
