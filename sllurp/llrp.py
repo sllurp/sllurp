@@ -374,6 +374,11 @@ class LLRPClient(LineReceiver):
             logger.debug('ignoring RO_ACCESS_REPORT because not inventorying')
             return
 
+        if msgName == 'READER_EVENT_NOTIFICATION' and \
+                self.state >= LLRPClient.STATE_CONNECTED:
+            logger.debug('Got reader event notification')
+            return
+
         logger.debug('in handleMessage(%s), there are %d Deferreds',
                      msgName, len(self._deferreds[msgName]))
 
