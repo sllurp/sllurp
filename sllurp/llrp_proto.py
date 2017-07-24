@@ -418,6 +418,20 @@ Message_struct['SET_READER_CONFIG_RESPONSE'] = {
 }
 
 
+# ENABLE_EVENTS_AND_REPORTS
+def encode_EnableEventsAndReports(msg):
+    return ''
+
+
+Message_struct['ENABLE_EVENTS_AND_REPORTS'] = {
+    'type': 64,
+    'fields': [
+        'Ver', 'Type', 'ID',
+    ],
+    'encode': encode_EnableEventsAndReports
+}
+
+
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
     return encode('ROSpec')(msg['ROSpec'])

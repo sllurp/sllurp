@@ -458,6 +458,7 @@ class LLRPClient(LineReceiver):
             d.addCallback(self._setState_wrapper,
                           LLRPClient.STATE_SENT_SET_CONFIG)
             d.addErrback(self.panic, 'SET_READER_CONFIG failed')
+            self.send_ENABLE_EVENTS_AND_REPORTS()
             self.send_SET_READER_CONFIG(onCompletion=d)
 
         elif self.state == LLRPClient.STATE_SENT_SET_CONFIG:
@@ -471,6 +472,8 @@ class LLRPClient(LineReceiver):
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s setting reader config: %s', status, err)
                 return
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
 
             if self.reset_on_connect:
                 d = self.stopPolitely(disconnect=False)
@@ -689,6 +692,14 @@ class LLRPClient(LineReceiver):
         self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
+
+    def send_ENABLE_EVENTS_AND_REPORTS(self):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'ENABLE_EVENTS_AND_REPORTS': {
+                'Ver': 1,
+                'Type': 64,
+                'ID': 0,
+            }}))
 
     def send_SET_READER_CONFIG(self, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
