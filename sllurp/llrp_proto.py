@@ -3352,7 +3352,7 @@ class LLRPROSpec(dict):
             })
 
         # XXX override everything
-        self['ROSpec'] = {
+        self['ROSpec_IGNORE_UNLESS_MC9190'] = {
             'ROSpecID': 19,
             'Priority': 0,
             'CurrentState': 'Disabled',
