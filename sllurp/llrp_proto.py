@@ -3273,7 +3273,7 @@ class LLRPROSpec(dict):
             'CurrentState': state,
             'ROBoundarySpec': {
                 'ROSpecStartTrigger': {
-                    'ROSpecStartTriggerType': 'Immediate',
+                    'ROSpecStartTriggerType': 'Null',
                 },
                 'ROSpecStopTrigger': {
                     'ROSpecStopTriggerType': 'Null',
