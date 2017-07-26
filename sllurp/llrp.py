@@ -164,7 +164,7 @@ class LLRPClient(LineReceiver):
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
-                 mode_index=None, mode_identifier=None,
+                 mode_identifier=None,
                  session=2, tag_population=4):
         self.factory = factory
         self.setRawMode()
@@ -178,7 +178,6 @@ class LLRPClient(LineReceiver):
         self.tari = tari
         self.session = session
         self.tag_population = tag_population
-        self.mode_index = mode_index
         self.mode_identifier = mode_identifier
         self.antennas = antennas
         self.duration = duration
@@ -296,7 +295,7 @@ class LLRPClient(LineReceiver):
         mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
 
         # select a mode by matching available modes to requested parameters:
-        # favor mode_identifier over mode_index over modulation
+        # favor mode_identifier over modulation
         if self.mode_identifier is not None:
             logger.debug('Setting mode from mode_identifier=%s',
                          self.mode_identifier)
@@ -304,17 +303,11 @@ class LLRPClient(LineReceiver):
                 mode = [mo for mo in mode_list
                         if mo['ModeIdentifier'] == self.mode_identifier][0]
                 self.reader_mode = mode
-                self.mode_index = mode_list.index(mode)
             except IndexError:
-                raise ReaderConfigurationError('Invalid mode_identifier')
-
-        elif self.mode_index is not None:
-            logger.debug('Setting mode from mode_index=%s',
-                         self.mode_index)
-            try:
-                self.reader_mode = mode_list[self.mode_index]
-            except IndexError:
-                raise ReaderConfigurationError('Invalid mode_index')
+                valid_modes = sorted(mo['ModeIdentifier'] for mo in mode_list)
+                errstr = ('Invalid mode_identifier; valid mode_identifiers'
+                          ' are {}'.format(valid_modes))
+                raise ReaderConfigurationError(errstr)
 
         elif self.modulation is not None:
             logger.debug('Setting mode from modulation=%s',
@@ -323,18 +316,17 @@ class LLRPClient(LineReceiver):
                 mo = [mo for mo in mode_list
                       if mo['Mod'] == Modulation_Name2Type[self.modulation]][0]
                 self.reader_mode = mo
-                self.mode_index = mode_list.index(mo)
             except IndexError:
                 raise ReaderConfigurationError('Invalid modulation')
 
-        else:
-            logger.info('Using default mode (index 0)')
-            self.reader_mode = mode_list[0]
-
-        if self.tari is not None and self.tari > self.reader_mode['MaxTari']:
-            raise ReaderConfigurationError('Requested Tari is greater than'
-                                           ' MaxTari for selected mode'
-                                           ' {}'.format(self.reader_mode))
+        if self.tari:
+            if not self.reader_mode:
+                errstr = 'Cannot set Tari without choosing a reader mode'
+                raise ReaderConfigurationError(errstr)
+            if self.tari > self.reader_mode['MaxTari']:
+                errstr = ('Requested Tari is greater than MaxTari for selected'
+                          'mode {}'.format(self.reader_mode))
+                raise ReaderConfigurationError(errstr)
 
         logger.info('using reader mode: %s', self.reader_mode)
 
@@ -945,14 +937,13 @@ class LLRPClient(LineReceiver):
 
         # create an ROSpec to define the reader's inventorying behavior
         self.rospec = \
-            LLRPROSpec(self, 1, duration_sec=self.duration,
+            LLRPROSpec(self.reader_mode, 1, duration_sec=self.duration,
                        report_every_n_tags=self.report_every_n_tags,
                        report_timeout_ms=self.report_timeout_ms,
                        tx_power=self.tx_power,
                        antennas=self.antennas,
                        tag_content_selector=self.tag_content_selector,
                        session=self.session,
-                       mode_index=self.mode_index,
                        tari=self.tari,
                        tag_population=self.tag_population)
         logger.debug('ROSpec: %s', self.rospec)
