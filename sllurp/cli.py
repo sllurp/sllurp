@@ -40,23 +40,22 @@ def cli(debug, logfile):
 @click.option('-s', '--session', type=int, default=2,
               help='Gen2 session (default 2)')
 @click.option('--mode-identifier', type=int, help='ModeIdentifier value')
-@click.option('--mode-index', type=int, help='ModeIndex value')
 @click.option('-P', '--tag-population', type=int, default=4,
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
-              modulation, tari, session, mode_identifier, mode_index,
+              modulation, tari, session, mode_identifier,
               tag_population, reconnect):
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'modulation', 'tari', 'session',
-                               'population', 'mode_identifier', 'mode_index',
+                               'population', 'mode_identifier',
                                'reconnect'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
-                mode_identifier=mode_identifier, mode_index=mode_index,
+                mode_identifier=mode_identifier,
                 reconnect=reconnect)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)

@@ -63,13 +63,13 @@ class MockConn(object):
 
 class FauxClient(object):
     def __init__(self):
-        self.reader_mode = {'ModeIdentifier': 'M4', 'MaxTari': 7250}
+        self.reader_mode = {'ModeIdentifier': '0', 'MaxTari': 7250}
 
 
 class TestROSpec(unittest.TestCase):
     def test_start(self):
         fx = FauxClient()
-        rospec = sllurp.llrp.LLRPROSpec(fx, 1)
+        rospec = sllurp.llrp.LLRPROSpec(fx.reader_mode, 1)
         rospec_str = repr(rospec)
         self.assertNotEqual(rospec_str, '')
 
