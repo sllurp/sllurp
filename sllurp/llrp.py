@@ -319,14 +319,14 @@ class LLRPClient(LineReceiver):
             except IndexError:
                 raise ReaderConfigurationError('Invalid modulation')
 
-        else:
-            logger.info('Using default mode (index 0)')
-            self.reader_mode = mode_list[0]
-
-        if self.tari is not None and self.tari > self.reader_mode['MaxTari']:
-            raise ReaderConfigurationError('Requested Tari is greater than'
-                                           ' MaxTari for selected mode'
-                                           ' {}'.format(self.reader_mode))
+        if self.tari:
+            if not self.reader_mode:
+                errstr = 'Cannot set Tari without choosing a reader mode'
+                raise ReaderConfigurationError(errstr)
+            if self.tari > self.reader_mode['MaxTari']:
+                errstr = ('Requested Tari is greater than MaxTari for selected'
+                          'mode {}'.format(self.reader_mode))
+                raise ReaderConfigurationError(errstr)
 
         logger.info('using reader mode: %s', self.reader_mode)
 
@@ -937,7 +937,7 @@ class LLRPClient(LineReceiver):
 
         # create an ROSpec to define the reader's inventorying behavior
         self.rospec = \
-            LLRPROSpec(self, 1, duration_sec=self.duration,
+            LLRPROSpec(self.reader_mode, 1, duration_sec=self.duration,
                        report_every_n_tags=self.report_every_n_tags,
                        report_timeout_ms=self.report_timeout_ms,
                        tx_power=self.tx_power,
