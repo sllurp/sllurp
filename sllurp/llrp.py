@@ -917,15 +917,17 @@ class LLRPClient(LineReceiver):
         logger.info('starting inventory')
 
         # upside-down chain of callbacks: add, enable, start ROSpec
-        started_rospec = defer.Deferred()
-        started_rospec.addCallback(self._setState_wrapper,
-                                   LLRPClient.STATE_INVENTORYING)
-        started_rospec.addErrback(self.panic, 'START_ROSPEC failed')
-        logger.debug('made started_rospec')
+        # started_rospec = defer.Deferred()
+        # started_rospec.addCallback(self._setState_wrapper,
+        #                            LLRPClient.STATE_INVENTORYING)
+        # started_rospec.addErrback(self.panic, 'START_ROSPEC failed')
+        # logger.debug('made started_rospec')
 
         enabled_rospec = defer.Deferred()
-        enabled_rospec.addCallback(self.send_START_ROSPEC, rospec,
-                                   onCompletion=started_rospec)
+        enabled_rospec.addCallback(self._setState_wrapper,
+                                   LLRPClient.STATE_INVENTORYING)
+        # enabled_rospec.addCallback(self.send_START_ROSPEC, rospec,
+        #                            onCompletion=started_rospec)
         enabled_rospec.addErrback(self.panic, 'ENABLE_ROSPEC failed')
         logger.debug('made enabled_rospec')
 
