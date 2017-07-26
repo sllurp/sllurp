@@ -306,7 +306,10 @@ class LLRPClient(LineReceiver):
                 self.reader_mode = mode
                 self.mode_index = mode_list.index(mode)
             except IndexError:
-                raise ReaderConfigurationError('Invalid mode_identifier')
+                valid_modes = sorted(mo['ModeIdentifier'] for mo in mode_list)
+                errstr = ('Invalid mode_identifier; valid mode_identifiers'
+                          ' are {}'.format(valid_modes))
+                raise ReaderConfigurationError(errstr)
 
         elif self.mode_index is not None:
             logger.debug('Setting mode from mode_index=%s',
