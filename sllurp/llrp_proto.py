@@ -422,7 +422,7 @@ Message_struct['SET_READER_CONFIG_RESPONSE'] = {
 
 # ENABLE_EVENTS_AND_REPORTS
 def encode_EnableEventsAndReports(msg):
-    return ''
+    return b''
 
 
 Message_struct['ENABLE_EVENTS_AND_REPORTS'] = {

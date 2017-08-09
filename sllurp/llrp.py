@@ -14,6 +14,7 @@ from .util import BITMASK, natural_keys
 from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ClientFactory
 from twisted.protocols.basic import LineReceiver
+from six import iterkeys
 
 LLRP_PORT = 5084
 
@@ -46,7 +47,8 @@ class LLRPMessage(object):
     def serialize(self):
         if self.msgdict is None:
             raise LLRPError('No message dict to serialize.')
-        name = self.msgdict.keys()[0]
+        msgdict_iter = iterkeys(self.msgdict)
+        name = next(msgdict_iter)
         logger.debug('serializing %s command', name)
         ver = self.msgdict[name]['Ver'] & BITMASK(3)
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
@@ -68,7 +70,7 @@ class LLRPMessage(object):
         """Turns a sequence of bytes into a message dictionary."""
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
-        data = ''.join(self.msgbytes)
+        data = self.msgbytes
         msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
                                                data[:self.full_hdr_len])
         ver = (msgtype >> 10) & BITMASK(3)
@@ -116,7 +118,8 @@ class LLRPMessage(object):
     def getName(self):
         if not self.msgdict:
             return None
-        return self.msgdict.keys()[0]
+        msgdict_iter = iterkeys(self.msgdict)
+        return next(msgdict_iter)
 
     def __repr__(self):
         try:
@@ -602,7 +605,7 @@ class LLRPClient(LineReceiver):
 
     def rawDataReceived(self, data):
         logger.debug('got %d bytes from reader: %s', len(data),
-                     data.encode('hex'))
+                     hexlify(data))
 
         if self.expectingRemainingBytes:
             if len(data) >= self.expectingRemainingBytes:
