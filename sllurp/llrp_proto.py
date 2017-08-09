@@ -717,11 +717,11 @@ def decode_ROAccessReport(data):
     # Decode parameters
     msg['TagReportData'] = []
     while True:
-        #try:
-        ret, data = decode('TagReportData')(data)
-        #except TypeError:  # XXX
-        #    logger.error('Unable to decode TagReportData')
-        #    break
+        try:
+            ret, data = decode('TagReportData')(data)
+        except TypeError:  # XXX
+            logger.error('Unable to decode TagReportData')
+            break
         # print('len(ret) = {}'.format(len(ret)))
         # print('len(data) = {}'.format(len(data)))
         if ret:
