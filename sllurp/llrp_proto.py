@@ -717,11 +717,11 @@ def decode_ROAccessReport(data):
     # Decode parameters
     msg['TagReportData'] = []
     while True:
-        try:
-            ret, data = decode('TagReportData')(data)
-        except TypeError:  # XXX
-            logger.error('Unable to decode TagReportData')
-            break
+        #try:
+        ret, data = decode('TagReportData')(data)
+        #except TypeError:  # XXX
+        #    logger.error('Unable to decode TagReportData')
+        #    break
         # print('len(ret) = {}'.format(len(ret)))
         # print('len(data) = {}'.format(len(data)))
         if ret:
@@ -2848,7 +2848,7 @@ def decode_EPCData(data):
     # Decode fields
     (par['EPCLengthBits'], ) = struct.unpack('!H',
                                              body[0:struct.calcsize('!H')])
-    par['EPC'] = body[struct.calcsize('!H'):].encode('hex')
+    par['EPC'] = hexlify(body[struct.calcsize('!H'):])
 
     return par, data[length:]
 
@@ -2876,12 +2876,12 @@ def decode_EPC96(data):
     msgtype = msgtype & BITMASK(7)
     if msgtype != Message_struct['EPC-96']['type']:
         return (None, data)
-    length = tve_header_len + (96 / 8)
+    length = tve_header_len + (96 // 8)
     body = data[tve_header_len:length]
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
     # Decode fields
-    par['EPC'] = body.encode('hex')
+    par['EPC'] = hexlify(body)
 
     return par, data[length:]
 
