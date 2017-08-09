@@ -27,6 +27,8 @@ import logging
 import struct
 from collections import defaultdict
 from binascii import hexlify
+from six import iteritems
+
 from .util import BIT, BITMASK, func, reverse_dict
 from . import llrp_decoder
 from .llrp_errors import LLRPError
@@ -3367,7 +3369,7 @@ class LLRPMessageDict(dict):
 
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
-for msgname, msgstruct in Message_struct.iteritems():
+for msgname, msgstruct in iteritems(Message_struct):
     try:
         ty = msgstruct['type']
     except KeyError:
