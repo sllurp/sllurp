@@ -27,9 +27,9 @@ import logging
 import struct
 from collections import defaultdict
 from binascii import hexlify
-from util import BIT, BITMASK, func, reverse_dict
-import llrp_decoder
-from llrp_errors import LLRPError
+from .util import BIT, BITMASK, func, reverse_dict
+from . import llrp_decoder
+from .llrp_errors import LLRPError
 
 #
 # Define exported symbols
