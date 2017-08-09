@@ -23,6 +23,7 @@
 # TODO: use generic functions from llrp_decoder where possible
 #
 
+from __future__ import unicode_literals
 import logging
 import struct
 from collections import defaultdict
