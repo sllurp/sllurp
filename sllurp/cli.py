@@ -60,7 +60,6 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 mode_identifier=mode_identifier,
                 reconnect=reconnect)
     logger.debug('inventory args: %s', args)
-    print(args.time)
     _inventory.main(args)
 
 

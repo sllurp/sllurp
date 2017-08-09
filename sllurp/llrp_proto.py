@@ -2120,7 +2120,7 @@ def encode_ROSpecStartTrigger(par):
     msg_header = '!HHB'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
+    data = b''
     if par['ROSpecStartTriggerType'] == 'Periodic':
         data += encode('PeriodicTriggerValue')(par['PeriodicTriggerValue'])
     elif par['ROSpecStartTriggerType'] == 'GPI':
@@ -2180,7 +2180,7 @@ def encode_ROSpecStopTrigger(par):
     msg_header = '!HHBI'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
+    data = b''
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2207,7 +2207,7 @@ def encode_AISpec(par):
 
     msg_header = '!HHH'
     msg_header_len = struct.calcsize(msg_header)
-    data = ''
+    data = b''
 
     antid = par['AntennaIDs']
     antennas = []
@@ -2540,7 +2540,7 @@ def encode_ReaderEventNotificationSpec(par):
     msgtype = Message_struct['ReaderEventNotificationSpec']['type']
     states = par['EventNotificationState']
 
-    data = ''
+    data = b''
     for ev_type, flag in states.items():
         parlen = struct.calcsize('!HHHB')
         data += struct.pack('!HHHB', 245, parlen, ev_type,
