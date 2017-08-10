@@ -3226,7 +3226,7 @@ def llrp_data2xml(msg):
 
 class LLRPROSpec(dict):
     def __init__(self, reader_mode, rospecid, priority=0, state='Disabled',
-                 antennas=(1,), tx_power=91, duration_sec=None,
+                 antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4):
@@ -3240,6 +3240,16 @@ class LLRPROSpec(dict):
         if state not in ROSpecState_Name2Type:
             raise LLRPError('invalid ROSpec state {} (need [{}])'.format(
                             state, ','.join(ROSpecState_Name2Type.keys())))
+        # backward compatibility: allow integer tx_power
+        if isinstance(tx_power, int):
+            tx_power = {antenna: tx_power for antenna in antennas}
+        elif isinstance(tx_power, dict):
+            # all antennas must be accounted for in tx_power dict
+            if set(antennas) != set(tx_power.keys()):
+                raise LLRPError('Must set tx_power for all antennas')
+        else:
+            raise LLRPError('tx_power must be dictionary or integer')
+
 
         # if reader mode settings are specified, pepper them into this ROSpec
         override_tari = None
@@ -3302,13 +3312,14 @@ class LLRPROSpec(dict):
 
         # patch up per-antenna config
         for antid in antennas:
+            transmit_power = tx_power[antid]
             ips = self['ROSpec']['AISpec']['InventoryParameterSpec']
             antconf = {
                 'AntennaID': antid,
                 'RFTransmitter': {
                     'HopTableId': 1,
                     'ChannelIndex': 1,
-                    'TransmitPower': tx_power,
+                    'TransmitPower': transmit_power,
                 },
                 'C1G2InventoryCommand': {
                     'TagInventoryStateAware': False,

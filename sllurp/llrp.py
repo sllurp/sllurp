@@ -173,7 +173,14 @@ class LLRPClient(LineReceiver):
         self.report_timeout_ms = report_timeout_ms
         self.capabilities = {}
         self.reader_mode = None
-        self.tx_power = tx_power
+        if isinstance(tx_power, int):
+            self.tx_power = {ant: tx_power for ant in antennas}
+        elif isinstance(tx_power, dict):
+            if set(antennas) != set(tx_power.keys()):
+                raise LLRPError('Must specify tx_power for each antenna')
+            self.tx_power = tx_power.copy()
+        else:
+            raise LLRPError('tx_power must be dict or int')
         self.modulation = modulation
         self.tari = tari
         self.session = session
@@ -193,6 +200,7 @@ class LLRPClient(LineReceiver):
             logger.info('will start inventory on connect')
 
         logger.info('using antennas: %s', self.antennas)
+        logger.info('transmit power: %s', self.tx_power)
 
         # for partial data transfers
         self.expectingRemainingBytes = 0
@@ -1015,8 +1023,9 @@ class LLRPClient(LineReceiver):
         """Validates tx_power against self.tx_power_table
 
         @param tx_power: index into the self.tx_power_table list; if tx_power
-        is 0 then the max power from self.tx_power_table
-        @return: a tuple: tx_power_index, power_dbm from self.tx_power_table
+            is 0 then the max power from self.tx_power_table
+        @return: a dict {antenna: (tx_power_index, power_dbm)} from
+            self.tx_power_table
         @raise: LLRPError if the requested index is out of range
         """
         assert len(self.tx_power_table) > 0
@@ -1025,29 +1034,36 @@ class LLRPClient(LineReceiver):
         min_power = self.tx_power_table.index(min(self.tx_power_table))
         max_power = self.tx_power_table.index(max(self.tx_power_table))
 
-        if tx_power == 0:
-            # tx_power = 0 means max power
-            max_power_dbm = max(self.tx_power_table)
-            tx_power = self.tx_power_table.index(max_power_dbm)
-            return tx_power, max_power_dbm
+        ret = {}
+        for antid, tx_power in self.tx_power.items():
+            if tx_power == 0:
+                # tx_power = 0 means max power
+                max_power_dbm = max(self.tx_power_table)
+                tx_power = self.tx_power_table.index(max_power_dbm)
+                ret[antid] = (tx_power, max_power_dbm)
 
-        try:
-            power_dbm = self.tx_power_table[tx_power]
-            return tx_power, power_dbm
-        except IndexError:
-            raise LLRPError('Invalid tx_power: requested={},'
-                            ' min_available={}, max_available={}'.format(
-                                self.tx_power, min_power, max_power))
+            try:
+                power_dbm = self.tx_power_table[tx_power]
+                ret[antid] = (tx_power, power_dbm)
+            except IndexError:
+                raise LLRPError('Invalid tx_power for antenna {}: '
+                                'requested={}, min_available={}, '
+                                'max_available={}'.format(antid,
+                                    self.tx_power, min_power, max_power))
+        return ret
 
     def setTxPower(self, tx_power):
-        tx_pow_idx, tx_pow_dbm = self.get_tx_power(tx_power)
-        if self.tx_power == tx_pow_idx:
-            return
+        tx_pow_validated =  self.get_tx_power(tx_power)
+        needs_update = False
+        for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
+            if self.tx_power[ant] != tx_pow_idx:
+                self.tx_power[ant] = tx_pow_idx
+                needs_update = True
 
-        self.tx_power = tx_pow_idx
-        logger.debug('tx_power: %s (%s dBm)', tx_pow_idx, tx_pow_dbm)
+            logger.debug('tx_power for antenna %s: %s (%s dBm)', ant,
+                         tx_pow_idx, tx_pow_dbm)
 
-        if self.state == LLRPClient.STATE_INVENTORYING:
+        if needs_update and self.state == LLRPClient.STATE_INVENTORYING:
             self.pause(0.5, force_regen_rospec=True)
 
     def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
