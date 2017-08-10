@@ -1,6 +1,7 @@
 """Low Level Reader Protocol implemtnation in pure Python
 """
 
+from __future__ import unicode_literals
 from pkg_resources import get_distribution
 
 
