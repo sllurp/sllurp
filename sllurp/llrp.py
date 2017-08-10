@@ -446,7 +446,8 @@ class LLRPClient(LineReceiver):
 
         elif self.state == LLRPClient.STATE_SENT_GET_CONFIG:
             if msgName not in ('GET_READER_CONFIG_RESPONSE',
-                               'DELETE_ACCESSSPEC_RESPONSE'):
+                               'DELETE_ACCESSSPEC_RESPONSE',
+                               'DELETE_ROSPEC_RESPONSE'):
                 logger.error('unexpected response %s getting config',
                              msgName)
                 return
@@ -467,7 +468,9 @@ class LLRPClient(LineReceiver):
             self.send_SET_READER_CONFIG(onCompletion=d)
 
         elif self.state == LLRPClient.STATE_SENT_SET_CONFIG:
-            if msgName not in ('SET_READER_CONFIG_RESPONSE',):
+            if msgName not in ('SET_READER_CONFIG_RESPONSE',
+                               'GET_READER_CONFIG_RESPONSE',
+                               'DELETE_ACCESSSPEC_RESPONSE'):
                 logger.error('unexpected response %s setting config',
                              msgName)
                 return
