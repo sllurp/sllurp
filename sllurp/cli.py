@@ -1,7 +1,7 @@
 """Command-line wrapper for sllurp commands.
 """
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 from collections import namedtuple
 import logging
 import click
@@ -10,6 +10,8 @@ from .verb import reset as _reset
 from .verb import inventory as _inventory
 from .llrp_proto import Modulation_Name2Type
 
+# Disable Click unicode warning since we use unicode string exclusively
+click.disable_unicode_literals_warning = True
 
 logger = logging.getLogger(__name__)
 mods = sorted(Modulation_Name2Type.keys())

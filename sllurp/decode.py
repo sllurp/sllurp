@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import binascii
 import argparse
 import logging
