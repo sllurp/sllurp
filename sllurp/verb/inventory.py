@@ -60,7 +60,7 @@ def main(args):
             logger.info('selected recommended Tari of %d for %s', args.tari,
                         args.modulation)
 
-    enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
+    enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
 
     # d.callback will be called when all connections have terminated normally.
     # use d.addCallback(<callable>) to define end-of-program behavior.
@@ -78,7 +78,7 @@ def main(args):
                             mode_identifier=args.mode_identifier,
                             tag_population=args.population,
                             start_inventory=True,
-                            disconnect_when_done=(args.time > 0),
+                            disconnect_when_done=args.time and args.time > 0,
                             reconnect=args.reconnect,
                             tag_content_selector={
                                 'EnableROSpecID': False,
