@@ -12,11 +12,9 @@ logger = logging.getLogger(__name__)
 def shutdown(proto):
     host, port = proto.peername
     logger.info('Shutting down reader %s:%d', host, port)
-    return proto.stopPolitely(disconnect=True)
-
-
-def finish(*args):
-    reactor.stop()
+    d = proto.stopPolitely(disconnect=True)
+    d.addCallback(lambda _: reactor.stop())
+    return d
 
 
 def main(host, port):
@@ -24,12 +22,8 @@ def main(host, port):
         logger.info('No readers specified.')
         return 0
 
-    onFinish = defer.Deferred()
-    onFinish.addCallback(finish)
-
     factory = LLRPClientFactory(reset_on_connect=False,
-                                start_inventory=False,
-                                onFinish=onFinish)
+                                start_inventory=False)
     factory.addStateCallback(LLRPClient.STATE_CONNECTED, shutdown)
 
     for host in host:

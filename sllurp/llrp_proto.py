@@ -23,13 +23,16 @@
 # TODO: use generic functions from llrp_decoder where possible
 #
 
+from __future__ import unicode_literals
 import logging
 import struct
 from collections import defaultdict
 from binascii import hexlify
-from util import BIT, BITMASK, func, reverse_dict
-import llrp_decoder
-from llrp_errors import LLRPError
+from six import iteritems
+
+from .util import BIT, BITMASK, func, reverse_dict
+from . import llrp_decoder
+from .llrp_errors import LLRPError
 
 #
 # Define exported symbols
@@ -420,7 +423,7 @@ Message_struct['SET_READER_CONFIG_RESPONSE'] = {
 
 # ENABLE_EVENTS_AND_REPORTS
 def encode_EnableEventsAndReports(msg):
-    return ''
+    return b''
 
 
 Message_struct['ENABLE_EVENTS_AND_REPORTS'] = {
@@ -2117,7 +2120,7 @@ def encode_ROSpecStartTrigger(par):
     msg_header = '!HHB'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
+    data = b''
     if par['ROSpecStartTriggerType'] == 'Periodic':
         data += encode('PeriodicTriggerValue')(par['PeriodicTriggerValue'])
     elif par['ROSpecStartTriggerType'] == 'GPI':
@@ -2177,7 +2180,7 @@ def encode_ROSpecStopTrigger(par):
     msg_header = '!HHBI'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
+    data = b''
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2204,7 +2207,7 @@ def encode_AISpec(par):
 
     msg_header = '!HHH'
     msg_header_len = struct.calcsize(msg_header)
-    data = ''
+    data = b''
 
     antid = par['AntennaIDs']
     antennas = []
@@ -2537,7 +2540,7 @@ def encode_ReaderEventNotificationSpec(par):
     msgtype = Message_struct['ReaderEventNotificationSpec']['type']
     states = par['EventNotificationState']
 
-    data = ''
+    data = b''
     for ev_type, flag in states.items():
         parlen = struct.calcsize('!HHHB')
         data += struct.pack('!HHHB', 245, parlen, ev_type,
@@ -2845,7 +2848,7 @@ def decode_EPCData(data):
     # Decode fields
     (par['EPCLengthBits'], ) = struct.unpack('!H',
                                              body[0:struct.calcsize('!H')])
-    par['EPC'] = body[struct.calcsize('!H'):].encode('hex')
+    par['EPC'] = hexlify(body[struct.calcsize('!H'):])
 
     return par, data[length:]
 
@@ -2873,12 +2876,12 @@ def decode_EPC96(data):
     msgtype = msgtype & BITMASK(7)
     if msgtype != Message_struct['EPC-96']['type']:
         return (None, data)
-    length = tve_header_len + (96 / 8)
+    length = tve_header_len + (96 // 8)
     body = data[tve_header_len:length]
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
     # Decode fields
-    par['EPC'] = body.encode('hex')
+    par['EPC'] = hexlify(body)
 
     return par, data[length:]
 
@@ -3225,32 +3228,43 @@ def llrp_data2xml(msg):
 
 
 class LLRPROSpec(dict):
-    def __init__(self, llrpcli, msgid, priority=0, state='Disabled',
-                 antennas=(1,), tx_power=91, duration_sec=None,
+    def __init__(self, reader_mode, rospecid, priority=0, state='Disabled',
+                 antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
-                 tag_content_selector={}, mode_index=None,
-                 mode_identifier=None, tari=None,
+                 tag_content_selector={}, tari=None,
                  session=2, tag_population=4):
         # Sanity checks
-        if msgid <= 0:
+        if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
-                            msgid))
+                            rospecid))
         if priority < 0 or priority > 7:
             raise LLRPError('invalid ROSpec priority {} (need [0-7])'.format(
                             priority))
         if state not in ROSpecState_Name2Type:
             raise LLRPError('invalid ROSpec state {} (need [{}])'.format(
                             state, ','.join(ROSpecState_Name2Type.keys())))
+        # backward compatibility: allow integer tx_power
+        if isinstance(tx_power, int):
+            tx_power = {antenna: tx_power for antenna in antennas}
+        elif isinstance(tx_power, dict):
+            # all antennas must be accounted for in tx_power dict
+            if set(antennas) != set(tx_power.keys()):
+                raise LLRPError('Must set tx_power for all antennas')
+        else:
+            raise LLRPError('tx_power must be dictionary or integer')
 
-        if tari is None:
-            tari = llrpcli.reader_mode['MaxTari']
 
-        if mode_index is None:
+        # if reader mode settings are specified, pepper them into this ROSpec
+        override_tari = None
+        if reader_mode is not None:
+            if tari is not None and tari < reader_mode['MaxTari']:
+                override_tari = tari
+
             # BUG: Impinj Speedway Revolution readers, and possibly others,
             # seem to want a ModeIdentifier value for the ModeIndex parameter
             # rather than an actual index into the array of modes.
             # https://github.com/ransford/sllurp/issues/63
-            mode_index = llrpcli.reader_mode['ModeIdentifier']
+            mode_index = reader_mode['ModeIdentifier']
 
         tagReportContentSelector = {
             'EnableROSpecID': False,
@@ -3268,12 +3282,12 @@ class LLRPROSpec(dict):
             tagReportContentSelector.update(tag_content_selector)
 
         self['ROSpec'] = {
-            'ROSpecID': msgid,
+            'ROSpecID': rospecid,
             'Priority': priority,
             'CurrentState': state,
             'ROBoundarySpec': {
                 'ROSpecStartTrigger': {
-                    'ROSpecStartTriggerType': 'Null',
+                    'ROSpecStartTriggerType': 'Immediate',
                 },
                 'ROSpecStopTrigger': {
                     'ROSpecStopTriggerType': 'Null',
@@ -3301,27 +3315,32 @@ class LLRPROSpec(dict):
 
         # patch up per-antenna config
         for antid in antennas:
+            transmit_power = tx_power[antid]
             ips = self['ROSpec']['AISpec']['InventoryParameterSpec']
-            ips['AntennaConfiguration'].append({
+            antconf = {
                 'AntennaID': antid,
                 'RFTransmitter': {
                     'HopTableId': 1,
                     'ChannelIndex': 1,
-                    'TransmitPower': tx_power,
+                    'TransmitPower': transmit_power,
                 },
                 'C1G2InventoryCommand': {
                     'TagInventoryStateAware': False,
-                    'C1G2RFControl': {
-                        'ModeIndex': mode_index,
-                        'Tari': tari,
-                    },
                     'C1G2SingulationControl': {
                         'Session': session,
                         'TagPopulation': tag_population,
                         'TagTransitTime': 0
                     }
                 }
-            })
+            }
+            if reader_mode:
+                rfcont = {
+                    'ModeIndex': mode_index,
+                    'Tari': override_tari if override_tari else 0,
+                }
+                antconf['C1G2InventoryCommand']['C1G2RFControl'] = rfcont
+
+            ips['AntennaConfiguration'].append(antconf)
 
         if duration_sec is not None:
             self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
@@ -3362,7 +3381,7 @@ class LLRPMessageDict(dict):
 
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
-for msgname, msgstruct in Message_struct.iteritems():
+for msgname, msgstruct in iteritems(Message_struct):
     try:
         ty = msgstruct['type']
     except KeyError:
