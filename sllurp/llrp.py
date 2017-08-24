@@ -1034,7 +1034,9 @@ class LLRPClient(LineReceiver):
             self.tx_power_table
         @raise: LLRPError if the requested index is out of range
         """
-        assert len(self.tx_power_table) > 0
+        if not self.tx_power_table:
+            logger.warn('get_tx_power(): tx_power_table is empty!')
+            return {}
 
         logger.debug('requested tx_power: %s', tx_power)
         min_power = self.tx_power_table.index(min(self.tx_power_table))
@@ -1059,6 +1061,10 @@ class LLRPClient(LineReceiver):
         return ret
 
     def setTxPower(self, tx_power):
+        """Set the transmission power for one or more antennas.
+
+        @param tx_power: index into self.tx_power_table
+        """
         tx_pow_validated =  self.get_tx_power(tx_power)
         needs_update = False
         for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
