@@ -81,7 +81,8 @@ def main(hosts, outfile, antennas, stagger, epc, time):
                                  report_every_n_tags=1,
                                  antennas=enabled_antennas,
                                  start_inventory=False,
-                                 disconnect_when_done=(time > 0),
+                                 disconnect_when_done=(time is not None
+                                                       and time > 0),
                                  tag_content_selector={
                                      'EnableROSpecID': False,
                                      'EnableSpecIndex': False,
