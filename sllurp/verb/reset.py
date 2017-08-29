@@ -2,7 +2,7 @@
 """
 
 import logging
-from twisted.internet import reactor, defer
+from twisted.internet import reactor
 
 from sllurp.llrp import LLRPClientFactory, LLRPClient
 
