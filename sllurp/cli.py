@@ -71,11 +71,10 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               help='comma-separated list of antennas to use (default 0=all)')
 @click.option('-g', '--stagger', type=int,
               help='delay (ms) between connecting to readers')
-@click.option('-e', '--epc', type=str, help='log only a specific epc')
-@click.option('-t', '--time', type=float, help='Total measurement time (s)')
+@click.option('-e', '--epc', type=str, help='log only a specific EPC')
 @cli.command()
-def log(host, outfile, antennas, stagger, epc, time):
-    _log.main(host, outfile, antennas, stagger, epc, time)
+def log(host, outfile, antennas, stagger, epc):
+    _log.main(host, outfile, antennas, stagger, epc)
 
 
 @cli.command()
