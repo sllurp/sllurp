@@ -19,9 +19,9 @@ csvlogger = None
 
 
 class CsvLogger(object):
-    def __init__(self, filename, epc=None, factory=None):
+    def __init__(self, filehandle, epc=None, factory=None):
         self.rows = []
-        self.filename = filename
+        self.filehandle = filehandle
         self.num_tags = 0
         self.epc = epc
         self.factory = factory
@@ -59,11 +59,10 @@ class CsvLogger(object):
                 d.addErrback(print, 'argh')
 
     def flush(self):
-        logging.info('Writing %d rows to %s...', len(self.rows), self.filename)
-        with open(self.filename, 'w') as csv_out:
-            wri = csv.writer(csv_out, dialect='excel')
-            wri.writerow(('timestamp_us', 'reader', 'antenna', 'rssi', 'epc'))
-            wri.writerows(self.rows)
+        logging.info('Writing %d rows...', len(self.rows))
+        wri = csv.writer(self.filehandle, dialect='excel')
+        wri.writerow(('timestamp_us', 'reader', 'antenna', 'rssi', 'epc'))
+        wri.writerows(self.rows)
 
 
 def finish():

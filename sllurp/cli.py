@@ -66,7 +66,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
 
 
 @click.argument('host', type=str, nargs=-1)
-@click.option('-o', '--outfile', type=click.Path())
+@click.option('-o', '--outfile', type=click.File('w'), default='-')
 @click.option('-a', '--antennas', type=str, default='0',
               help='comma-separated list of antennas to use (default 0=all)')
 @click.option('-g', '--stagger', type=int,
