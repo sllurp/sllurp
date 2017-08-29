@@ -3253,7 +3253,6 @@ class LLRPROSpec(dict):
         else:
             raise LLRPError('tx_power must be dictionary or integer')
 
-
         # if reader mode settings are specified, pepper them into this ROSpec
         override_tari = None
         if reader_mode is not None:
