@@ -165,14 +165,8 @@ Contributing
 
 Want to contribute?  Here are some areas that need improvement:
 
-- Reduce redundancy in the ``encode_*`` and ``decode_*`` functions in
-  ``llrp_proto.py``.
-- Support the AccessSpec primitive (basis for tag read and write).
+- Encode more protocol messages in the ``construct`` branch.
 - Write tests for common encoding and decoding tasks.
-- Make ``get_reader_config`` use the ``fabric`` library to connect to readers
-  via SSH.
-- Generalize LLRP support beyond Impinj readers.  Remove Impinj-specific
-  assumptions.
 
 Authors
 -------
