@@ -1,14 +1,16 @@
+"""Simple tag logger.
+
+Logs tag sightings at one or more readers to a CSV file.
+"""
+
+
 from __future__ import print_function, unicode_literals
-import argparse
 import csv
 import logging
 import threading
 from twisted.internet import reactor, task
 
 import sllurp.llrp as llrp
-from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
-    Modulation_DefaultTari
-from sllurp.log import init_logging
 
 
 numTags = 0
