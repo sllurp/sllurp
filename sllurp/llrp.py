@@ -1056,8 +1056,9 @@ class LLRPClient(LineReceiver):
             except IndexError:
                 raise LLRPError('Invalid tx_power for antenna {}: '
                                 'requested={}, min_available={}, '
-                                'max_available={}'.format(antid,
-                                    self.tx_power, min_power, max_power))
+                                'max_available={}'.format(
+                                    antid, self.tx_power, min_power,
+                                    max_power))
         return ret
 
     def setTxPower(self, tx_power):
@@ -1065,7 +1066,7 @@ class LLRPClient(LineReceiver):
 
         @param tx_power: index into self.tx_power_table
         """
-        tx_pow_validated =  self.get_tx_power(tx_power)
+        tx_pow_validated = self.get_tx_power(tx_power)
         needs_update = False
         for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
             if self.tx_power[ant] != tx_pow_idx:

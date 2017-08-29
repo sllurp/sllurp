@@ -5,9 +5,11 @@ from __future__ import print_function, unicode_literals
 from collections import namedtuple
 import logging
 import click
-from . import log, __version__
+from . import __version__
+from . import log as loggie
 from .verb import reset as _reset
 from .verb import inventory as _inventory
+from .verb import log as _log
 from .llrp_proto import Modulation_Name2Type
 
 # Disable Click unicode warning since we use unicode string exclusively
@@ -21,7 +23,7 @@ mods = sorted(Modulation_Name2Type.keys())
 @click.option('-d', '--debug', is_flag=True, default=False)
 @click.option('-l', '--logfile', type=click.Path())
 def cli(debug, logfile):
-    log.init_logging(debug, logfile)
+    loggie.init_logging(debug, logfile)
 
 
 @cli.command()
@@ -61,6 +63,18 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 reconnect=reconnect)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
+
+
+@click.argument('host', type=str, nargs=-1)
+@click.option('-o', '--outfile', type=click.File('w'), default='-')
+@click.option('-a', '--antennas', type=str, default='0',
+              help='comma-separated list of antennas to use (default 0=all)')
+@click.option('-g', '--stagger', type=int,
+              help='delay (ms) between connecting to readers')
+@click.option('-e', '--epc', type=str, help='log only a specific EPC')
+@cli.command()
+def log(host, outfile, antennas, stagger, epc):
+    _log.main(host, outfile, antennas, stagger, epc)
 
 
 @cli.command()
