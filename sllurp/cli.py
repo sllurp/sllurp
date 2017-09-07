@@ -98,13 +98,14 @@ def log(host, outfile, antennas, stagger, epc):
               help='Read N words from tag memory')
 @click.option('-w', '--write-words', type=int,
               help='Write N words to tag memory')
-@click.option('-c', '--count', type=int,
+@click.option('-c', '--count', type=int, default=0,
               help='Operation count for R/W (default 0=forever)')
 @click.option('-mb', '--memory-bank', type=click.IntRange(0, 3),
+              default=3,
               help='Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved')
-@click.option('-wp', '--word-ptr', type=int,
+@click.option('-wp', '--word-ptr', type=int, default=0,
               help='Word addresss of the first word to read/write')
-@click.option('-ap', '--access-password', default=0, type=int,
+@click.option('-ap', '--access-password', type=int, default=0,
               help='Access password for secure state if R/W locked')
 def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
            session, tag_population, read_words, write_words, count,
