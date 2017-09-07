@@ -69,10 +69,13 @@ def access(proto):
             'WriteData': data,
         }
 
+    accessStopParam = {
+        'AccessSpecStopTriggerType': 0,
+        'OperationCountValue': args.count,
+    }
     return proto.startAccess(readWords=readSpecParam,
                              writeWords=writeSpecParam,
-                             accessStopParam={'AccessSpecStopTriggerType': 0,
-                                              'OperationCountValue': 0})
+                             accessStopParam=accessStopParam)
 
 
 def politeShutdown(factory):

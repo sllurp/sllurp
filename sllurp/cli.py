@@ -98,6 +98,8 @@ def log(host, outfile, antennas, stagger, epc):
               help='Read N words from tag memory')
 @click.option('-w', '--write-words', type=int,
               help='Write N words to tag memory')
+@click.option('-c', '--count', type=int,
+              help='Operation count for R/W (default 0=forever)')
 @click.option('-mb', '--memory-bank', type=click.IntRange(0, 3),
               help='Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved')
 @click.option('-wp', '--word-ptr', type=int,
@@ -105,17 +107,18 @@ def log(host, outfile, antennas, stagger, epc):
 @click.option('-ap', '--access-password', default=0, type=int,
               help='Access password for secure state if R/W locked')
 def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
-           session, tag_population, read_words, write_words, memory_bank,
-           word_ptr, access_password):
+           session, tag_population, read_words, write_words, count,
+           memory_bank, word_ptr, access_password):
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n',
                                'tx_power', 'modulation', 'tari', 'session',
                                'population', 'read_words', 'write_words',
-                               'mb', 'word_ptr', 'access_password'])
+                               'count', 'mb', 'word_ptr', 'access_password'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 tx_power=tx_power, modulation=modulation, tari=tari,
                 session=session, population=tag_population,
-                read_words=read_words, write_words=write_words, mb=memory_bank,
-                word_ptr=word_ptr, access_password=access_password)
+                read_words=read_words, write_words=write_words, count=count,
+                mb=memory_bank, word_ptr=word_ptr,
+                access_password=access_password)
     logger.debug('access args: %s', args)
     _access.main(args)
 
