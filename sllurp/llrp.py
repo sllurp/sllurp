@@ -826,9 +826,9 @@ class LLRPClient(LineReceiver):
                 'MB': 0,
                 'Pointer': 0,
                 'MaskBitCount': 0,
-                'TagMask': '',
+                'TagMask': b'',
                 'DataBitCount': 0,
-                'TagData': ''
+                'TagData': b''
             }
 
         opSpecParam = {
@@ -863,10 +863,10 @@ class LLRPClient(LineReceiver):
         else:
             raise LLRPError('startAccess requires readWords or writeWords.')
 
-        if not accessStopParam:
+        if accessStopParam is None:
             accessStopParam = {}
-            accessStopParam['AccessSpecStopTriggerType'] = 1
-            accessStopParam['OperationCountValue'] = 5
+            accessStopParam['AccessSpecStopTriggerType'] = 0
+            accessStopParam['OperationCountValue'] = 0
 
         accessSpec = {
             'Type': m['type'],
@@ -894,6 +894,7 @@ class LLRPClient(LineReceiver):
                 'AccessReportTrigger': 1  # report at end of access
             }
         }
+        logger.debug('AccessSpec: %s', accessSpec)
 
         d = defer.Deferred()
         d.addCallback(self.send_ENABLE_ACCESSSPEC, accessSpecID)
