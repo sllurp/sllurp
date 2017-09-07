@@ -826,9 +826,9 @@ class LLRPClient(LineReceiver):
                 'MB': 0,
                 'Pointer': 0,
                 'MaskBitCount': 0,
-                'TagMask': '',
+                'TagMask': b'',
                 'DataBitCount': 0,
-                'TagData': ''
+                'TagData': b''
             }
 
         opSpecParam = {

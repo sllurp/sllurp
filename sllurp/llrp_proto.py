@@ -1866,11 +1866,8 @@ Message_struct['C1G2TagSpec'] = {
 
 
 def encode_bitstring(bstr, length_bytes):
-    def B(x):
-        return struct.pack('!B', x)
-    Bs = map(B, struct.unpack('>' + 'B' * len(bstr), bstr))
-    Bs += ['\x00'] * (length_bytes - len(bstr))
-    return ''.join(Bs)
+    padding = b'\x00' * (length_bytes - len(bstr))
+    return bstr + padding
 
 
 def encode_C1G2TargetTag(par):
@@ -1883,12 +1880,12 @@ def encode_C1G2TargetTag(par):
     data += struct.pack('!H', int(par['Pointer']))
     data += struct.pack('!H', int(par['MaskBitCount']))
     if int(par['MaskBitCount']):
-        numBytes = ((par['MaskBitCount'] - 1) / 8) + 1
+        numBytes = ((par['MaskBitCount'] - 1) // 8) + 1
         data += encode_bitstring(par['TagMask'], numBytes)
 
     data += struct.pack('!H', int(par['DataBitCount']))
     if int(par['DataBitCount']):
-        numBytes = ((par['DataBitCount'] - 1) / 8) + 1
+        numBytes = ((par['DataBitCount'] - 1) // 8) + 1
         data += encode_bitstring(par['TagData'], numBytes)
 
     data = struct.pack(msg_header, msgtype,
