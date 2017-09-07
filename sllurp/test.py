@@ -1,12 +1,12 @@
 from __future__ import unicode_literals
 import unittest
 import random
+import binascii
+import logging
 import sllurp
 import sllurp.llrp
 import sllurp.llrp_proto
 import sllurp.llrp_errors
-import binascii
-import logging
 
 
 logLevel = logging.WARNING
@@ -196,6 +196,11 @@ class TestEncodings(unittest.TestCase):
         self.assertEqual(length, len(data))
         flags = int(binascii.hexlify(data[4:]), 16) >> 6
         self.assertEqual(flags, 0b0001011110)
+
+    def test_encode_bitstring(self):
+        eb = sllurp.llrp_proto.encode_bitstring
+        self.assertEqual(eb(b'\x41\x42\x43', 6), b'ABC\x00\x00\x00')
+        self.assertEqual(eb(b'\x41\x42\x43', 2), b'ABC')
 
 
 class TestMessageStruct(unittest.TestCase):

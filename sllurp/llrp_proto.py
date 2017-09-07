@@ -1866,11 +1866,8 @@ Message_struct['C1G2TagSpec'] = {
 
 
 def encode_bitstring(bstr, length_bytes):
-    def B(x):
-        return struct.pack('!B', x)
-    Bs = [B(x) for x in struct.unpack('>' + 'B' * len(bstr), bstr)]
-    Bs += ['\x00'] * (length_bytes - len(bstr))
-    return b''.join(Bs)
+    padding = b'\x00' * (length_bytes - len(bstr))
+    return bstr + padding
 
 
 def encode_C1G2TargetTag(par):
