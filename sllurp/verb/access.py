@@ -70,7 +70,7 @@ def access(proto):
         }
 
     accessStopParam = {
-        'AccessSpecStopTriggerType': 0,
+        'AccessSpecStopTriggerType': 1 if args.count > 0 else 0,
         'OperationCountValue': args.count,
     }
     return proto.startAccess(readWords=readSpecParam,
