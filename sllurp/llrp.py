@@ -865,8 +865,8 @@ class LLRPClient(LineReceiver):
 
         if accessStopParam is None:
             accessStopParam = {}
-            accessStopParam['AccessSpecStopTriggerType'] = 1
-            accessStopParam['OperationCountValue'] = 5
+            accessStopParam['AccessSpecStopTriggerType'] = 0
+            accessStopParam['OperationCountValue'] = 0
 
         accessSpec = {
             'Type': m['type'],
