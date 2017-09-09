@@ -59,7 +59,7 @@ class CsvLogger(object):
                 d.addErrback(print, 'argh')
 
     def flush(self):
-        logging.info('Writing %d rows...', len(self.rows))
+        logger.info('Writing %d rows...', len(self.rows))
         wri = csv.writer(self.filehandle, dialect='excel')
         wri.writerow(('timestamp_us', 'reader', 'antenna', 'rssi', 'epc'))
         wri.writerows(self.rows)
@@ -69,7 +69,7 @@ def finish():
     csvlogger.flush()
     # if reactor.running:
     #     reactor.stop()
-    logging.info('Total tags seen: %d', csvlogger.num_tags)
+    logger.info('Total tags seen: %d', csvlogger.num_tags)
 
 
 def main(hosts, outfile, antennas, epc):
