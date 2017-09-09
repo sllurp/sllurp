@@ -72,7 +72,7 @@ def finish():
     logging.info('Total tags seen: %d', csvlogger.num_tags)
 
 
-def main(hosts, outfile, antennas, stagger, epc):
+def main(hosts, outfile, antennas, epc):
     global csvlogger
 
     enabled_antennas = map(lambda x: int(x.strip()), antennas.split(','))
@@ -105,14 +105,7 @@ def main(hosts, outfile, antennas, stagger, epc):
             port = int(port)
         else:
             port = 5084
-        if stagger is not None:
-            logging.debug('Will connect to %s:%d in %d ms', host, port, delay)
-            task.deferLater(reactor, delay/1000.0,
-                            reactor.connectTCP,
-                            host, port, fac, timeout=3)
-            delay += stagger
-        else:
-            reactor.connectTCP(host, port, fac, timeout=3)
+        reactor.connectTCP(host, port, fac, timeout=3)
 
     # catch ctrl-C and stop inventory before disconnecting
     reactor.addSystemEventTrigger('before', 'shutdown', finish)
