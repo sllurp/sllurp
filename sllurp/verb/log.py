@@ -15,7 +15,7 @@ import sllurp.llrp as llrp
 
 
 numTags = 0
-logger = logging.getLogger('sllurp')
+logger = logging.getLogger(__name__)
 csvlogger = None
 
 
@@ -44,7 +44,7 @@ class CsvLogger(object):
         for tag in tags:
             epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
             if self.epc is not None and epc != self.epc:
-                return
+                continue
             if self.reader_timestamp:
                 timestamp = tag['LastSeenTimestampUTC'][0] / 1e6
             else:
@@ -60,7 +60,7 @@ class CsvLogger(object):
             next_p = self.next_proto(llrp_msg.proto)
             logger.debug('Next proto: %r (%s)', next_p,
                          llrp.LLRPClient.getStateName(next_p.state))
-            d = llrp_msg.proto.pause()
+            d = llrp_msg.proto.pause(force=True)
             if d is not None:
                 d.addCallback(lambda _: next_p.resume())
                 d.addErrback(print, 'argh')
@@ -79,13 +79,13 @@ def finish():
     logger.info('Total tags seen: %d', csvlogger.num_tags)
 
 
-def main(hosts, outfile, antennas, epc, reader_timestamp):
+def main(hosts, outfile, antennas, epc, rr_seconds, reader_timestamp):
     global csvlogger
 
     enabled_antennas = map(lambda x: int(x.strip()), antennas.split(','))
 
     fac = llrp.LLRPClientFactory(start_first=True,
-                                 report_every_n_tags=1,
+                                 duration=rr_seconds,
                                  antennas=enabled_antennas,
                                  start_inventory=False,
                                  disconnect_when_done=True,
