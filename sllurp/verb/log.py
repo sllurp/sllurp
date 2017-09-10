@@ -6,6 +6,7 @@ Logs tag sightings at one or more readers to a CSV file.
 
 from __future__ import print_function, unicode_literals
 import csv
+import datetime
 import logging
 import threading
 from twisted.internet import reactor, task
@@ -14,18 +15,20 @@ import sllurp.llrp as llrp
 
 
 numTags = 0
-logger = logging.getLogger('sllurp')
+logger = logging.getLogger(__name__)
 csvlogger = None
 
 
 class CsvLogger(object):
-    def __init__(self, filehandle, epc=None, factory=None):
+    def __init__(self, filehandle, epc=None, factory=None,
+                 reader_timestamp=False):
         self.rows = []
         self.filehandle = filehandle
         self.num_tags = 0
         self.epc = epc
         self.factory = factory
         self.lock = threading.Lock()
+        self.reader_timestamp = reader_timestamp
 
     def next_proto(self, curr_proto):
         protos = self.factory.protocols
@@ -41,11 +44,15 @@ class CsvLogger(object):
         for tag in tags:
             epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
             if self.epc is not None and epc != self.epc:
-                return
-            timestamp_us = tag['LastSeenTimestampUTC'][0]
+                continue
+            if self.reader_timestamp:
+                timestamp = tag['LastSeenTimestampUTC'][0] / 1e6
+            else:
+                timestamp = (datetime.datetime.utcnow() -
+                                datetime.datetime(1970, 1, 1)).total_seconds()
             antenna = tag['AntennaID'][0]
             rssi = tag['PeakRSSI'][0]
-            self.rows.append((timestamp_us, reader, antenna, rssi, epc))
+            self.rows.append((timestamp, reader, antenna, rssi, epc))
             self.num_tags += tag['TagSeenCount'][0]
         with self.lock:
             logger.debug('This proto: %r (%s)', llrp_msg.proto,
@@ -53,7 +60,7 @@ class CsvLogger(object):
             next_p = self.next_proto(llrp_msg.proto)
             logger.debug('Next proto: %r (%s)', next_p,
                          llrp.LLRPClient.getStateName(next_p.state))
-            d = llrp_msg.proto.pause()
+            d = llrp_msg.proto.pause(force=True)
             if d is not None:
                 d.addCallback(lambda _: next_p.resume())
                 d.addErrback(print, 'argh')
@@ -61,7 +68,7 @@ class CsvLogger(object):
     def flush(self):
         logger.info('Writing %d rows...', len(self.rows))
         wri = csv.writer(self.filehandle, dialect='excel')
-        wri.writerow(('timestamp_us', 'reader', 'antenna', 'rssi', 'epc'))
+        wri.writerow(('timestamp', 'reader', 'antenna', 'rssi', 'epc'))
         wri.writerows(self.rows)
 
 
@@ -72,13 +79,13 @@ def finish():
     logger.info('Total tags seen: %d', csvlogger.num_tags)
 
 
-def main(hosts, outfile, antennas, epc):
+def main(hosts, outfile, antennas, epc, rr_seconds, reader_timestamp):
     global csvlogger
 
     enabled_antennas = map(lambda x: int(x.strip()), antennas.split(','))
 
     fac = llrp.LLRPClientFactory(start_first=True,
-                                 report_every_n_tags=1,
+                                 duration=rr_seconds,
                                  antennas=enabled_antennas,
                                  start_inventory=False,
                                  disconnect_when_done=True,
@@ -95,7 +102,8 @@ def main(hosts, outfile, antennas, epc):
                                      'EnableAccessSpecID': False
                                  })
 
-    csvlogger = CsvLogger(outfile, epc=epc, factory=fac)
+    csvlogger = CsvLogger(outfile, epc=epc, factory=fac,
+                          reader_timestamp=reader_timestamp)
     fac.addTagReportCallback(csvlogger.tag_cb)
 
     delay = 0
