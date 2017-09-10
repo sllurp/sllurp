@@ -44,7 +44,7 @@ class CsvLogger(object):
         for tag in tags:
             epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
             if self.epc is not None and epc != self.epc:
-                return
+                continue
             if self.reader_timestamp:
                 timestamp = tag['LastSeenTimestampUTC'][0] / 1e6
             else:
@@ -60,7 +60,7 @@ class CsvLogger(object):
             next_p = self.next_proto(llrp_msg.proto)
             logger.debug('Next proto: %r (%s)', next_p,
                          llrp.LLRPClient.getStateName(next_p.state))
-            d = llrp_msg.proto.pause()
+            d = llrp_msg.proto.pause(force=True)
             if d is not None:
                 d.addCallback(lambda _: next_p.resume())
                 d.addErrback(print, 'argh')
