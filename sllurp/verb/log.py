@@ -15,7 +15,7 @@ import sllurp.llrp as llrp
 
 
 numTags = 0
-logger = logging.getLogger('sllurp')
+logger = logging.getLogger(__name__)
 csvlogger = None
 
 
