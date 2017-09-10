@@ -79,13 +79,13 @@ def finish():
     logger.info('Total tags seen: %d', csvlogger.num_tags)
 
 
-def main(hosts, outfile, antennas, epc, reader_timestamp):
+def main(hosts, outfile, antennas, epc, rr_seconds, reader_timestamp):
     global csvlogger
 
     enabled_antennas = map(lambda x: int(x.strip()), antennas.split(','))
 
     fac = llrp.LLRPClientFactory(start_first=True,
-                                 report_every_n_tags=1,
+                                 duration=rr_seconds,
                                  antennas=enabled_antennas,
                                  start_inventory=False,
                                  disconnect_when_done=True,
