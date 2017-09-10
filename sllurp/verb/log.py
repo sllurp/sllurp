@@ -6,6 +6,7 @@ Logs tag sightings at one or more readers to a CSV file.
 
 from __future__ import print_function, unicode_literals
 import csv
+import datetime
 import logging
 import threading
 from twisted.internet import reactor, task
@@ -19,13 +20,15 @@ csvlogger = None
 
 
 class CsvLogger(object):
-    def __init__(self, filehandle, epc=None, factory=None):
+    def __init__(self, filehandle, epc=None, factory=None,
+                 reader_timestamp=False):
         self.rows = []
         self.filehandle = filehandle
         self.num_tags = 0
         self.epc = epc
         self.factory = factory
         self.lock = threading.Lock()
+        self.reader_timestamp = reader_timestamp
 
     def next_proto(self, curr_proto):
         protos = self.factory.protocols
@@ -42,10 +45,14 @@ class CsvLogger(object):
             epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
             if self.epc is not None and epc != self.epc:
                 return
-            timestamp_us = tag['LastSeenTimestampUTC'][0]
+            if self.reader_timestamp:
+                timestamp = tag['LastSeenTimestampUTC'][0] / 1e6
+            else:
+                timestamp = (datetime.datetime.utcnow() -
+                                datetime.datetime(1970, 1, 1)).total_seconds()
             antenna = tag['AntennaID'][0]
             rssi = tag['PeakRSSI'][0]
-            self.rows.append((timestamp_us, reader, antenna, rssi, epc))
+            self.rows.append((timestamp, reader, antenna, rssi, epc))
             self.num_tags += tag['TagSeenCount'][0]
         with self.lock:
             logger.debug('This proto: %r (%s)', llrp_msg.proto,
@@ -61,7 +68,7 @@ class CsvLogger(object):
     def flush(self):
         logger.info('Writing %d rows...', len(self.rows))
         wri = csv.writer(self.filehandle, dialect='excel')
-        wri.writerow(('timestamp_us', 'reader', 'antenna', 'rssi', 'epc'))
+        wri.writerow(('timestamp', 'reader', 'antenna', 'rssi', 'epc'))
         wri.writerows(self.rows)
 
 
@@ -72,7 +79,7 @@ def finish():
     logger.info('Total tags seen: %d', csvlogger.num_tags)
 
 
-def main(hosts, outfile, antennas, epc):
+def main(hosts, outfile, antennas, epc, reader_timestamp):
     global csvlogger
 
     enabled_antennas = map(lambda x: int(x.strip()), antennas.split(','))
@@ -95,7 +102,8 @@ def main(hosts, outfile, antennas, epc):
                                      'EnableAccessSpecID': False
                                  })
 
-    csvlogger = CsvLogger(outfile, epc=epc, factory=fac)
+    csvlogger = CsvLogger(outfile, epc=epc, factory=fac,
+                          reader_timestamp=reader_timestamp)
     fac.addTagReportCallback(csvlogger.tag_cb)
 
     delay = 0
