@@ -133,7 +133,8 @@ The "nuclear option" for resetting a reader is:
 If You Find a Bug
 -----------------
 
-Start an issue on GitHub_!
+Start an issue on GitHub_!  Please follow Simon Tatham's guide_ on writing good
+bug reports.
 
 Bug reports are most useful when they're accompanied by verbose error messages.
 Turn sllurp's log level up to DEBUG, which you can do by specifying the `-d`
@@ -147,6 +148,7 @@ command-line option to ``sllurp``.  You can log to a logfile with the ``-l
   sllurp_logger.setLevel(logging.DEBUG)
 
 .. _GitHub: https://github.com/ransford/sllurp/
+.. _guide: https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
 
 Known Issues
 ------------
