@@ -9,7 +9,7 @@ import csv
 import datetime
 import logging
 import threading
-from twisted.internet import reactor, task
+from twisted.internet import reactor
 
 import sllurp.llrp as llrp
 
@@ -49,7 +49,7 @@ class CsvLogger(object):
                 timestamp = tag['LastSeenTimestampUTC'][0] / 1e6
             else:
                 timestamp = (datetime.datetime.utcnow() -
-                                datetime.datetime(1970, 1, 1)).total_seconds()
+                             datetime.datetime(1970, 1, 1)).total_seconds()
             antenna = tag['AntennaID'][0]
             rssi = tag['PeakRSSI'][0]
             self.rows.append((timestamp, reader, antenna, rssi, epc))
@@ -106,7 +106,6 @@ def main(hosts, outfile, antennas, epc, rr_seconds, reader_timestamp):
                           reader_timestamp=reader_timestamp)
     fac.addTagReportCallback(csvlogger.tag_cb)
 
-    delay = 0
     for host in hosts:
         if ':' in host:
             host, port = host.split(':', 1)
