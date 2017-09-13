@@ -71,7 +71,6 @@ def bin2dump(data, label=''):
             return c
         return '.'
 
-    l = len(data)
     if len(label) > 0:
         str = label + '\n'
     else:
@@ -80,7 +79,8 @@ def bin2dump(data, label=''):
     p = 0
     line = ' ' * 80
     i = 0
-    while i < l:
+    datalen = len(data)
+    while i < datalen:
         num = '%02x' % struct.unpack('B', data[i])
         line = line[: p * 3] + num + line[p * 3 + 2:]
         line = line[:50 + p] + conv(data[i])
