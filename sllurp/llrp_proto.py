@@ -71,7 +71,6 @@ def bin2dump(data, label=''):
             return c
         return '.'
 
-    l = len(data)
     if len(label) > 0:
         str = label + '\n'
     else:
@@ -80,7 +79,8 @@ def bin2dump(data, label=''):
     p = 0
     line = ' ' * 80
     i = 0
-    while i < l:
+    datalen = len(data)
+    while i < datalen:
         num = '%02x' % struct.unpack('B', data[i])
         line = line[: p * 3] + num + line[p * 3 + 2:]
         line = line[:50 + p] + conv(data[i])
@@ -744,7 +744,7 @@ Message_struct['RO_ACCESS_REPORT'] = {
 
 # 16.1.35 KEEPALIVE
 def decode_Keepalive(msg):
-    return ''
+    return b''
 
 
 Message_struct['KEEPALIVE'] = {
@@ -758,7 +758,7 @@ Message_struct['KEEPALIVE'] = {
 
 # 16.1.36 KEEPALIVE_ACK
 def encode_KeepaliveAck(msg):
-    return ''
+    return b''
 
 
 Message_struct['KEEPALIVE_ACK'] = {
@@ -800,7 +800,7 @@ Message_struct['READER_EVENT_NOTIFICATION'] = {
 
 # 16.1.40 CLOSE_CONNECTION
 def encode_CloseConnection(msg):
-    return ''
+    return b''
 
 
 Message_struct['CLOSE_CONNECTION'] = {
@@ -2177,11 +2177,9 @@ def encode_ROSpecStopTrigger(par):
     msg_header = '!HHBI'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = b''
-
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
-                       t_type, duration) + data
+                       t_type, duration)
 
     return data
 

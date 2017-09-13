@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 from setuptools import setup, find_packages
 import os
@@ -26,7 +26,7 @@ install_deps = [
 
 setup(
     name='sllurp',
-    version='0.3.4',
+    version='0.3.5',
     description='RFID reader control library',
     long_description=read('README.rst'),
     author='Ben Ransford',
