@@ -2177,10 +2177,7 @@ def encode_ROSpecStopTrigger(par):
     msg_header = '!HHBI'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = struct.pack(msg_header, msgtype,
-                       len(data) + msg_header_len,
-                       t_type, duration)
-
+    data = struct.pack(msg_header, msgtype, msg_header_len, t_type, duration)
     return data
 
 
