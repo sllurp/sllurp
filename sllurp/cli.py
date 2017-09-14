@@ -72,12 +72,10 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
 @click.option('-a', '--antennas', type=str, default='0',
               help='comma-separated list of antennas to use (default 0=all)')
 @click.option('-e', '--epc', type=str, help='log only a specific EPC')
-@click.option('-t', '--rr_seconds', type=float, default=1.0,
-              help='Advance round robin every N seconds (default 1.0)')
 @click.option('-r', '--reader-timestamp', is_flag=True, default=False,
               help='Use reader-provided timestamps instead of our own')
-def log(host, outfile, antennas, epc, rr_seconds, reader_timestamp):
-    _log.main(host, outfile, antennas, epc, rr_seconds, reader_timestamp)
+def log(host, outfile, antennas, epc, reader_timestamp):
+    _log.main(host, outfile, antennas, epc, reader_timestamp)
 
 
 @cli.command()

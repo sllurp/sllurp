@@ -30,12 +30,6 @@ class CsvLogger(object):
         self.lock = threading.Lock()
         self.reader_timestamp = reader_timestamp
 
-    def next_proto(self, curr_proto):
-        protos = self.factory.protocols
-        next_p = protos[(protos.index(curr_proto) + 1) % len(protos)]
-        logger.debug('After %s comes %s', curr_proto.peername, next_p.peername)
-        return next_p
-
     def tag_cb(self, llrp_msg):
         host, port = llrp_msg.peername
         reader = '{}:{}'.format(host, port)
@@ -54,16 +48,6 @@ class CsvLogger(object):
             rssi = tag['PeakRSSI'][0]
             self.rows.append((timestamp, reader, antenna, rssi, epc))
             self.num_tags += tag['TagSeenCount'][0]
-        with self.lock:
-            logger.debug('This proto: %r (%s)', llrp_msg.proto,
-                         llrp.LLRPClient.getStateName(llrp_msg.proto.state))
-            next_p = self.next_proto(llrp_msg.proto)
-            logger.debug('Next proto: %r (%s)', next_p,
-                         llrp.LLRPClient.getStateName(next_p.state))
-            d = llrp_msg.proto.pause(force=True)
-            if d is not None:
-                d.addCallback(lambda _: next_p.resume())
-                d.addErrback(print, 'argh')
 
     def flush(self):
         logger.info('Writing %d rows...', len(self.rows))
@@ -79,13 +63,12 @@ def finish():
     logger.info('Total tags seen: %d', csvlogger.num_tags)
 
 
-def main(hosts, outfile, antennas, epc, rr_seconds, reader_timestamp):
+def main(hosts, outfile, antennas, epc, reader_timestamp):
     global csvlogger
 
     enabled_antennas = map(lambda x: int(x.strip()), antennas.split(','))
 
     fac = llrp.LLRPClientFactory(start_first=True,
-                                 duration=rr_seconds,
                                  antennas=enabled_antennas,
                                  start_inventory=False,
                                  disconnect_when_done=True,
@@ -114,7 +97,7 @@ def main(hosts, outfile, antennas, epc, rr_seconds, reader_timestamp):
             port = 5084
         reactor.connectTCP(host, port, fac, timeout=3)
 
-    # catch ctrl-C and stop inventory before disconnecting
+    # catch ctrl-C and stop logging before disconnecting
     reactor.addSystemEventTrigger('before', 'shutdown', finish)
 
     reactor.run()
