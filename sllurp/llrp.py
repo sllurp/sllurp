@@ -1044,7 +1044,7 @@ class LLRPClient(LineReceiver):
         max_power = self.tx_power_table.index(max(self.tx_power_table))
 
         ret = {}
-        for antid, tx_power in self.tx_power.items():
+        for antid, tx_power in tx_power.items():
             if tx_power == 0:
                 # tx_power = 0 means max power
                 max_power_dbm = max(self.tx_power_table)
@@ -1068,6 +1068,7 @@ class LLRPClient(LineReceiver):
         @param tx_power: index into self.tx_power_table
         """
         tx_pow_validated = self.get_tx_power(tx_power)
+        logger.debug('tx_pow_validated: %s', tx_pow_validated)
         needs_update = False
         for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
             if self.tx_power[ant] != tx_pow_idx:
