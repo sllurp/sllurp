@@ -3286,7 +3286,7 @@ class LLRPROSpec(dict):
                 },
             },
             'AISpec': {
-                'AntennaIDs': ' '.join(map(str, antennas)),
+                'AntennaIDs': antennas,
                 'AISpecStopTrigger': {
                     'AISpecStopTriggerType': 'Null',
                     'DurationTriggerValue': 0,

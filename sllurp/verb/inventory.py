@@ -61,6 +61,12 @@ def main(args):
                         args.modulation)
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
+    antmap = {
+        host: {
+            str(ant): 'Antenna {}'.format(ant) for ant in enabled_antennas
+        } for host in args.host
+    }
+    logger.info('Antenna map: %s', antmap)
 
     # d.callback will be called when all connections have terminated normally.
     # use d.addCallback(<callable>) to define end-of-program behavior.
@@ -70,7 +76,7 @@ def main(args):
     fac = LLRPClientFactory(onFinish=d,
                             duration=args.time,
                             report_every_n_tags=args.every_n,
-                            antennas=enabled_antennas,
+                            antenna_dict=antmap,
                             tx_power=args.tx_power,
                             modulation=args.modulation,
                             tari=tari,

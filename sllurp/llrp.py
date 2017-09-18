@@ -1044,7 +1044,7 @@ class LLRPClient(LineReceiver):
         max_power = self.tx_power_table.index(max(self.tx_power_table))
 
         ret = {}
-        for antid, tx_power in self.tx_power.items():
+        for antid, tx_power in tx_power.items():
             if tx_power == 0:
                 # tx_power = 0 means max power
                 max_power_dbm = max(self.tx_power_table)
@@ -1068,6 +1068,7 @@ class LLRPClient(LineReceiver):
         @param tx_power: index into self.tx_power_table
         """
         tx_pow_validated = self.get_tx_power(tx_power)
+        logger.debug('tx_pow_validated: %s', tx_pow_validated)
         needs_update = False
         for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
             if self.tx_power[ant] != tx_pow_idx:
@@ -1146,12 +1147,16 @@ class LLRPClient(LineReceiver):
 
 class LLRPClientFactory(ClientFactory):
     def __init__(self, start_first=False, onFinish=None, reconnect=False,
-                 **kwargs):
+                 antenna_dict=None, **kwargs):
         self.onFinish = onFinish
+        self.start_first = start_first
         self.reconnect = reconnect
         self.reconnect_delay = 1.0  # seconds
         self.client_args = kwargs
-        self.start_first = start_first
+        if isinstance(antenna_dict, dict):
+            self.antenna_dict = antenna_dict
+        else:
+            self.antenna_dict = {}
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
@@ -1174,9 +1179,27 @@ class LLRPClientFactory(ClientFactory):
     def addTagReportCallback(self, cb):
         self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
-    def buildProtocol(self, _):
+    def buildProtocol(self, addr):
+        """Get a new LLRP client protocol object.
+
+        Consult self.antenna_dict to look up antennas to use.
+        """
         clargs = self.client_args.copy()
-        logger.debug('start_inventory: %s', clargs['start_inventory'])
+
+        # optionally configure antennas from self.antenna_dict, which looks
+        # like {'10.0.0.1:5084': {'1': 'ant1', '2': 'ant2'}}
+        hostport = '{}:{}'.format(addr.host, addr.port)
+        logger.debug('Building protocol for %s', hostport)
+        if hostport in self.antenna_dict:
+            clargs['antennas'] = [
+                int(x) for x in self.antenna_dict[hostport].keys()]
+        elif addr.host in self.antenna_dict:
+            clargs['antennas'] = [
+                int(x) for x in self.antenna_dict[addr.host].keys()]
+        logger.debug('Antennas in buildProtocol: %s', clargs.get('antennas'))
+
+        logger.debug('%s start_inventory: %s', hostport,
+                     clargs['start_inventory'])
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
             clargs['start_inventory'] = True
