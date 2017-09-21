@@ -913,13 +913,13 @@ class LLRPClient(LineReceiver):
 
         self.send_DISABLE_ACCESSSPEC(accessSpecID, onCompletion=d)
 
-    def startInventory(self, *args):
+    def startInventory(self, proto=None, force_regen_rospec=False):
         """Add a ROSpec to the reader and enable it."""
         if self.state == LLRPClient.STATE_INVENTORYING:
             logger.warn('ignoring startInventory() while already inventorying')
             return None
 
-        rospec = self.getROSpec()['ROSpec']
+        rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
 
         logger.info('starting inventory')
 
@@ -1079,7 +1079,9 @@ class LLRPClient(LineReceiver):
                          tx_pow_idx, tx_pow_dbm)
 
         if needs_update and self.state == LLRPClient.STATE_INVENTORYING:
-            self.pause(0.5, force_regen_rospec=True)
+            logger.debug('changing tx power; will stop politely, then resume')
+            d = self.stopPolitely()
+            d.addCallback(self.startInventory, force_regen_rospec=True)
 
     def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
         """Pause an inventory operation for a set amount of time."""
@@ -1118,10 +1120,15 @@ class LLRPClient(LineReceiver):
 
         return d
 
-    def resume(self):
-        logger.debug('Resuming')
+    def resume(self, force_regen_rospec=False):
+        logger.debug('resuming, force_regen_rospec=%s', force_regen_rospec)
+
+        if force_regen_rospec:
+            self.rospec = self.getROSpec(force_new=True)
+
         if self.state in (LLRPClient.STATE_CONNECTED,
                           LLRPClient.STATE_DISCONNECTED):
+            logger.debug('will startInventory()')
             self.startInventory()
             return
 
@@ -1132,12 +1139,10 @@ class LLRPClient(LineReceiver):
 
         logger.info('resuming')
 
-        rospec = self.getROSpec()['ROSpec']
-
         d = defer.Deferred()
         d.addCallback(self._setState_wrapper, LLRPClient.STATE_INVENTORYING)
         d.addErrback(self.panic, 'resume() failed')
-        self.send_ENABLE_ROSPEC(None, rospec, onCompletion=d)
+        self.send_ENABLE_ROSPEC(None, self.rospec['ROSpec'], onCompletion=d)
 
     def sendLLRPMessage(self, llrp_msg):
         assert isinstance(llrp_msg, LLRPMessage)
