@@ -135,6 +135,7 @@ if __name__ == '__main__':
                             antennas=enabled_antennas,
                             tx_power=args.tx_power,
                             modulation=args.modulation,
+                            start_inventory=True,
                             tari=args.tari,
                             tag_content_selector={
                                 'EnableROSpecID': True,
