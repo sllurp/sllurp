@@ -62,43 +62,6 @@ def encode(data):
     return Message_struct[data]['encode']
 
 
-def bin2dump(data, label=''):
-    def isprint(c):
-        return ord(c) >= 32 and ord(c) <= 126
-
-    def conv(c):
-        if isprint(c):
-            return c
-        return '.'
-
-    if len(label) > 0:
-        str = label + '\n'
-    else:
-        str = ''
-
-    p = 0
-    line = ' ' * 80
-    i = 0
-    datalen = len(data)
-    while i < datalen:
-        num = '%02x' % struct.unpack('B', data[i])
-        line = line[: p * 3] + num + line[p * 3 + 2:]
-        line = line[:50 + p] + conv(data[i])
-
-        p += 1
-        if p == 16:
-            str += line + '\n'
-            p = 0
-            line = ' ' * 80
-        i += 1
-    if p != 0:
-        str += line + '\n'
-    return str[:-1]
-
-
-def dump(data, label):
-    logger.debug(bin2dump(data, label))
-
 #
 # LLRP defines & structs
 #
@@ -465,6 +428,7 @@ def decode_AddROSpecResponse(data):
     # Check the end of the message
     if len(body) > 0:
         raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
 
@@ -511,6 +475,7 @@ def decode_DeleteROSpecResponse(data):
     # Check the end of the message
     if len(body) > 0:
         raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
 
@@ -557,6 +522,7 @@ def decode_StartROSpecResponse(data):
     # Check the end of the message
     if len(body) > 0:
         raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
 
@@ -602,7 +568,7 @@ def decode_StopROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
 
@@ -648,7 +614,7 @@ def decode_EnableROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
 
@@ -694,7 +660,7 @@ def decode_DisableROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
 
@@ -826,7 +792,7 @@ def decode_CloseConnectionResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
 
@@ -3084,7 +3050,7 @@ def decode_LLRPStatus(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return par, data[length:]
 
@@ -3170,7 +3136,7 @@ def decode_ParameterError(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
+        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return par, data[length:]
 
