@@ -19,12 +19,12 @@ args = None
 
 def startTimeMeasurement():
     global startTime
-    startTime = time.time()
+    startTime = time.monotonic()
 
 
 def stopTimeMeasurement():
     global endTime
-    endTime = time.time()
+    endTime = time.monotonic()
 
 
 def finish(_):
@@ -33,7 +33,7 @@ def finish(_):
 
     # stop runtime measurement to determine rates
     stopTimeMeasurement()
-    runTime = (endTime - startTime) if (endTime > startTime) else 0
+    runTime = endTime - startTime
 
     logger.info('total # of tags seen: %d (%d tags/second)', tagReport,
                 tagReport/runTime)

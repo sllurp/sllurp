@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def finish(*args):
-    runtime = max(time.time() - start_time, 0)
+    runtime = time.monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
                 numtags/runtime)
     if reactor.running:
@@ -115,6 +115,6 @@ def main(args):
     reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
 
     # start runtime measurement to determine rates
-    start_time = time.time()
+    start_time = time.monotonic()
 
     reactor.run()
