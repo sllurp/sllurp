@@ -143,9 +143,8 @@ command-line option to ``sllurp``.  You can log to a logfile with the ``-l
 
 .. code:: python
 
-  import logger
-  sllurp_logger = logging.getLogger('sllurp')
-  sllurp_logger.setLevel(logging.DEBUG)
+  import logging
+  logging.getLogger('sllurp').setLevel(logging.DEBUG)
 
 .. _GitHub: https://github.com/ransford/sllurp/
 .. _guide: https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
