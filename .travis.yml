@@ -11,4 +11,4 @@ install:
     - pip install -e .[test]
 
 script:
-    - pytest tests
+    - python setup.py test

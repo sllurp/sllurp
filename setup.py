@@ -52,7 +52,7 @@ setup(
     install_requires=install_deps,
     tests_require=test_deps,
     extras_require={'test': test_deps},
-    test_suite='nose2.collector.collector',
+    setup_requires=['pytest-runner'],
     entry_points={
         'console_scripts': [
             'sllurp=sllurp.cli:cli',

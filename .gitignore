@@ -12,7 +12,7 @@ env/
 build/
 develop-eggs/
 dist/
-eggs/
+.eggs/
 lib/
 lib64/
 parts/
@@ -33,6 +33,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+/.pytest_cache/
 
 # Translations
 *.mo
