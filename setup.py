@@ -16,7 +16,7 @@ def read(filename):
         return f.read()
 
 
-test_deps = ['nose2', 'flake8', 'tox']
+test_deps = ['pytest']
 install_deps = [
     'click',
     'twisted',
