@@ -8,12 +8,6 @@ cache: pip
 
 install:
     - pip --version
-    - pip install tox
-    - tox --version
 
 script:
-    - tox -v -e $(echo py$TRAVIS_PYTHON_VERSION | tr -d .)
-
-after_failure:
-    - cat .tox/log/*
-    - cat .tox/*/log/*
+    - pytest tests
