@@ -8,6 +8,7 @@ cache: pip
 
 install:
     - pip --version
+    - pip install -e .[test]
 
 script:
     - pytest tests
