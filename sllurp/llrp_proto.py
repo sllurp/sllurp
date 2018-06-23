@@ -3339,6 +3339,10 @@ class LLRPMessageDict(dict):
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
 for msgname, msgstruct in iteritems(Message_struct):
+    # HACK: skip parameters
+    if 'PARAM' in msgname.upper():
+        continue
+
     try:
         ty = msgstruct['type']
     except KeyError:
