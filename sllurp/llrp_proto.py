@@ -427,7 +427,6 @@ def decode_AddROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
         raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
@@ -474,7 +473,6 @@ def decode_DeleteROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
         raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
@@ -521,7 +519,6 @@ def decode_StartROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
         raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
@@ -1465,7 +1462,8 @@ def decode_PerAntennaAirProtocol(data):
     num = int(par['NumProtocols'])
     id_fmt = '!B'
     for i in range(num):
-        par['ProtocolID{}'.format(i + 1)] = struct.unpack(id_fmt, body[i:i+1])[0]
+        par['ProtocolID{}'.format(i + 1)] = \
+            struct.unpack(id_fmt, body[i:i+1])[0]
 
     return par, data[length:]
 
@@ -3186,15 +3184,6 @@ Message_struct['CUSTOM_MESSAGE'] = {
     'encode': encode_CustomMessage,
     'decode': decode_CustomMessageResponse
 }
-
-
-#Message_struct['CUSTOM_MESSAGE_RESPONSE'] = {
-#    'type': 1023,
-#    'fields': [
-#        'LLRPStatus',
-#    ],
-#    'decode': decode_CustomMessageResponse
-#}
 
 
 def encode_CustomParameter(par):
