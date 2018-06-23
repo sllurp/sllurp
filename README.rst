@@ -114,6 +114,16 @@ can do this the application that imports sllurp:
     sllurp_logger.setHandler(logging.FileHandler('sllurp.log'))
     # or .setHandler(logging.StreamHandler()) to log to stderr...
 
+
+Vendor Extensions
+-----------------
+
+sllurp has limited support for vendor extensions through LLRP's custom message
+facilities.  For example, `sllurp inventory --impinj-search-mode N` allows you
+to set the Impinj_ search mode to single target (1) or dual target (2).
+
+.. _Impinj: https://support.impinj.com/hc/en-us/articles/202756158-Understanding-EPC-Gen2-Search-Modes-and-Sessions
+
 Handy Reader Commands
 ---------------------
 
