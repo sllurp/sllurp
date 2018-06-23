@@ -9,7 +9,6 @@ from twisted.internet import reactor, defer
 import sllurp.llrp as llrp
 
 startTime = None
-endTime = None
 
 tagReport = 0
 logger = logging.getLogger('sllurp')
@@ -17,23 +16,9 @@ logger = logging.getLogger('sllurp')
 args = None
 
 
-def startTimeMeasurement():
-    global startTime
-    startTime = time.time()
-
-
-def stopTimeMeasurement():
-    global endTime
-    endTime = time.time()
-
-
 def finish(_):
-    global startTime
-    global endTime
-
     # stop runtime measurement to determine rates
-    stopTimeMeasurement()
-    runTime = (endTime - startTime) if (endTime > startTime) else 0
+    runTime = time.monotonic() - startTime
 
     logger.info('total # of tags seen: %d (%d tags/second)', tagReport,
                 tagReport/runTime)
@@ -104,6 +89,7 @@ def tagReportCallback(llrpMsg):
 
 
 def main(main_args):
+    global startTime
     global args
     args = main_args
 
@@ -147,7 +133,7 @@ def main(main_args):
     reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)
 
     # start runtime measurement to determine rates
-    startTimeMeasurement()
+    startTime = time.monotonic()
 
     reactor.run()
 

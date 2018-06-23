@@ -16,7 +16,7 @@ def read(filename):
         return f.read()
 
 
-test_deps = ['nose2', 'flake8', 'tox']
+test_deps = ['pytest']
 install_deps = [
     'click',
     'twisted',
@@ -26,7 +26,7 @@ install_deps = [
 
 setup(
     name='sllurp',
-    version='0.3.9',
+    version='0.4.0',
     description='RFID reader control library',
     long_description=read('README.rst'),
     author='Ben Ransford',
@@ -52,7 +52,7 @@ setup(
     install_requires=install_deps,
     tests_require=test_deps,
     extras_require={'test': test_deps},
-    test_suite='nose2.collector.collector',
+    setup_requires=['pytest-runner'],
     entry_points={
         'console_scripts': [
             'sllurp=sllurp.cli:cli',

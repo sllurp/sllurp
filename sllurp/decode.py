@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 import binascii
 import argparse
 import logging
@@ -35,5 +35,5 @@ if __name__ == '__main__':
 
     m = binascii.unhexlify(args.msg)
     msg = LLRPMessage(msgbytes=m)
-    print 'Decoded message:\n=========='
-    print msg
+    print('Decoded message:\n==========')
+    print(msg)

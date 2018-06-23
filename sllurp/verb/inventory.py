@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def finish(*args):
-    runtime = max(time.time() - start_time, 0)
+    runtime = time.monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
                 numtags/runtime)
     if reactor.running:
@@ -73,31 +73,35 @@ def main(args):
     d = defer.Deferred()
     d.addCallback(finish)
 
-    fac = LLRPClientFactory(onFinish=d,
-                            duration=args.time,
-                            report_every_n_tags=args.every_n,
-                            antenna_dict=antmap,
-                            tx_power=args.tx_power,
-                            modulation=args.modulation,
-                            tari=tari,
-                            session=args.session,
-                            mode_identifier=args.mode_identifier,
-                            tag_population=args.population,
-                            start_inventory=True,
-                            disconnect_when_done=args.time and args.time > 0,
-                            reconnect=args.reconnect,
-                            tag_content_selector={
-                                'EnableROSpecID': False,
-                                'EnableSpecIndex': False,
-                                'EnableInventoryParameterSpecID': False,
-                                'EnableAntennaID': True,
-                                'EnableChannelIndex': False,
-                                'EnablePeakRRSI': True,
-                                'EnableFirstSeenTimestamp': False,
-                                'EnableLastSeenTimestamp': True,
-                                'EnableTagSeenCount': True,
-                                'EnableAccessSpecID': False
-                            })
+    factory_args = dict(
+        onFinish=d,
+        duration=args.time,
+        report_every_n_tags=args.every_n,
+        antenna_dict=antmap,
+        tx_power=args.tx_power,
+        modulation=args.modulation,
+        tari=tari,
+        session=args.session,
+        mode_identifier=args.mode_identifier,
+        tag_population=args.population,
+        start_inventory=True,
+        disconnect_when_done=args.time and args.time > 0,
+        reconnect=args.reconnect,
+        tag_content_selector={
+            'EnableROSpecID': True,
+            'EnableSpecIndex': False,
+            'EnableInventoryParameterSpecID': False,
+            'EnableAntennaID': True,
+            'EnableChannelIndex': False,
+            'EnablePeakRRSI': True,
+            'EnableFirstSeenTimestamp': False,
+            'EnableLastSeenTimestamp': True,
+            'EnableTagSeenCount': True,
+            'EnableAccessSpecID': False
+        },
+        impinj_search_mode=args.impinj_search_mode,
+    )
+    fac = LLRPClientFactory(**factory_args)
 
     # tag_report_cb will be called every time the reader sends a TagReport
     # message (i.e., when it has "seen" tags).
@@ -115,6 +119,6 @@ def main(args):
     reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
 
     # start runtime measurement to determine rates
-    start_time = time.time()
+    start_time = time.monotonic()
 
     reactor.run()

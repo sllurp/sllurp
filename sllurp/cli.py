@@ -49,19 +49,24 @@ def cli(debug, logfile):
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
+@click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
+              help=('Impinj extension: inventory search mode '
+                    ' (1=single, 2=double)'))
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               modulation, tari, session, mode_identifier,
-              tag_population, reconnect):
+              tag_population, reconnect,
+              impinj_search_mode):
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'modulation', 'tari', 'session',
                                'population', 'mode_identifier',
-                               'reconnect'])
+                               'reconnect', 'impinj_search_mode'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
-                reconnect=reconnect)
+                reconnect=reconnect,
+                impinj_search_mode=impinj_search_mode)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
 

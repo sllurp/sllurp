@@ -427,7 +427,6 @@ def decode_AddROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
         raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
@@ -474,7 +473,6 @@ def decode_DeleteROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
         raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
@@ -521,7 +519,6 @@ def decode_StartROSpecResponse(data):
 
     # Check the end of the message
     if len(body) > 0:
-        raise LLRPError('junk at end of message: ' + bin2dump(body))
         raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
 
     return msg
@@ -1465,7 +1462,8 @@ def decode_PerAntennaAirProtocol(data):
     num = int(par['NumProtocols'])
     id_fmt = '!B'
     for i in range(num):
-        par['ProtocolID{}'.format(i + 1)] = struct.unpack(id_fmt, body[i:i+1])[0]
+        par['ProtocolID{}'.format(i + 1)] = \
+            struct.unpack(id_fmt, body[i:i+1])[0]
 
     return par, data[length:]
 
@@ -2389,7 +2387,8 @@ def encode_C1G2InventoryCommand(par):
         data += encode('C1G2RFControl')(par['C1G2RFControl'])
     if 'C1G2SingulationControl' in par:
         data += encode('C1G2SingulationControl')(par['C1G2SingulationControl'])
-    # XXX custom parameters
+    if 'CustomParameter' in par:
+        data += encode('CustomParameter')(par['CustomParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -3154,6 +3153,63 @@ Message_struct['ParameterError'] = {
 }
 
 
+def encode_CustomMessage(msg):
+    vendor_id = msg['VendorID']
+    subtype = msg['Subtype']
+    payload = msg.get('Payload', struct.pack('!I', 0))
+    data = struct.pack('!IB', vendor_id, subtype) + payload
+    logger.info('data: %s', data.hex())
+    return data
+
+
+def decode_CustomMessageResponse(data):
+    msg = LLRPMessageDict()
+    logger.debug(func())
+
+    skip_len = struct.calcsize('!IB')  # skip vendor ID + subtype
+    ret, body = decode('LLRPStatus')(data[skip_len:])
+    msg['LLRPStatus'] = ret
+
+    return msg
+
+
+Message_struct['CUSTOM_MESSAGE'] = {
+    'type': 1023,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'VendorID',
+        'Subtype',
+        'Payload',
+    ],
+    'encode': encode_CustomMessage,
+    'decode': decode_CustomMessageResponse
+}
+
+
+def encode_CustomParameter(par):
+    msgtype = Message_struct['CustomParameter']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+    data += par['Payload']
+
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
+    return header + data
+
+
+Message_struct['CustomParameter'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'Payload'
+    ],
+    'encode': encode_CustomParameter
+}
+
+
 def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
@@ -3190,7 +3246,8 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
-                 session=2, tag_population=4):
+                 session=2, tag_population=4,
+                 impinj_search_mode=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3224,7 +3281,7 @@ class LLRPROSpec(dict):
             mode_index = reader_mode['ModeIdentifier']
 
         tagReportContentSelector = {
-            'EnableROSpecID': False,
+            'EnableROSpecID': True,
             'EnableSpecIndex': False,
             'EnableInventoryParameterSpecID': False,
             'EnableAntennaID': True,
@@ -3287,7 +3344,7 @@ class LLRPROSpec(dict):
                         'Session': session,
                         'TagPopulation': tag_population,
                         'TagTransitTime': 0
-                    }
+                    },
                 }
             }
             if reader_mode:
@@ -3296,6 +3353,15 @@ class LLRPROSpec(dict):
                     'Tari': override_tari if override_tari else 0,
                 }
                 antconf['C1G2InventoryCommand']['C1G2RFControl'] = rfcont
+
+            # impinj extension: single mode or dual mode (XXX others?)
+            if impinj_search_mode is not None:
+                logger.info('impinj_search_mode: %s', impinj_search_mode)
+                antconf['C1G2InventoryCommand']['CustomParameter'] = {
+                    'VendorID': 25882,  # impinj
+                    'Subtype': 23,  # inventory search mode
+                    'Payload': struct.pack('!H', int(impinj_search_mode)),
+                }
 
             ips['AntennaConfiguration'].append(antconf)
 
@@ -3339,6 +3405,10 @@ class LLRPMessageDict(dict):
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
 for msgname, msgstruct in iteritems(Message_struct):
+    # HACK: skip parameters
+    if 'PARAM' in msgname.upper():
+        continue
+
     try:
         ty = msgstruct['type']
     except KeyError:

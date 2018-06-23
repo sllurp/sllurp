@@ -1,20 +1,13 @@
 language: python
 python:
   - "2.7"
-  - "3.3"
-  - "3.4"
   - "3.5"
   - "3.6"
 cache: pip
 
 install:
     - pip --version
-    - pip install tox
-    - tox --version
+    - pip install -e .[test]
 
 script:
-    - tox -v -e $(echo py$TRAVIS_PYTHON_VERSION | tr -d .)
-
-after_failure:
-    - cat .tox/log/*
-    - cat .tox/*/log/*
+    - python setup.py test

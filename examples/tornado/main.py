@@ -128,7 +128,8 @@ if __name__ == '__main__':
 
     # Load Sllurp config
     args = parse_args()
-    enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
+    enabled_antennas = list(
+        map(lambda x: int(x.strip()), args.antennas.split(',')))
 
     # Create Clients and set them to connect
     fac = LLRPClientFactory(report_every_n_tags=args.every_n,
