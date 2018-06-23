@@ -1,13 +1,20 @@
+"""Example application for Tornadio + Twisted."""
+
+from argparse import ArgumentParser
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..', '..')))
 
-from argparse import ArgumentParser
+import tornado.platform.twisted
+tornado.platform.twisted.install()
+
 from logging import getLogger, INFO, Formatter, StreamHandler, WARN
 from sllurp.llrp import LLRP_PORT, LLRPClientFactory
 import smokesignal
+
 from tornado.escape import json_decode
-from tornado.platform.twisted import TwistedIOLoop
+# from tornado.platform.twisted import TwistedIOLoop
+from tornado.ioloop import IOLoop
 from tornado.template import Loader
 from tornado.web import RequestHandler, Application
 from tornado.websocket import WebSocketClosedError, WebSocketHandler
@@ -118,8 +125,7 @@ def polite_shutdown(factory):
 
 if __name__ == '__main__':
     setup_logging()
-    # Set up tornado to use reactor
-    TwistedIOLoop().install()
+    # Use Tornado's reactor
 
     # Set up web server
     application = Application([(r"/", DefaultHandler),
@@ -158,4 +164,4 @@ if __name__ == '__main__':
     reactor.addSystemEventTrigger('before', 'shutdown', polite_shutdown, fac)
 
     # Start server & connect to readers
-    reactor.run()
+    IOLoop.current().start()
