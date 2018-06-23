@@ -145,6 +145,7 @@ class LLRPClient(LineReceiver):
     STATE_SENT_GET_CAPABILITIES = 21
     STATE_PAUSING = 22
     STATE_PAUSED = 23
+    STATE_SENT_ENABLE_IMPINJ_EXTENSIONS = 24
 
     @classmethod
     def getStates(_):
@@ -168,7 +169,8 @@ class LLRPClient(LineReceiver):
                  report_timeout_ms=0,
                  tag_content_selector={},
                  mode_identifier=None,
-                 session=2, tag_population=4):
+                 session=2, tag_population=4,
+                 enable_impinj_extensions=False):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -201,6 +203,9 @@ class LLRPClient(LineReceiver):
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
+        if enable_impinj_extensions:
+            logger.info('Enabling Impinj extensions')
+        self.enable_impinj_extensions = enable_impinj_extensions
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -414,7 +419,32 @@ class LLRPClient(LineReceiver):
             d = defer.Deferred()
             d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
-            self.send_GET_READER_CAPABILITIES(onCompletion=d)
+
+            if self.enable_impinj_extensions:
+                caps = defer.Deferred()
+                caps.addCallback(self.send_GET_READER_CAPABILITIES,
+                                 onCompletion=d)
+                caps.addErrback(self.panic, 'ENABLE_IMPINJ_EXTENSIONS failed')
+                self.send_ENABLE_IMPINJ_EXTENSIONS(onCompletion=caps)
+            else:
+                self.send_GET_READER_CAPABILITIES(self, onCompletion=d)
+
+        elif self.state == LLRPClient.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS:
+            logger.debug(lmsg)
+            if msgName != 'CUSTOM_MESSAGE':
+                logger.error('unexpected response %s while enabling Impinj'
+                             'extensions', msgName)
+                return
+
+            if not lmsg.isSuccess():
+                status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
+                err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
+                logger.fatal('Error %s enabling Impinj extensions: %s',
+                             status, err)
+                return
+            logger.debug('Successfully enabled Impinj extensions')
+
+            self.processDeferreds(msgName, lmsg.isSuccess())
 
         # in state SENT_GET_CAPABILITIES, expect GET_CAPABILITIES_RESPONSE;
         # respond to this message by advancing to state CONNECTED.
@@ -680,7 +710,20 @@ class LLRPClient(LineReceiver):
                 'ID':   0,
             }}))
 
-    def send_GET_READER_CAPABILITIES(self, onCompletion):
+    def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
+        self.sendLLRPMessage(LLRPMessage(msgdict={
+            'CUSTOM_MESSAGE': {
+                'Ver': 1,
+                'Type': 1023,
+                'ID': 0,
+                'VendorID': 25882,
+                'Subtype': 21,
+                # skip payload
+            }}))
+        self.setState(LLRPClient.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS)
+        self._deferreds['CUSTOM_MESSAGE'].append(onCompletion)
+
+    def send_GET_READER_CAPABILITIES(self, _, onCompletion):
         self.sendLLRPMessage(LLRPMessage(msgdict={
             'GET_READER_CAPABILITIES': {
                 'Ver':  1,
@@ -951,16 +994,21 @@ class LLRPClient(LineReceiver):
             return self.rospec
 
         # create an ROSpec to define the reader's inventorying behavior
-        self.rospec = \
-            LLRPROSpec(self.reader_mode, 1, duration_sec=self.duration,
-                       report_every_n_tags=self.report_every_n_tags,
-                       report_timeout_ms=self.report_timeout_ms,
-                       tx_power=self.tx_power,
-                       antennas=self.antennas,
-                       tag_content_selector=self.tag_content_selector,
-                       session=self.session,
-                       tari=self.tari,
-                       tag_population=self.tag_population)
+        rospec_kwargs = dict(
+            duration_sec=self.duration,
+            report_every_n_tags=self.report_every_n_tags,
+            report_timeout_ms=self.report_timeout_ms,
+            tx_power=self.tx_power,
+            antennas=self.antennas,
+            tag_content_selector=self.tag_content_selector,
+            session=self.session,
+            tari=self.tari,
+            tag_population=self.tag_population
+        )
+        if self.enable_impinj_extensions:
+            rospec_kwargs['impinj_inventory_search_mode'] = 2  # XXX hardcoded
+
+        self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)
         return self.rospec
 

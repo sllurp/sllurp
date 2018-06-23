@@ -73,7 +73,10 @@ def main(args):
     d = defer.Deferred()
     d.addCallback(finish)
 
+    # TODO: parse impinj extension args, set enable_impinj_extensions
+
     fac = LLRPClientFactory(onFinish=d,
+                            enable_impinj_extensions=True,
                             duration=args.time,
                             report_every_n_tags=args.every_n,
                             antenna_dict=antmap,
@@ -87,7 +90,7 @@ def main(args):
                             disconnect_when_done=args.time and args.time > 0,
                             reconnect=args.reconnect,
                             tag_content_selector={
-                                'EnableROSpecID': False,
+                                'EnableROSpecID': True,
                                 'EnableSpecIndex': False,
                                 'EnableInventoryParameterSpecID': False,
                                 'EnableAntennaID': True,
