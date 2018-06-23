@@ -170,7 +170,7 @@ class LLRPClient(LineReceiver):
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
-                 enable_impinj_extensions=False):
+                 impinj_search_mode=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -203,9 +203,9 @@ class LLRPClient(LineReceiver):
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
-        if enable_impinj_extensions:
+        if impinj_search_mode is not None:
             logger.info('Enabling Impinj extensions')
-        self.enable_impinj_extensions = enable_impinj_extensions
+        self.impinj_search_mode = impinj_search_mode
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -420,7 +420,7 @@ class LLRPClient(LineReceiver):
             d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
-            if self.enable_impinj_extensions:
+            if self.impinj_search_mode is not None:
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -1005,8 +1005,9 @@ class LLRPClient(LineReceiver):
             tari=self.tari,
             tag_population=self.tag_population
         )
-        if self.enable_impinj_extensions:
-            rospec_kwargs['impinj_inventory_search_mode'] = 2  # XXX hardcoded
+        logger.info('Impinj search mode? %s', self.impinj_search_mode)
+        if self.impinj_search_mode is not None:
+            rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)

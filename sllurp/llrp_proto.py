@@ -3258,7 +3258,7 @@ class LLRPROSpec(dict):
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
-                 impinj_inventory_search_mode=False):
+                 impinj_search_mode=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3366,11 +3366,12 @@ class LLRPROSpec(dict):
                 antconf['C1G2InventoryCommand']['C1G2RFControl'] = rfcont
 
             # impinj extension: single mode or dual mode (XXX others?)
-            if impinj_inventory_search_mode in (1, 2):
+            if impinj_search_mode is not None:
+                logger.info('impinj_search_mode: %s', impinj_search_mode)
                 antconf['C1G2InventoryCommand']['CustomParameter'] = {
                     'VendorID': 25882,  # impinj
                     'Subtype': 23,  # inventory search mode
-                    'Payload': struct.pack('!H', impinj_inventory_search_mode),
+                    'Payload': struct.pack('!H', int(impinj_search_mode)),
                 }
 
             ips['AntennaConfiguration'].append(antconf)
