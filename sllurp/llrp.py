@@ -1253,7 +1253,7 @@ class LLRPClientFactory(ClientFactory):
         logger.debug('Antennas in buildProtocol: %s', clargs.get('antennas'))
 
         logger.debug('%s start_inventory: %s', hostport,
-                     clargs['start_inventory'])
+                     clargs.get('start_inventory'))
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
             clargs['start_inventory'] = True
