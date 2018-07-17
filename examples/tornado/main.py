@@ -144,7 +144,7 @@ if __name__ == '__main__':
                                 'EnableInventoryParameterSpecID': True,
                                 'EnableAntennaID': True,
                                 'EnableChannelIndex': True,
-                                'EnablePeakRRSI': True,
+                                'EnablePeakRSSI': True,
                                 'EnableFirstSeenTimestamp': True,
                                 'EnableLastSeenTimestamp': True,
                                 'EnableTagSeenCount': True,
