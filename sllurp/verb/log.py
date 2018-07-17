@@ -78,7 +78,7 @@ def main(hosts, outfile, antennas, epc, reader_timestamp):
                                      'EnableInventoryParameterSpecID': False,
                                      'EnableAntennaID': True,
                                      'EnableChannelIndex': False,
-                                     'EnablePeakRRSI': True,
+                                     'EnablePeakRSSI': True,
                                      'EnableFirstSeenTimestamp': False,
                                      'EnableLastSeenTimestamp': True,
                                      'EnableTagSeenCount': True,

@@ -97,7 +97,7 @@ def main(args):
             'EnableInventoryParameterSpecID': False,
             'EnableAntennaID': False,
             'EnableChannelIndex': False,
-            'EnablePeakRRSI': False,
+            'EnablePeakRSSI': True,
             'EnableFirstSeenTimestamp': False,
             'EnableLastSeenTimestamp': True,
             'EnableTagSeenCount': False,
