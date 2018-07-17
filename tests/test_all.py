@@ -174,7 +174,7 @@ class TestEncodings(unittest.TestCase):
         'EnableInventoryParameterSpecID': False,
         'EnableAntennaID': True,
         'EnableChannelIndex': False,
-        'EnablePeakRRSI': True,
+        'EnablePeakRSSI': True,
         'EnableFirstSeenTimestamp': True,
         'EnableLastSeenTimestamp': True,
         'EnableTagSeenCount': True,
