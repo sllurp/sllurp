@@ -33,9 +33,13 @@ def tag_report_cb(llrp_msg):
     global numtags
     tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
-        logger.info('saw tag(s): %s', pprint.pformat(tags))
-        for tag in tags:
-            numtags += tag['TagSeenCount'][0]
+        values = (llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData'][0]['LastSeenTimestampUTC'][0], 
+                    llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData'][0]['Phase'])
+        print('Time\t: %u' % values[0])
+        print('Phase\t: %f\n' % values[1])
+        # logger.info('saw tag(s): %s', pprint.pformat(tags))
+    #     for tag in tags:
+    #         numtags += tag['TagSeenCount'][0]
     else:
         logger.info('no tags seen')
         return
@@ -88,15 +92,15 @@ def main(args):
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
         tag_content_selector={
-            'EnableROSpecID': True,
+            'EnableROSpecID': False,
             'EnableSpecIndex': False,
             'EnableInventoryParameterSpecID': False,
-            'EnableAntennaID': True,
+            'EnableAntennaID': False,
             'EnableChannelIndex': False,
-            'EnablePeakRRSI': True,
+            'EnablePeakRRSI': False,
             'EnableFirstSeenTimestamp': False,
             'EnableLastSeenTimestamp': True,
-            'EnableTagSeenCount': True,
+            'EnableTagSeenCount': False,
             'EnableAccessSpecID': False
         },
         impinj_search_mode=args.impinj_search_mode,

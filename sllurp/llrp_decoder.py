@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 import struct
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ tve_param_formats = {
     16: ('AccessSpecID', '!I')
 }
 
+nontve_header = '!H'
+nontve_header_len = struct.calcsize(nontve_header)
+
 
 def decode_tve_parameter(data):
     """Generic byte decoding function for TVE parameters.
@@ -31,6 +35,16 @@ def decode_tve_parameter(data):
     Given an array of bytes, tries to interpret a TVE parameter from the
     beginning of the array.  Returns the decoded data and the number of bytes
     it read."""
+
+    (nontve,) = struct.unpack(nontve_header, data[:nontve_header_len])
+    if nontve == 1023:
+        (size,) = struct.unpack('!H', data[nontve_header_len:nontve_header_len+2])
+        (subtype,) = struct.unpack('!H', data[size-4:size-2])
+        if subtype == 56:   # Phase parameter
+            (phase,) = struct.unpack('!H', data[size-2:size])
+            # phase = phase*((2*math.pi)/4096)  #radians
+            phase = phase*(360/4096)    #degrees
+            return {'Phase': phase}, size
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
     (msgtype,) = struct.unpack(tve_header, data[:tve_header_len])

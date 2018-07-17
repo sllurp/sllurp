@@ -2474,6 +2474,7 @@ def encode_ROReportSpec(par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
+    data += encode('ImpinjTagReportContentSelector')(par['ImpinjTagReportContentSelector'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2487,7 +2488,8 @@ Message_struct['ROReportSpec'] = {
     'fields': [
         'N',
         'ROReportTrigger',
-        'TagReportContentSelector'
+        'TagReportContentSelector',
+        'ImpinjTagReportContentSelector',
     ],
     'encode': encode_ROReportSpec
 }
@@ -3152,6 +3154,28 @@ Message_struct['ParameterError'] = {
     'decode': decode_ParameterError
 }
 
+def encode_ImpinjTagReportContentSelector(par):
+    msgtype = Message_struct['ImpinjTagReportContentSelector']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+    data += encode('CustomParameter')(par['CustomParameter'])
+
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
+    return header + data
+
+
+Message_struct['ImpinjTagReportContentSelector'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'CustomParameter'
+    ],
+    'encode': encode_ImpinjTagReportContentSelector
+}
 
 def encode_CustomMessage(msg):
     vendor_id = msg['VendorID']
@@ -3160,6 +3184,8 @@ def encode_CustomMessage(msg):
     data = struct.pack('!IB', vendor_id, subtype) + payload
     logger.info('data: %s', data.hex())
     return data
+
+
 
 
 def decode_CustomMessageResponse(data):
@@ -3324,8 +3350,20 @@ class LLRPROSpec(dict):
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'TagReportContentSelector': tagReportContentSelector,
                 'N': 0,
+                'ImpinjTagReportContentSelector': None,
             },
         }
+
+        self['ROSpec']['ROReportSpec']['ImpinjTagReportContentSelector'] = {
+            'VendorID': 25882,
+            'Subtype': 50,
+            'CustomParameter': {
+                'VendorID': 25882,
+                'Subtype': 52,
+                'Payload': struct.pack('!H', 1)
+            }
+        }
+
 
         # patch up per-antenna config
         for antid in antennas:
