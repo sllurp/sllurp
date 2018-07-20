@@ -43,7 +43,7 @@ def decode_tve_parameter(data):
         if subtype == 56:   # Phase parameter
             (phase,) = struct.unpack('!H', data[size-2:size])
             # phase = phase*((2*math.pi)/4096)  #radians
-            phase = phase*(360/4096)    #degrees
+            # phase = phase*(360/4096)    #degrees
             return {'Phase': phase}, size
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)

@@ -34,12 +34,15 @@ def tag_report_cb(llrp_msg):
     tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
         values = (llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData'][0]['LastSeenTimestampUTC'][0], 
-                    llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData'][0]['Phase'])
-        print('Time\t: %u' % values[0])
-        print('Phase\t: %f\n' % values[1])
-        # logger.info('saw tag(s): %s', pprint.pformat(tags))
-    #     for tag in tags:
-    #         numtags += tag['TagSeenCount'][0]
+                    llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData'][0]['Phase'],
+                    llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData'][0]['ChannelIndex'][0])
+        # print('Time\t: %u' % values[0])
+        # print('Phase\t: %f\n' % values[1])
+        logger.info('saw tag(s): %s', pprint.pformat(tags))
+        with open('logfile.txt', 'a') as logfile:
+            logfile.write('%u,%u,%u\n' % values)
+        for tag in tags:
+            numtags += tag['TagSeenCount'][0]
     else:
         logger.info('no tags seen')
         return
@@ -96,11 +99,11 @@ def main(args):
             'EnableSpecIndex': False,
             'EnableInventoryParameterSpecID': False,
             'EnableAntennaID': False,
-            'EnableChannelIndex': False,
-            'EnablePeakRSSI': True,
+            'EnableChannelIndex': True,
+            'EnablePeakRSSI': False,
             'EnableFirstSeenTimestamp': False,
             'EnableLastSeenTimestamp': True,
-            'EnableTagSeenCount': False,
+            'EnableTagSeenCount': True,
             'EnableAccessSpecID': False
         },
         impinj_search_mode=args.impinj_search_mode,
