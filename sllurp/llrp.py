@@ -170,7 +170,8 @@ class LLRPClient(LineReceiver):
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
-                 impinj_search_mode=None):
+                 impinj_search_mode=None,
+                 impinj_tag_content_selector=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -203,9 +204,10 @@ class LLRPClient(LineReceiver):
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
-        if impinj_search_mode is not None:
+        if impinj_search_mode is not None or impinj_tag_content_selector is not None:
             logger.info('Enabling Impinj extensions')
         self.impinj_search_mode = impinj_search_mode
+        self.impinj_tag_content_selector = impinj_tag_content_selector
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -420,7 +422,7 @@ class LLRPClient(LineReceiver):
             d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
-            if self.impinj_search_mode is not None:
+            if self.impinj_search_mode is not None or self.impinj_tag_content_selector is not None:
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -1008,6 +1010,8 @@ class LLRPClient(LineReceiver):
         logger.info('Impinj search mode? %s', self.impinj_search_mode)
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
+        if self.impinj_tag_content_selector is not None:
+            rospec_kwargs['impinj_tag_content_selector'] = self.impinj_tag_content_selector
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)

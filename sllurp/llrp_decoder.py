@@ -25,6 +25,12 @@ tve_param_formats = {
     16: ('AccessSpecID', '!I')
 }
 
+ext_param_formats = {
+    56: ('ImpinjPhase', '!H'),
+    57: ('ImpinjPeakRSSI', '!h'),
+    68: ('RFDopplerFrequency', '!h')
+}
+
 nontve_header = '!H'
 nontve_header_len = struct.calcsize(nontve_header)
 
@@ -37,14 +43,12 @@ def decode_tve_parameter(data):
     it read."""
 
     (nontve,) = struct.unpack(nontve_header, data[:nontve_header_len])
-    if nontve == 1023:
+    if nontve == 1023: # customparameter
         (size,) = struct.unpack('!H', data[nontve_header_len:nontve_header_len+2])
         (subtype,) = struct.unpack('!H', data[size-4:size-2])
-        if subtype == 56:   # Phase parameter
-            (phase,) = struct.unpack('!H', data[size-2:size])
-            # phase = phase*((2*math.pi)/4096)  #radians
-            # phase = phase*(360/4096)    #degrees
-            return {'Phase': phase}, size
+        param_name, param_fmt = ext_param_formats[subtype]
+        (unpacked,) = struct.unpack(param_fmt, data[size-2:size])
+        return {param_name: unpacked}, size
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
     (msgtype,) = struct.unpack(tve_header, data[:tve_header_len])
