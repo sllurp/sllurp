@@ -100,12 +100,15 @@ def main(args):
             'EnableAccessSpecID': False
         },
         impinj_search_mode=args.impinj_search_mode,
-        impinj_tag_content_selector= {
+        impinj_tag_content_selector=None,
+    )
+    if args.impinj_extensions_enable is '1':
+        factory_args['impinj_tag_content_selector']= {
             'EnableRFPhaseAngle': True,
             'EnablePeakRSSI': False,
             'EnableRFDopplerFrequency': False
-        },
-    )
+        }
+
     fac = LLRPClientFactory(**factory_args)
 
     # tag_report_cb will be called every time the reader sends a TagReport
