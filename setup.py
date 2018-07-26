@@ -19,6 +19,7 @@ def read(filename):
 test_deps = ['pytest']
 install_deps = [
     'click',
+    'monotonic',
     'twisted',
     'six',
 ]

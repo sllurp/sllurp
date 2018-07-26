@@ -5,6 +5,7 @@ from __future__ import print_function, division
 import logging
 import pprint
 import time
+from monotonic import monotonic
 from twisted.internet import reactor, defer
 
 from sllurp.llrp import LLRPClientFactory
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def finish(*args):
-    runtime = time.monotonic() - start_time
+    runtime = monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
                 numtags/runtime)
     if reactor.running:
@@ -119,6 +120,6 @@ def main(args):
     reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
 
     # start runtime measurement to determine rates
-    start_time = time.monotonic()
+    start_time = monotonic()
 
     reactor.run()
