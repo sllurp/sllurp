@@ -3358,7 +3358,6 @@ class LLRPROSpec(dict):
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'TagReportContentSelector': tagReportContentSelector,
                 'N': 0,
-                'ImpinjTagReportContentSelector': None,
             },
         }
 
