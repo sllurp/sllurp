@@ -27,7 +27,7 @@ install_deps = [
 
 setup(
     name='sllurp',
-    version='0.4.1',
+    version='0.4.2',
     description='RFID reader control library',
     long_description=read('README.rst'),
     author='Ben Ransford',
@@ -47,6 +47,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     keywords='llrp rfid reader',
     packages=find_packages(),
