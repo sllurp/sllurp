@@ -1,0 +1,16 @@
+version: '3.3'
+services:
+  llrp:
+    build: ./
+    image: python_llrp_mqtt
+    container_name: python_llrp_mqtt
+    environment:
+      - ANT_ADDR=10.10.31.170
+      - INTERVAL=2
+      - MQTT_BROKER=10.10.80.61
+      - MQTT_TOPIC=llrp/1
+      - TX_POWER=81 #max
+      - MODE=1002
+        #restart: always
+    network_mode: host
+
