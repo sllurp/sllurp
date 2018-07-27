@@ -3156,6 +3156,7 @@ Message_struct['ParameterError'] = {
     'decode': decode_ParameterError
 }
 
+
 def encode_ImpinjTagReportContentSelector(par):
     msgtype = Message_struct['ImpinjTagReportContentSelector']['type']
     msg_header = '!HH'
@@ -3185,6 +3186,7 @@ Message_struct['ImpinjTagReportContentSelector'] = {
     'encode': encode_ImpinjTagReportContentSelector
 }
 
+
 def encode_CustomMessage(msg):
     vendor_id = msg['VendorID']
     subtype = msg['Subtype']
@@ -3192,8 +3194,6 @@ def encode_CustomMessage(msg):
     data = struct.pack('!IB', vendor_id, subtype) + payload
     logger.info('data: %s', data.hex())
     return data
-
-
 
 
 def decode_CustomMessageResponse(data):
@@ -3363,23 +3363,29 @@ class LLRPROSpec(dict):
         }
 
         if impinj_tag_content_selector:
-            self['ROSpec']['ROReportSpec']['ImpinjTagReportContentSelector'] = {
+            self['ROSpec']['ROReportSpec'][
+                'ImpinjTagReportContentSelector'] = {
                 'VendorID': 25882,
                 'Subtype': 50,
                 'EnableRFPhaseAngle': {
                     'VendorID': 25882,
                     'Subtype': 52,
-                    'Payload': struct.pack('!H', impinj_tag_content_selector['EnableRFPhaseAngle'])
+                    'Payload': struct.pack(
+                        '!H', impinj_tag_content_selector[
+                            'EnableRFPhaseAngle'])
                 },
                 'EnablePeakRSSI': {
                     'VendorID': 25882,
                     'Subtype': 53,
-                    'Payload': struct.pack('!H', impinj_tag_content_selector['EnablePeakRSSI'])
+                    'Payload': struct.pack(
+                        '!H', impinj_tag_content_selector['EnablePeakRSSI'])
                 },
                 'EnableRFDopplerFrequency': {
                     'VendorID': 25882,
                     'Subtype': 67,
-                    'Payload': struct.pack('!H', impinj_tag_content_selector['EnableRFDopplerFrequency'])
+                    'Payload': struct.pack(
+                        '!H', impinj_tag_content_selector[
+                            'EnableRFDopplerFrequency'])
                 }
             }
 

@@ -104,7 +104,7 @@ def main(args):
         impinj_tag_content_selector=None,
     )
     if args.impinj_reports:
-        factory_args['impinj_tag_content_selector']= {
+        factory_args['impinj_tag_content_selector'] = {
             'EnableRFPhaseAngle': True,
             'EnablePeakRSSI': False,
             'EnableRFDopplerFrequency': False
