@@ -2474,8 +2474,9 @@ def encode_ROReportSpec(par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
-    if par['ImpinjTagReportContentSelector']:
-        data += encode('ImpinjTagReportContentSelector')(par['ImpinjTagReportContentSelector'])
+    if 'ImpinjTagReportContentSelector' in par:
+        data += encode('ImpinjTagReportContentSelector')(
+            par['ImpinjTagReportContentSelector'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -3163,9 +3164,10 @@ def encode_ImpinjTagReportContentSelector(par):
     data = struct.pack('!I', par['VendorID'])
     data += struct.pack('!I', par['Subtype'])
 
-    data += encode('CustomParameter')(par['EnableRFPhaseAngle'])
-    data += encode('CustomParameter')(par['EnablePeakRSSI'])
-    data += encode('CustomParameter')(par['EnableRFDopplerFrequency'])
+    data += encode('CustomParameter')(par.get('EnableRFPhaseAngle', False))
+    data += encode('CustomParameter')(par.get('EnablePeakRSSI', False))
+    data += encode('CustomParameter')(
+        par.get('EnableRFDopplerFrequency', False))
 
     header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
     return header + data
