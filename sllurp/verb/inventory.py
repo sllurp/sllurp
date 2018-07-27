@@ -103,7 +103,7 @@ def main(args):
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
     )
-    if args.impinj_extensions_enable is '1':
+    if args.impinj_reports:
         factory_args['impinj_tag_content_selector']= {
             'EnableRFPhaseAngle': True,
             'EnablePeakRSSI': False,
