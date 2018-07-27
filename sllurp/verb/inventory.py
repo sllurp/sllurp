@@ -5,6 +5,7 @@ from __future__ import print_function, division
 import logging
 import pprint
 import time
+from monotonic import monotonic
 from twisted.internet import reactor, defer
 
 from sllurp.llrp import LLRPClientFactory
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def finish(*args):
-    runtime = time.monotonic() - start_time
+    runtime = monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
                 numtags/runtime)
     if reactor.running:
@@ -88,19 +89,27 @@ def main(args):
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
         tag_content_selector={
-            'EnableROSpecID': True,
+            'EnableROSpecID': False,
             'EnableSpecIndex': False,
             'EnableInventoryParameterSpecID': False,
-            'EnableAntennaID': True,
-            'EnableChannelIndex': False,
-            'EnablePeakRSSI': True,
+            'EnableAntennaID': False,
+            'EnableChannelIndex': True,
+            'EnablePeakRSSI': False,
             'EnableFirstSeenTimestamp': False,
             'EnableLastSeenTimestamp': True,
             'EnableTagSeenCount': True,
             'EnableAccessSpecID': False
         },
         impinj_search_mode=args.impinj_search_mode,
+        impinj_tag_content_selector=None,
     )
+    if args.impinj_reports:
+        factory_args['impinj_tag_content_selector'] = {
+            'EnableRFPhaseAngle': True,
+            'EnablePeakRSSI': False,
+            'EnableRFDopplerFrequency': False
+        }
+
     fac = LLRPClientFactory(**factory_args)
 
     # tag_report_cb will be called every time the reader sends a TagReport
@@ -119,6 +128,6 @@ def main(args):
     reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
 
     # start runtime measurement to determine rates
-    start_time = time.monotonic()
+    start_time = monotonic()
 
     reactor.run()

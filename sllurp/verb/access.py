@@ -3,7 +3,7 @@ import binascii
 import logging
 import pprint
 import sys
-import time
+from monotonic import monotonic
 from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
@@ -18,7 +18,7 @@ args = None
 
 def finish(_):
     # stop runtime measurement to determine rates
-    runTime = time.monotonic() - startTime
+    runTime = monotonic() - startTime
 
     logger.info('total # of tags seen: %d (%d tags/second)', tagReport,
                 tagReport/runTime)
@@ -133,7 +133,7 @@ def main(main_args):
     reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)
 
     # start runtime measurement to determine rates
-    startTime = time.monotonic()
+    startTime = monotonic()
 
     reactor.run()
 

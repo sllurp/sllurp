@@ -2,7 +2,7 @@ from __future__ import print_function, unicode_literals
 import argparse
 import logging
 import pprint
-import time
+import monotonic
 from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
@@ -18,12 +18,12 @@ args = None
 
 def startTimeMeasurement():
     global startTime
-    startTime = time.monotonic()
+    startTime = monotonic()
 
 
 def stopTimeMeasurement():
     global endTime
-    endTime = time.monotonic()
+    endTime = monotonic()
 
 
 def finish(_):

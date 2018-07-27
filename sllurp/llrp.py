@@ -1,6 +1,5 @@
 from __future__ import print_function, unicode_literals
 from collections import defaultdict
-import time
 import logging
 import pprint
 import struct
@@ -12,7 +11,7 @@ from .llrp_errors import ReaderConfigurationError
 from binascii import hexlify
 from .util import BITMASK, natural_keys
 from twisted.internet import reactor, task, defer
-from twisted.internet.protocol import ClientFactory
+from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineReceiver
 from six import iterkeys
 
@@ -170,7 +169,8 @@ class LLRPClient(LineReceiver):
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
-                 impinj_search_mode=None):
+                 impinj_search_mode=None,
+                 impinj_tag_content_selector=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -203,9 +203,11 @@ class LLRPClient(LineReceiver):
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
-        if impinj_search_mode is not None:
+        if (impinj_search_mode is not None or
+                impinj_tag_content_selector is not None):
             logger.info('Enabling Impinj extensions')
         self.impinj_search_mode = impinj_search_mode
+        self.impinj_tag_content_selector = impinj_tag_content_selector
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -420,7 +422,8 @@ class LLRPClient(LineReceiver):
             d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
-            if self.impinj_search_mode is not None:
+            if (self.impinj_search_mode is not None or
+                    self.impinj_tag_content_selector is not None):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -1008,6 +1011,9 @@ class LLRPClient(LineReceiver):
         logger.info('Impinj search mode? %s', self.impinj_search_mode)
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
+        if self.impinj_tag_content_selector is not None:
+            rospec_kwargs['impinj_tag_content_selector'] = \
+                self.impinj_tag_content_selector
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)
@@ -1199,18 +1205,22 @@ class LLRPClient(LineReceiver):
         self.transport.write(llrp_msg.msgbytes)
 
 
-class LLRPClientFactory(ClientFactory):
+class LLRPClientFactory(ReconnectingClientFactory):
+    maxDelay = 60  # seconds
+
     def __init__(self, start_first=False, onFinish=None, reconnect=False,
                  antenna_dict=None, **kwargs):
         self.onFinish = onFinish
         self.start_first = start_first
-        self.reconnect = reconnect
-        self.reconnect_delay = 1.0  # seconds
         self.client_args = kwargs
         if isinstance(antenna_dict, dict):
             self.antenna_dict = antenna_dict
         else:
             self.antenna_dict = {}
+
+        # reconnection logic: if self.reconnect is False, maxDelay doesn't
+        # matter because clients won't try to reconnect
+        self.reconnect = reconnect
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
@@ -1238,6 +1248,7 @@ class LLRPClientFactory(ClientFactory):
 
         Consult self.antenna_dict to look up antennas to use.
         """
+        self.resetDelay()  # reset reconnection backoff state
         clargs = self.client_args.copy()
 
         # optionally configure antennas from self.antenna_dict, which looks
@@ -1280,20 +1291,18 @@ class LLRPClientFactory(ClientFactory):
 
     def clientConnectionLost(self, connector, reason):
         logger.info('lost connection: %s', reason.getErrorMessage())
-        ClientFactory.clientConnectionLost(self, connector, reason)
         if self.reconnect:
-            time.sleep(self.reconnect_delay)
-            connector.connect()
+            ReconnectingClientFactory.clientConnectionLost(
+                self, connector, reason)
         elif not self.protocols:
             if self.onFinish:
                 self.onFinish.callback(None)
 
     def clientConnectionFailed(self, connector, reason):
         logger.info('connection failed: %s', reason.getErrorMessage())
-        ClientFactory.clientConnectionFailed(self, connector, reason)
         if self.reconnect:
-            time.sleep(self.reconnect_delay)
-            connector.connect()
+            ReconnectingClientFactory.clientConnectionFailed(
+                self, connector, reason)
         elif not self.protocols:
             if self.onFinish:
                 self.onFinish.callback(None)
