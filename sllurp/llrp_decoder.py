@@ -43,8 +43,9 @@ def decode_tve_parameter(data):
     it read."""
 
     (nontve,) = struct.unpack(nontve_header, data[:nontve_header_len])
-    if nontve == 1023: # customparameter
-        (size,) = struct.unpack('!H', data[nontve_header_len:nontve_header_len+2])
+    if nontve == 1023:  # customparameter
+        (size,) = struct.unpack('!H',
+                                data[nontve_header_len:nontve_header_len+2])
         (subtype,) = struct.unpack('!H', data[size-4:size-2])
         param_name, param_fmt = ext_param_formats[subtype]
         (unpacked,) = struct.unpack(param_fmt, data[size-2:size])

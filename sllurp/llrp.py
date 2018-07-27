@@ -204,7 +204,8 @@ class LLRPClient(LineReceiver):
         self.tag_content_selector = tag_content_selector
         if self.start_inventory:
             logger.info('will start inventory on connect')
-        if impinj_search_mode is not None or impinj_tag_content_selector is not None:
+        if (impinj_search_mode is not None or
+                impinj_tag_content_selector is not None):
             logger.info('Enabling Impinj extensions')
         self.impinj_search_mode = impinj_search_mode
         self.impinj_tag_content_selector = impinj_tag_content_selector
@@ -422,7 +423,8 @@ class LLRPClient(LineReceiver):
             d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
-            if self.impinj_search_mode is not None or self.impinj_tag_content_selector is not None:
+            if (self.impinj_search_mode is not None or
+                    self.impinj_tag_content_selector is not None):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -1011,7 +1013,8 @@ class LLRPClient(LineReceiver):
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
         if self.impinj_tag_content_selector is not None:
-            rospec_kwargs['impinj_tag_content_selector'] = self.impinj_tag_content_selector
+            rospec_kwargs['impinj_tag_content_selector'] = \
+                self.impinj_tag_content_selector
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)
