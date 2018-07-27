@@ -21,7 +21,6 @@ install_deps = [
     'click',
     'monotonic',
     'twisted',
-    'six',
 ]
 
 
