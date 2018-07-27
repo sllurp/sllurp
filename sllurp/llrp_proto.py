@@ -2474,6 +2474,8 @@ def encode_ROReportSpec(par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
+    if par['ImpinjTagReportContentSelector']:
+        data += encode('ImpinjTagReportContentSelector')(par['ImpinjTagReportContentSelector'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2487,7 +2489,8 @@ Message_struct['ROReportSpec'] = {
     'fields': [
         'N',
         'ROReportTrigger',
-        'TagReportContentSelector'
+        'TagReportContentSelector',
+        'ImpinjTagReportContentSelector',
     ],
     'encode': encode_ROReportSpec
 }
@@ -3152,6 +3155,33 @@ Message_struct['ParameterError'] = {
     'decode': decode_ParameterError
 }
 
+def encode_ImpinjTagReportContentSelector(par):
+    msgtype = Message_struct['ImpinjTagReportContentSelector']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+
+    data += encode('CustomParameter')(par['EnableRFPhaseAngle'])
+    data += encode('CustomParameter')(par['EnablePeakRSSI'])
+    data += encode('CustomParameter')(par['EnableRFDopplerFrequency'])
+
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
+    return header + data
+
+
+Message_struct['ImpinjTagReportContentSelector'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'EnableRFPhaseAngle',
+        'EnablePeakRSSI',
+        'EnableRFDopplerFrequency'
+    ],
+    'encode': encode_ImpinjTagReportContentSelector
+}
 
 def encode_CustomMessage(msg):
     vendor_id = msg['VendorID']
@@ -3160,6 +3190,8 @@ def encode_CustomMessage(msg):
     data = struct.pack('!IB', vendor_id, subtype) + payload
     logger.info('data: %s', data.hex())
     return data
+
+
 
 
 def decode_CustomMessageResponse(data):
@@ -3247,7 +3279,7 @@ class LLRPROSpec(dict):
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
-                 impinj_search_mode=None):
+                 impinj_search_mode=None, impinj_tag_content_selector=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3324,8 +3356,30 @@ class LLRPROSpec(dict):
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'TagReportContentSelector': tagReportContentSelector,
                 'N': 0,
+                'ImpinjTagReportContentSelector': None,
             },
         }
+
+        if impinj_tag_content_selector:
+            self['ROSpec']['ROReportSpec']['ImpinjTagReportContentSelector'] = {
+                'VendorID': 25882,
+                'Subtype': 50,
+                'EnableRFPhaseAngle': {
+                    'VendorID': 25882,
+                    'Subtype': 52,
+                    'Payload': struct.pack('!H', impinj_tag_content_selector['EnableRFPhaseAngle'])
+                },
+                'EnablePeakRSSI': {
+                    'VendorID': 25882,
+                    'Subtype': 53,
+                    'Payload': struct.pack('!H', impinj_tag_content_selector['EnablePeakRSSI'])
+                },
+                'EnableRFDopplerFrequency': {
+                    'VendorID': 25882,
+                    'Subtype': 67,
+                    'Payload': struct.pack('!H', impinj_tag_content_selector['EnableRFDopplerFrequency'])
+                }
+            }
 
         # patch up per-antenna config
         for antid in antennas:
