@@ -7,7 +7,8 @@ import pprint
 import time
 from monotonic import monotonic
 from twisted.internet import reactor, defer
-
+import paho.mqtt.client as mqtt
+import json
 from sllurp.llrp import LLRPClientFactory
 from sllurp.llrp_proto import Modulation_DefaultTari
 
@@ -15,6 +16,8 @@ start_time = None
 
 numtags = 0
 logger = logging.getLogger(__name__)
+client = None
+topic = None
 
 
 def finish(*args):
@@ -26,6 +29,8 @@ def finish(*args):
 
 
 def shutdown(factory):
+    if client:
+      client.disconnect()
     return factory.politeShutdown()
 
 
@@ -34,13 +39,20 @@ def tag_report_cb(llrp_msg):
     global numtags
     tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
+        payload = pprint.pformat(tags).replace('\'','\"')
+        payload = payload.replace('b\"','\"')
         logger.info('saw tag(s): %s', pprint.pformat(tags))
-        for tag in tags:
-            numtags += tag['TagSeenCount'][0]
+        # for tag in tags:
+        #     numtags += tag['TagSeenCount'][0]
+        if (client and topic ):
+            logger.info("sending mqtt")
+            client.publish(topic, payload=json.dumps(payload), qos=0, retain=False)
     else:
         logger.info('no tags seen')
         return
 
+def on_connect(client, userdata, flags, rc):
+    print("Connected to MQTT BROKER with result code "+str(rc))
 
 def main(args):
     global start_time
@@ -93,11 +105,11 @@ def main(args):
             'EnableSpecIndex': False,
             'EnableInventoryParameterSpecID': False,
             'EnableAntennaID': False,
-            'EnableChannelIndex': True,
+            'EnableChannelIndex': False,
             'EnablePeakRSSI': False,
             'EnableFirstSeenTimestamp': False,
-            'EnableLastSeenTimestamp': True,
-            'EnableTagSeenCount': True,
+            'EnableLastSeenTimestamp': False,
+            'EnableTagSeenCount': False,
             'EnableAccessSpecID': False
         },
         impinj_search_mode=args.impinj_search_mode,
@@ -109,7 +121,14 @@ def main(args):
             'EnablePeakRSSI': False,
             'EnableRFDopplerFrequency': False
         }
-
+    if(args.mqtt_broker):
+        global client
+        global topic
+        client = mqtt.Client()
+        client.connect(args.mqtt_broker, args.mqtt_port, 60)
+        client.loop_start()
+        client.on_connect = on_connect
+        topic = args.mqtt_topic
     fac = LLRPClientFactory(**factory_args)
 
     # tag_report_cb will be called every time the reader sends a TagReport

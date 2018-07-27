@@ -55,23 +55,32 @@ def cli(debug, logfile):
 @click.option('--impinj-reports', is_flag=True, default=False,
               help='Enable Impinj tag report content '
               '(Phase angle, RSSI, Doppler)')
+@click.option('--mqtt-broker', type=str,
+               help="Address of MQTT broker")
+@click.option('--mqtt-port', type=int,default=1883,
+               help="Port of MQTT broker")
+@click.option('--mqtt-topic',type=str,
+               help="MQTT topic to publish")
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               modulation, tari, session, mode_identifier,
               tag_population, reconnect,
-              impinj_search_mode, impinj_reports):
+              impinj_search_mode, impinj_reports,mqtt_broker,mqtt_port,mqtt_topic):
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'modulation', 'tari', 'session',
                                'population', 'mode_identifier',
                                'reconnect', 'impinj_search_mode',
-                               'impinj_reports'])
+                               'impinj_reports','mqtt_broker','mqtt_port','mqtt_topic'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
                 reconnect=reconnect,
                 impinj_search_mode=impinj_search_mode,
-                impinj_reports=impinj_reports)
+                impinj_reports=impinj_reports,
+								mqtt_broker=mqtt_broker,
+                mqtt_port=mqtt_port,
+                mqtt_topic=mqtt_topic)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
 
