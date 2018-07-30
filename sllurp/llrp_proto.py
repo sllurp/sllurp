@@ -3263,7 +3263,7 @@ def llrp_data2xml(msg):
                 for e in sub:
                     str += __llrp_data2xml(e, p, level + 1)
             else:
-                str += tabs + '\t<%s>%s</%s>\n' % (p, sub, p)
+                str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
         str += tabs + '</%s>\n' % name
 
