@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 from inspect import stack
 import re
+import sys
 
 try:
     # monotonic available in time for Python > 3.3
@@ -8,6 +9,9 @@ try:
 except ImportError:
     # For python2, monotonic package has to be installed.
     from monotonic import monotonic
+
+
+PY3 = sys.version_info[0] == 3
 
 
 def BIT(n):
@@ -43,3 +47,17 @@ def natural_keys(text):
     ['foo3', 'foo25']
     """
     return [atoi(c) for c in re.split('([0-9]+)', text)]
+
+if PY3:
+    def iteritems(d):
+        return iter(d.items())
+
+    def iterkeys(d):
+        return iter(d.keys())
+
+else:
+    def iteritems(d):
+        return d.iteritems()
+
+    def iterkeys(d):
+        return d.iterkeys()
