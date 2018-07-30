@@ -3,9 +3,9 @@ import binascii
 import logging
 import pprint
 import sys
-from monotonic import monotonic
 from twisted.internet import reactor, defer
 
+from sllurp.util import monotonic
 import sllurp.llrp as llrp
 
 startTime = None

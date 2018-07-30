@@ -2,6 +2,13 @@ from __future__ import unicode_literals
 from inspect import stack
 import re
 
+try:
+    # monotonic available in time for Python > 3.3
+    from time import monotonic
+except ImportError:
+    # For python2, monotonic package has to be installed.
+    from monotonic import monotonic
+
 
 def BIT(n):
     return 1 << n

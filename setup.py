@@ -19,7 +19,7 @@ def read(filename):
 test_deps = ['pytest']
 install_deps = [
     'click',
-    'monotonic',
+    'monotonic;python_version<"3.3"',
     'twisted',
     'six',
 ]
