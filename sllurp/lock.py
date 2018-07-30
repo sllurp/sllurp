@@ -2,9 +2,9 @@ from __future__ import print_function, unicode_literals
 import argparse
 import logging
 import pprint
-import monotonic
 from twisted.internet import reactor, defer
 
+from sllurp.util import monotonic
 import sllurp.llrp as llrp
 
 startTime = None

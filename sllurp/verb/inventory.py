@@ -5,9 +5,9 @@ from __future__ import print_function, division
 import logging
 import pprint
 import time
-from monotonic import monotonic
 from twisted.internet import reactor, defer
 
+from sllurp.util import monotonic
 from sllurp.llrp import LLRPClientFactory
 from sllurp.llrp_proto import Modulation_DefaultTari
 
