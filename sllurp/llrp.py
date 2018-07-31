@@ -9,11 +9,10 @@ from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     DEFAULT_MODULATION
 from .llrp_errors import ReaderConfigurationError
 from binascii import hexlify
-from .util import BITMASK, natural_keys
+from .util import BITMASK, natural_keys, iterkeys
 from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineReceiver
-from six import iterkeys
 
 LLRP_PORT = 5084
 
