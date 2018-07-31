@@ -1034,7 +1034,7 @@ def decode_FrequencyHopTable(data):
     body = body[fmt_len:]
     num = int(par['NumHops'])
     for x in range(1, num + 1):
-        par['Frequency' + str(x)] = struct.unpack(id_fmt, body[: id_fmt_len])
+        (par['Frequency' + str(x)], ) = struct.unpack(id_fmt, body[: id_fmt_len])
         body = body[id_fmt_len:]
 
     return par, data[length:]
@@ -1071,11 +1071,11 @@ def decode_FixedFrequencyTable(data):
     id_fmt = '!I'
     id_fmt_len = struct.calcsize(id_fmt)
     # Decode fields
-    par['NumFrequencies'] = struct.unpack(fmt, body[: fmt_len])
+    (par['NumFrequencies'], ) = struct.unpack(fmt, body[: fmt_len])
     body = body[fmt_len:]
     num = int(par['NumFrequencies'])
     for x in range(1, num + 1):
-        par['Frequency' + str(x)] = struct.unpack(id_fmt, body[:id_fmt_len])
+        (par['Frequency' + str(x)], ) = struct.unpack(id_fmt, body[:id_fmt_len])
         body = body[id_fmt_len:]
 
     return par, data[length:]
@@ -1088,7 +1088,7 @@ Message_struct['FixedFrequencyTable'] = {
         'NumFrequencies',
         'Frequencies'
     ],
-    'decode': decode_FrequencyInformation
+    'decode': decode_FixedFrequencyTable
 }
 
 
