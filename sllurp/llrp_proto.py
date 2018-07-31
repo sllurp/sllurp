@@ -2473,9 +2473,9 @@ def encode_ROReportSpec(par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
-    if 'ImpinjTagReportContentSelector' in par:
-        data += encode('ImpinjTagReportContentSelector')(
-            par['ImpinjTagReportContentSelector'])
+    if 'ImpinjTagReportContentSelectorParameter' in par:
+        data += encode('ImpinjTagReportContentSelectorParameter')(
+            par['ImpinjTagReportContentSelectorParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2490,7 +2490,7 @@ Message_struct['ROReportSpec'] = {
         'N',
         'ROReportTrigger',
         'TagReportContentSelector',
-        'ImpinjTagReportContentSelector',
+        'ImpinjTagReportContentSelectorParameter',
     ],
     'encode': encode_ROReportSpec
 }
@@ -3156,8 +3156,8 @@ Message_struct['ParameterError'] = {
 }
 
 
-def encode_ImpinjTagReportContentSelector(par):
-    msgtype = Message_struct['ImpinjTagReportContentSelector']['type']
+def encode_ImpinjTagReportContentSelectorParameter(par):
+    msgtype = Message_struct['ImpinjTagReportContentSelectorParameter']['type']
     msg_header = '!HH'
     msg_header_len = struct.calcsize(msg_header)
 
@@ -3173,7 +3173,7 @@ def encode_ImpinjTagReportContentSelector(par):
     return header + data
 
 
-Message_struct['ImpinjTagReportContentSelector'] = {
+Message_struct['ImpinjTagReportContentSelectorParameter'] = {
     'type': 1023,
     'fields': [
         'VendorID',
@@ -3182,7 +3182,7 @@ Message_struct['ImpinjTagReportContentSelector'] = {
         'EnablePeakRSSI',
         'EnableRFDopplerFrequency'
     ],
-    'encode': encode_ImpinjTagReportContentSelector
+    'encode': encode_ImpinjTagReportContentSelectorParameter
 }
 
 
@@ -3362,7 +3362,7 @@ class LLRPROSpec(dict):
 
         if impinj_tag_content_selector:
             self['ROSpec']['ROReportSpec'][
-                'ImpinjTagReportContentSelector'] = {
+                'ImpinjTagReportContentSelectorParameter'] = {
                 'VendorID': 25882,
                 'Subtype': 50,
                 'EnableRFPhaseAngle': {
