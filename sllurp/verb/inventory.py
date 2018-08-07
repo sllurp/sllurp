@@ -41,7 +41,7 @@ def tag_report_cb(llrp_msg):
     if len(tags):
         payload = pprint.pformat(tags).replace('\'','\"')
         payload = payload.replace('b\"','\"')
-        logger.info('saw tag(s): %s', pprint.pformat(tags))
+        logger.info('saw tag(s): %s', payload)
         # for tag in tags:
         #     numtags += tag['TagSeenCount'][0]
         if (client and topic ):
