@@ -28,9 +28,8 @@ import logging
 import struct
 from collections import defaultdict
 from binascii import hexlify
-from six import iteritems
 
-from .util import BIT, BITMASK, func, reverse_dict
+from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
 from .llrp_errors import LLRPError
 
@@ -1035,7 +1034,7 @@ def decode_FrequencyHopTable(data):
     body = body[fmt_len:]
     num = int(par['NumHops'])
     for x in range(1, num + 1):
-        par['Frequency' + str(x)] = struct.unpack(id_fmt, body[: id_fmt_len])
+        (par['Frequency' + str(x)], ) = struct.unpack(id_fmt, body[: id_fmt_len])
         body = body[id_fmt_len:]
 
     return par, data[length:]
@@ -1072,11 +1071,11 @@ def decode_FixedFrequencyTable(data):
     id_fmt = '!I'
     id_fmt_len = struct.calcsize(id_fmt)
     # Decode fields
-    par['NumFrequencies'] = struct.unpack(fmt, body[: fmt_len])
+    (par['NumFrequencies'], ) = struct.unpack(fmt, body[: fmt_len])
     body = body[fmt_len:]
     num = int(par['NumFrequencies'])
     for x in range(1, num + 1):
-        par['Frequency' + str(x)] = struct.unpack(id_fmt, body[:id_fmt_len])
+        (par['Frequency' + str(x)], ) = struct.unpack(id_fmt, body[:id_fmt_len])
         body = body[id_fmt_len:]
 
     return par, data[length:]
@@ -1089,7 +1088,7 @@ Message_struct['FixedFrequencyTable'] = {
         'NumFrequencies',
         'Frequencies'
     ],
-    'decode': decode_FrequencyInformation
+    'decode': decode_FixedFrequencyTable
 }
 
 
@@ -2474,9 +2473,9 @@ def encode_ROReportSpec(par):
     msg_header_len = struct.calcsize(msg_header)
 
     data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
-    if 'ImpinjTagReportContentSelector' in par:
-        data += encode('ImpinjTagReportContentSelector')(
-            par['ImpinjTagReportContentSelector'])
+    if 'ImpinjTagReportContentSelectorParameter' in par:
+        data += encode('ImpinjTagReportContentSelectorParameter')(
+            par['ImpinjTagReportContentSelectorParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2491,7 +2490,7 @@ Message_struct['ROReportSpec'] = {
         'N',
         'ROReportTrigger',
         'TagReportContentSelector',
-        'ImpinjTagReportContentSelector',
+        'ImpinjTagReportContentSelectorParameter',
     ],
     'encode': encode_ROReportSpec
 }
@@ -3157,8 +3156,8 @@ Message_struct['ParameterError'] = {
 }
 
 
-def encode_ImpinjTagReportContentSelector(par):
-    msgtype = Message_struct['ImpinjTagReportContentSelector']['type']
+def encode_ImpinjTagReportContentSelectorParameter(par):
+    msgtype = Message_struct['ImpinjTagReportContentSelectorParameter']['type']
     msg_header = '!HH'
     msg_header_len = struct.calcsize(msg_header)
 
@@ -3174,7 +3173,7 @@ def encode_ImpinjTagReportContentSelector(par):
     return header + data
 
 
-Message_struct['ImpinjTagReportContentSelector'] = {
+Message_struct['ImpinjTagReportContentSelectorParameter'] = {
     'type': 1023,
     'fields': [
         'VendorID',
@@ -3183,7 +3182,7 @@ Message_struct['ImpinjTagReportContentSelector'] = {
         'EnablePeakRSSI',
         'EnableRFDopplerFrequency'
     ],
-    'encode': encode_ImpinjTagReportContentSelector
+    'encode': encode_ImpinjTagReportContentSelectorParameter
 }
 
 
@@ -3263,7 +3262,7 @@ def llrp_data2xml(msg):
                 for e in sub:
                     str += __llrp_data2xml(e, p, level + 1)
             else:
-                str += tabs + '\t<%s>%s</%s>\n' % (p, sub, p)
+                str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
         str += tabs + '</%s>\n' % name
 
@@ -3363,7 +3362,7 @@ class LLRPROSpec(dict):
 
         if impinj_tag_content_selector:
             self['ROSpec']['ROReportSpec'][
-                'ImpinjTagReportContentSelector'] = {
+                'ImpinjTagReportContentSelectorParameter'] = {
                 'VendorID': 25882,
                 'Subtype': 50,
                 'EnableRFPhaseAngle': {
