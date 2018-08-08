@@ -47,7 +47,7 @@ def tag_report_cb(llrp_msg):
         #     numtags += tag['TagSeenCount'][0]
         if (client and topic ):
             logger.info("sending mqtt")
-            client.publish(topic, payload=json.dumps(payload), qos=0, retain=False)
+            client.publish(topic, payload=(payload), qos=0, retain=False)
     else:
         logger.info('no tags seen')
         return
