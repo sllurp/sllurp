@@ -764,6 +764,21 @@ class LLRPClient(LineReceiver):
                 'Type': 3,
                 'ID':   0,
                 'ResetToFactoryDefaults': False,
+                'ImpinjLocationConfig': {
+                    'UpdateIntervalSeconds' : 1,
+                    'ComputeWindowSeconds': 255,
+                    'TagAgeIntervalSeconds':300
+                },
+                'ImpinjPlacementConfiguration':{
+                    'HeightCm' : 100,
+                    'FacilityYLocationCm': 0,
+                    'FacilityXLocationCm': 0,
+                    'OrientationDegrees': 0
+                },
+                'ImpinjC1G2LocationConfig':{
+                    'ModeIndex': 0,
+                    'Session': 2
+                },
             }}))
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(

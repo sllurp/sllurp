@@ -7,7 +7,7 @@ services:
     environment:
       - ANT_ADDR=10.10.31.170
       - INTERVAL=2
-      - MQTT_BROKER=10.10.80.61
+      - MQTT_BROKER=10.10.10.83
       - MQTT_TOPIC=llrp/1
       - TX_POWER=81 #max
       - MODE=1002

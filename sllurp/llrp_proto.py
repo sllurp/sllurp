@@ -3328,37 +3328,41 @@ class LLRPROSpec(dict):
         if tag_content_selector:
             tagReportContentSelector.update(tag_content_selector)
 
-        self['ROSpec'] = {
-            'ROSpecID': rospecid,
-            'Priority': priority,
-            'CurrentState': state,
-            'ROBoundarySpec': {
-                'ROSpecStartTrigger': {
-                    'ROSpecStartTriggerType': 'Immediate',
-                },
-                'ROSpecStopTrigger': {
-                    'ROSpecStopTriggerType': 'Null',
-                    'DurationTriggerValue': 0,
-                },
-            },
-            'AISpec': {
-                'AntennaIDs': antennas,
-                'AISpecStopTrigger': {
-                    'AISpecStopTriggerType': 'Null',
-                    'DurationTriggerValue': 0,
-                },
-                'InventoryParameterSpec': {
-                    'InventoryParameterSpecID': 1,
-                    'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
-                    'AntennaConfiguration': [],
-                },
-            },
-            'ROReportSpec': {
-                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
-                'TagReportContentSelector': tagReportContentSelector,
-                'N': 0,
-            },
-        }
+
+
+
+
+        # self['ROSpec'] = {
+        #     'ROSpecID': rospecid,
+        #     'Priority': priority,
+        #     'CurrentState': state,
+        #     'ROBoundarySpec': {
+        #         'ROSpecStartTrigger': {
+        #             'ROSpecStartTriggerType': 'Immediate',
+        #         },
+        #         'ROSpecStopTrigger': {
+        #             'ROSpecStopTriggerType': 'Null',
+        #             'DurationTriggerValue': 0,
+        #         },
+        #     },
+        #     'AISpec': {
+        #         'AntennaIDs': antennas,
+        #         'AISpecStopTrigger': {
+        #             'AISpecStopTriggerType': 'Null',
+        #             'DurationTriggerValue': 0,
+        #         },
+        #         'InventoryParameterSpec': {
+        #             'InventoryParameterSpecID': 1,
+        #             'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
+        #             'AntennaConfiguration': [],
+        #         },
+        #     },
+        #     'ROReportSpec': {
+        #         'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
+        #         'TagReportContentSelector': tagReportContentSelector,
+        #         'N': 0,
+        #     },
+        # }
 
         if impinj_tag_content_selector:
             self['ROSpec']['ROReportSpec'][
@@ -3386,6 +3390,8 @@ class LLRPROSpec(dict):
                             'EnableRFDopplerFrequency'])
                 }
             }
+
+
 
         # patch up per-antenna config
         for antid in antennas:
@@ -3453,6 +3459,8 @@ class LLRPROSpec(dict):
                 },
             })
 
+
+        
     def __repr__(self):
         return llrp_data2xml(self)
 
