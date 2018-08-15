@@ -11,6 +11,7 @@ from .verb import reset as _reset
 from .verb import inventory as _inventory
 from .verb import log as _log
 from .verb import access as _access
+from .verb import location as _location
 from .llrp_proto import Modulation_Name2Type
 
 # Disable Click unicode warning since we use unicode string exclusively
@@ -85,6 +86,8 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
     _inventory.main(args)
 
 
+
+
 @cli.command()
 @click.argument('host', type=str, nargs=-1)
 @click.option('-o', '--outfile', type=click.File('w'), default='-')
@@ -141,6 +144,75 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
                 access_password=access_password)
     logger.debug('access args: %s', args)
     _access.main(args)
+
+
+@cli.command()
+@click.argument('host', type=str, nargs=-1)
+@click.option('-p', '--port', type=int, default=5084)
+@click.option('-t', '--time', type=float, help='seconds to inventory')
+@click.option('-n', '--report-every-n-tags', type=int,
+              help='issue a TagReport every N tags')
+@click.option('-a', '--antennas', type=str, default='1',
+              help='comma-separated list of antennas to use (0=all;'
+                   ' default 1)')
+@click.option('-X', '--tx-power', type=int, default=0,
+              help='transmit power (default 0=max power)')
+@click.option('-M', '--modulation', type=click.Choice(mods),
+              help='Reader-to-Tag Modulation')
+@click.option('-T', '--tari', type=int, default=0,
+              help='Tari value (default 0=auto)')
+@click.option('-s', '--session', type=int, default=2,
+              help='Gen2 session (default 2)')
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value')
+@click.option('-P', '--tag-population', type=int, default=4,
+              help="Tag Population value (default 4)")
+@click.option('-r', '--reconnect', is_flag=True, default=False,
+              help='reconnect on connection failure or loss')
+@click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
+              help=('Impinj extension: inventory search mode '
+                    ' (1=single, 2=double)'))
+@click.option('--impinj-reports', is_flag=True, default=False,
+              help='Enable Impinj tag report content '
+              '(Phase angle, RSSI, Doppler)')
+@click.option('--mqtt-broker', type=str,
+               help="Address of MQTT broker")
+@click.option('--mqtt-port', type=int,default=1883,
+               help="Port of MQTT broker")
+@click.option('--mqtt-topic',type=str,
+               help="MQTT topic to publish")
+def location(host, port, time, report_every_n_tags, antennas, tx_power,
+              modulation, tari, session, mode_identifier,
+              tag_population, reconnect,
+              impinj_search_mode, impinj_reports,mqtt_broker,mqtt_port,mqtt_topic):
+    # XXX band-aid hack to provide many args to _inventory.main
+    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
+                               'tx_power', 'modulation', 'tari', 'session',
+                               'population', 'mode_identifier',
+                               'reconnect', 'impinj_search_mode',
+                               'impinj_reports','mqtt_broker','mqtt_port','mqtt_topic','location_mode'])
+    args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
+                antennas=antennas, tx_power=tx_power, modulation=modulation,
+                tari=tari, session=session, population=tag_population,
+                mode_identifier=1002,
+                reconnect=reconnect,
+                impinj_search_mode=impinj_search_mode,
+                impinj_reports=impinj_reports,
+				mqtt_broker=mqtt_broker,
+                mqtt_port=mqtt_port,
+                mqtt_topic=mqtt_topic,
+                location_mode=True)
+    logger.debug('location args: %s', args)
+    _location.main(args)
+
+
+
+
+
+
+
+
+
+
 
 
 @cli.command()

@@ -29,7 +29,8 @@ ext_param_formats = {
     56: ('ImpinjPhase', '!H'),
     57: ('ImpinjPeakRSSI', '!h'),
     68: ('RFDopplerFrequency', '!h'),
-    1545: ('ImpinjLocationReportData', '!h')
+    1545: ('ImpinjLocationReportData', '!h'),
+    1552: ('ImpinjExtendedTagInformation', '!h')
 }
 
 nontve_header = '!H'

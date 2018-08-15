@@ -1,4 +1,4 @@
-"""Inventory command.
+"""location command.
 """
 
 from __future__ import print_function, division
@@ -99,6 +99,7 @@ def main(args):
         mode_identifier=args.mode_identifier,
         tag_population=args.population,
         start_inventory=False,
+        start_location=True,
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
         tag_content_selector={
@@ -111,14 +112,15 @@ def main(args):
             'EnableFirstSeenTimestamp': False,
             'EnableLastSeenTimestamp': False,
             'EnableTagSeenCount': False,
-            'EnableAccessSpecID': False
+            'EnableAccessSpecID': True
         },
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
+        location_mode=True,
     )
     if args.impinj_reports:
         factory_args['impinj_tag_content_selector'] = {
-            'EnableRFPhaseAngle': True,
+            'EnableRFPhaseAngle': False,
             'EnablePeakRSSI': False,
             'EnableRFDopplerFrequency': False
         }
