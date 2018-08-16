@@ -149,9 +149,6 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
 @cli.command()
 @click.argument('host', type=str, nargs=-1)
 @click.option('-p', '--port', type=int, default=5084)
-@click.option('-t', '--time', type=float, help='seconds to inventory')
-@click.option('-n', '--report-every-n-tags', type=int,
-              help='issue a TagReport every N tags')
 @click.option('-a', '--antennas', type=str, default='1',
               help='comma-separated list of antennas to use (0=all;'
                    ' default 1)')
@@ -161,46 +158,63 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
               help='Reader-to-Tag Modulation')
 @click.option('-T', '--tari', type=int, default=0,
               help='Tari value (default 0=auto)')
-@click.option('-s', '--session', type=int, default=2,
-              help='Gen2 session (default 2)')
-@click.option('--mode-identifier', type=int, help='ModeIdentifier value')
-@click.option('-P', '--tag-population', type=int, default=4,
-              help="Tag Population value (default 4)")
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value',default=1002)
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
-@click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
-              help=('Impinj extension: inventory search mode '
-                    ' (1=single, 2=double)'))
-@click.option('--impinj-reports', is_flag=True, default=False,
-              help='Enable Impinj tag report content '
-              '(Phase angle, RSSI, Doppler)')
 @click.option('--mqtt-broker', type=str,
                help="Address of MQTT broker")
 @click.option('--mqtt-port', type=int,default=1883,
                help="Port of MQTT broker")
 @click.option('--mqtt-topic',type=str,
                help="MQTT topic to publish")
-def location(host, port, time, report_every_n_tags, antennas, tx_power,
-              modulation, tari, session, mode_identifier,
-              tag_population, reconnect,
-              impinj_search_mode, impinj_reports,mqtt_broker,mqtt_port,mqtt_topic):
+@click.option('--tag_age_interval',type=int,default=25,
+               help="Time in seconds for which the tag must \
+               not be read (seen) before it is considered to \
+               have exited from the field of view.")
+@click.option('-t','--time',type=int,default=20,
+                help="How fast in seconds do we want an update")
+@click.option('--compute_window',type=int,default=5,
+                help="Duration of the smoothing window in\
+                seconds over which tag location estimates are computed")
+@click.option('--height',type=int,default=100,help='Height in centimeters with respect to the average tag \
+                height')
+@click.option('--facility_x_loc',type=int,default=0,
+                help=" The relative position of the antenna in centimeters within \
+                the facility. This is used by the antenna when computing location and might be useful for \
+                multi-antennas deployments")
+@click.option('--facility_y_loc',type=int,default=0,
+                help="The relative position of the antennas in centimeters within \
+                the facility. This is used by the antennas when computing location and might be useful for \
+                multi-antennas deployments")
+@click.option('--orientation',type=int,default=0,
+                help="The relative orientation of the antennas X-Y coordinates \
+                relative to the Store X-Y coordinates in degrees")
+def location(host, port, antennas, tx_power,modulation,tari,
+              reconnect,mode_identifier,mqtt_broker,mqtt_port,mqtt_topic,
+              tag_age_interval,time,compute_window,height,facility_x_loc,facility_y_loc,orientation):
     # XXX band-aid hack to provide many args to _inventory.main
-    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
-                               'tx_power', 'modulation', 'tari', 'session',
-                               'population', 'mode_identifier',
-                               'reconnect', 'impinj_search_mode',
-                               'impinj_reports','mqtt_broker','mqtt_port','mqtt_topic','location_mode'])
-    args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
-                antennas=antennas, tx_power=tx_power, modulation=modulation,
-                tari=tari, session=session, population=tag_population,
-                mode_identifier=1002,
+    Args = namedtuple('Args', ['host', 'port', 'antennas',
+                               'tx_power','modulation','tari','mode_identifier','reconnect', 
+                               'mqtt_broker','mqtt_port','mqtt_topic',
+                               'time','compute_window','tag_age_interval','height','facility_x_loc','facility_y_loc',
+                               'orientation'])
+    args = Args(host=host, port=port,
+                antennas=antennas, 
+                tx_power=tx_power,
+                modulation=modulation,
+                tari=tari,
+                mode_identifier=mode_identifier, #As suuggested by the documentation
                 reconnect=reconnect,
-                impinj_search_mode=impinj_search_mode,
-                impinj_reports=impinj_reports,
 				mqtt_broker=mqtt_broker,
                 mqtt_port=mqtt_port,
                 mqtt_topic=mqtt_topic,
-                location_mode=True)
+                tag_age_interval=tag_age_interval,
+                time=time, 
+                compute_window=compute_window,
+                height=height,
+                facility_x_loc=facility_x_loc,
+                facility_y_loc=facility_y_loc,
+                orientation=orientation)
     logger.debug('location args: %s', args)
     _location.main(args)
 
