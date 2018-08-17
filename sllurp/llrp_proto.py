@@ -3191,7 +3191,7 @@ def encode_CustomMessage(msg):
     subtype = msg['Subtype']
     payload = msg.get('Payload', struct.pack('!I', 0))
     data = struct.pack('!IB', vendor_id, subtype) + payload
-    logger.info('data: %s', data.hex())
+    logger.info('data: %s', hexlify(data))
     return data
 
 
