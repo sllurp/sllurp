@@ -2386,8 +2386,9 @@ def encode_C1G2InventoryCommand(par):
         data += encode('C1G2RFControl')(par['C1G2RFControl'])
     if 'C1G2SingulationControl' in par:
         data += encode('C1G2SingulationControl')(par['C1G2SingulationControl'])
-    if 'CustomParameter' in par:
-        data += encode('CustomParameter')(par['CustomParameter'])
+    if 'ImpinjInventorySearchModeParameter' in par:
+        data += encode('ImpinjInventorySearchModeParameter')(
+            par['ImpinjInventorySearchModeParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -2400,8 +2401,9 @@ Message_struct['C1G2InventoryCommand'] = {
         'TagInventoryStateAware',
         'C1G2Filter',
         'C1G2RFControl',
-        'C1G2SingulationControl'
+        'C1G2SingulationControl',
         # XXX custom parameters
+        'ImpinjInventorySearchModeParameter'
     ],
     'encode': encode_C1G2InventoryCommand
 }
@@ -3155,37 +3157,6 @@ Message_struct['ParameterError'] = {
     'decode': decode_ParameterError
 }
 
-
-def encode_ImpinjTagReportContentSelectorParameter(par):
-    msgtype = Message_struct['ImpinjTagReportContentSelectorParameter']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-
-    data += encode('CustomParameter')(par.get('EnableRFPhaseAngle', False))
-    data += encode('CustomParameter')(par.get('EnablePeakRSSI', False))
-    data += encode('CustomParameter')(
-        par.get('EnableRFDopplerFrequency', False))
-
-    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
-    return header + data
-
-
-Message_struct['ImpinjTagReportContentSelectorParameter'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'Subtype',
-        'EnableRFPhaseAngle',
-        'EnablePeakRSSI',
-        'EnableRFDopplerFrequency'
-    ],
-    'encode': encode_ImpinjTagReportContentSelectorParameter
-}
-
-
 def encode_CustomMessage(msg):
     vendor_id = msg['VendorID']
     subtype = msg['Subtype']
@@ -3240,6 +3211,100 @@ Message_struct['CustomParameter'] = {
         'Payload'
     ],
     'encode': encode_CustomParameter
+}
+
+#
+# Vendor custom parameters and messages
+#
+
+def encode_ImpinjInventorySearchModeParameter(par):
+    logger.warn("@FLO: %r is %r", type(par), par)
+    msg_struct_param = Message_struct['ImpinjInventorySearchModeParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjInventorySearchModeParameter'] = {
+    'vendorid': 25882,
+    'subtype': 23,
+    'encode': encode_ImpinjInventorySearchModeParameter
+}
+
+
+def encode_ImpinjTagReportContentSelectorParameter(par):
+    msg_struct_param = Message_struct['ImpinjTagReportContentSelectorParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+
+    payload = encode('ImpinjEnableRFPhaseAngleParameter')(
+        par.get('ImpinjEnableRFPhaseAngleParameter', False))
+    payload += encode('ImpinjEnablePeakRSSIParameter')(
+        par.get('ImpinjEnablePeakRSSIParameter', False))
+    payload += encode('ImpinjEnableRFDopplerParameter')(
+        par.get('ImpinjEnableRFDopplerParameter', False))
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjTagReportContentSelectorParameter'] = {
+    'vendorid': 25882,
+    'subtype': 50,
+    'fields': [
+        'ImpinjEnableRFPhaseAngleParameter',
+        'ImpinjEnablePeakRSSIParameter',
+        'ImpinjEnableRFDopplerParameter'
+    ],
+    'encode': encode_ImpinjTagReportContentSelectorParameter
+}
+
+def encode_ImpinjEnableRFPhaseAngleParameter(par):
+    msg_struct_param = Message_struct['ImpinjEnableRFPhaseAngleParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjEnableRFPhaseAngleParameter'] = {
+    'vendorid': 25882,
+    'subtype': 52,
+    'encode': encode_ImpinjEnableRFPhaseAngleParameter
+}
+
+def encode_ImpinjEnablePeakRSSIParameter(par):
+    msg_struct_param = Message_struct['ImpinjEnablePeakRSSIParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjEnablePeakRSSIParameter'] = {
+    'vendorid': 25882,
+    'subtype': 53,
+    'encode': encode_ImpinjEnablePeakRSSIParameter
+}
+
+def encode_ImpinjEnableRFDopplerParameter(par):
+    msg_struct_param = Message_struct['ImpinjEnableRFDopplerParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjEnableRFDopplerParameter'] = {
+    'vendorid': 25882,
+    'subtype': 67,
+    'encode': encode_ImpinjEnableRFDopplerParameter
 }
 
 
@@ -3365,26 +3430,12 @@ class LLRPROSpec(dict):
                 'ImpinjTagReportContentSelectorParameter'] = {
                 'VendorID': 25882,
                 'Subtype': 50,
-                'EnableRFPhaseAngle': {
-                    'VendorID': 25882,
-                    'Subtype': 52,
-                    'Payload': struct.pack(
-                        '!H', impinj_tag_content_selector[
-                            'EnableRFPhaseAngle'])
-                },
-                'EnablePeakRSSI': {
-                    'VendorID': 25882,
-                    'Subtype': 53,
-                    'Payload': struct.pack(
-                        '!H', impinj_tag_content_selector['EnablePeakRSSI'])
-                },
-                'EnableRFDopplerFrequency': {
-                    'VendorID': 25882,
-                    'Subtype': 67,
-                    'Payload': struct.pack(
-                        '!H', impinj_tag_content_selector[
-                            'EnableRFDopplerFrequency'])
-                }
+                'ImpinjEnableRFPhaseAngleParameter':
+                    impinj_tag_content_selector['EnableRFPhaseAngle'],
+                'ImpinjEnablePeakRSSIParameter':
+                    impinj_tag_content_selector['EnablePeakRSSI'],
+                'ImpinjEnableRFDopplerParameter':
+                    impinj_tag_content_selector['EnableRFDopplerFrequency']
             }
 
         # patch up per-antenna config
@@ -3417,11 +3468,8 @@ class LLRPROSpec(dict):
             # impinj extension: single mode or dual mode (XXX others?)
             if impinj_search_mode is not None:
                 logger.info('impinj_search_mode: %s', impinj_search_mode)
-                antconf['C1G2InventoryCommand']['CustomParameter'] = {
-                    'VendorID': 25882,  # impinj
-                    'Subtype': 23,  # inventory search mode
-                    'Payload': struct.pack('!H', int(impinj_search_mode)),
-                }
+                antconf['C1G2InventoryCommand']\
+                    ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
 
             ips['AntennaConfiguration'].append(antconf)
 
