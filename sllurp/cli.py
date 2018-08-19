@@ -51,7 +51,7 @@ def cli(debug, logfile):
               help='reconnect on connection failure or loss')
 @click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
               help=('Impinj extension: inventory search mode '
-                    ' (1=single, 2=double)'))
+                    ' (1=single, 2=dual)'))
 @click.option('--impinj-reports', is_flag=True, default=False,
               help='Enable Impinj tag report content '
               '(Phase angle, RSSI, Doppler)')
