@@ -827,15 +827,15 @@ class LLRPClient(LineReceiver):
                             'EventType':8,
                             'NotificationState':True
                         }],
-                    # 'ROReportSpec': {
-                    #     'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
-                    #     'TagReportContentSelector': tagReportContentSelector,
-                    #     'N': 1,
-                    # },
-                    # 'EventsAndReports': {
-                    #     'Type':226,
-                    #     'HoldEventsAndReportsUponReconnect': False
-                    # },
+                    'ROReportSpec': {
+                        'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+                        'TagReportContentSelector': tagReportContentSelector,
+                        'N': 1,
+                    },
+                    'EventsAndReports': {
+                        'Type':226,
+                        'HoldEventsAndReportsUponReconnect': False
+                    },
                     'ImpinjPlacementConfiguration':{
                         'VendorID': 25882,
                         'Subtype': 1540,                        

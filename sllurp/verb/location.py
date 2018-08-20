@@ -38,9 +38,10 @@ def shutdown(factory):
 def tag_report_cb(llrp_msg):
     """Function to run each time the reader reports seeing tags."""
     global numtags
-    tags = list(llrp_msg.msgdict['RO_ACCESS_REPORT']['ImpinjExtendedTagInformation'])
+    tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['ImpinjExtendedTagInformation']
     if len(tags):
-        payload = pprint.pformat(tags)
+        payload = pprint.pformat(tags).replace('\'','\"')
+        payload = payload.replace('b\"','\"')
         logger.info('saw tag(s): %s', payload)
         # for tag in tags:
         #     numtags += tag['TagSeenCount'][0]

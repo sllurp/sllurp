@@ -708,20 +708,18 @@ def decode_ROAccessReport(data):
     except TypeError:  # XXX
         logger.error('Unable to decode TagReportData')
     if not tag_report:
-        #try:
-        extended_tag = decode('ImpinjExtendedTagInformation')(data)
-        #except Exception as e:
-            #logger.error('Unable to decode ImpinjExtendedTagInformation becaue %s',e)
-            #break
+        try:
+            extended_tag = list(decode('ImpinjExtendedTagInformation')(data))
+            extended_tag = extended_tag[0]
+            
+        except Exception as e:
+            logger.error('Unable to decode ImpinjExtendedTagInformation becaue %s',e)
     # print('len(ret) = {}'.format(len(ret)))
     # print('len(data) = {}'.format(len(data)))
     if tag_report:
         msg['TagReportData'] = tag_report
     elif extended_tag:
         msg['ImpinjExtendedTagInformation'] = extended_tag
-    else:
-        return msg
-
     return msg
 
 
@@ -3450,32 +3448,34 @@ def decode_ImpinjExtendedTagInformation(data):
     #Decode ImpinjLocationReportData
     if subtype == Message_struct['ImpinjLocationReportData']['type']:
         loc_report = decode_ImpinjLocationReportData(loc_report_body)
-        par['Location'] = loc_report
+        par['LastSeenTimestampUTC'] = loc_report['LastSeenTimestampUTC']
+        par['LocXCentimeters'] = loc_report['LocXCentimeters']
+        par['LocYCentimeters'] = loc_report['LocYCentimeters']
         logger.debug('Last seen: %s',loc_report['LastSeenTimestampUTC'])
         logger.debug('Loc X: %s', loc_report['LocXCentimeters'])
         logger.debug('Loc Y: %s', loc_report['LocYCentimeters'])
     #Decode ImpinjDirectionLocationReportData
-    elif subtype == Message_struct['ImpinjDirectionReportData']['type']:
-        logger.debug("Received Direction data")
-        loc_direction_report = decode_ImpinjDirectionReportData(loc_report_body)
-        par['Direction'] = loc_direction_report
+    # elif subtype == Message_struct['ImpinjDirectionReportData']['type']:
+    #     logger.debug("Received Direction data")
+    #     loc_direction_report = decode_ImpinjDirectionReportData(loc_report_body)
+    #     par['Direction'] = loc_direction_report
     else:
         raise Exception('No ImpinjLocationReport or ImpinjDirectoinLocationReport received')
     #Decode ImpinjLocationConfidence
-    if loc_confidence_data:
-        loc_confidence_body, subtype, _ = ImpinjExtendedTagInformationExtractor(loc_confidence_data)
-        if subtype == Message_struct['ImpinjLocationConfidence']['type']:
-            logger.debug("found ImpinjconfidenceReport: %s",loc_confidence_body )
+    # if loc_confidence_data:
+    #     loc_confidence_body, subtype, _ = ImpinjExtendedTagInformationExtractor(loc_confidence_data)
+    #     if subtype == Message_struct['ImpinjLocationConfidence']['type']:
+    #         logger.debug("found ImpinjconfidenceReport: %s",loc_confidence_body )
+    return par, ""
 
-    return par, data[length:]
 
 Message_struct['ImpinjExtendedTagInformation'] = {
     'type': 1552,
     'fields': [
         'EPCData',
         'ImpinjLocationReportData',
-        'ImpinjDirectionReportData',
-        'ImpinjLocationConfidence',
+        'ImpinjDirectionReportData'
+        #'ImpinjLocationConfidence',
     ],
     'decode': decode_ImpinjExtendedTagInformation
 }   
@@ -3510,15 +3510,14 @@ def decode_ImpinjLocationReportData(data):
     par['LocYCentimeters'],\
     _ = struct.unpack('!QiiI',body)
     return par
-
 Message_struct['ImpinjLocationReportData'] = {
     'type': 1545,
     'fields': [
         'LastSeenTimestampUTC',
         'LocXCentimeters',
-        'LocYCentimeters',
-        'Type',
-        'ImpinjLocationConfidence'
+        'LocYCentimeters'
+        #'Type',
+        #'ImpinjLocationConfidence'
     ],
     'decode': decode_ImpinjLocationReportData
 }   

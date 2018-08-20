@@ -158,7 +158,7 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
               help='Reader-to-Tag Modulation')
 @click.option('-T', '--tari', type=int, default=0,
               help='Tari value (default 0=auto)')
-@click.option('--mode-identifier', type=int, help='ModeIdentifier value',default=1002)
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value',default=1003)
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
 @click.option('--mqtt-broker', type=str,
