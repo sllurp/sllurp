@@ -163,7 +163,7 @@ class LLRPClient(LineReceiver):
 
     def __init__(self, factory, duration=None, report_every_n_tags=None,
                  antennas=(1,), tx_power=0, modulation=DEFAULT_MODULATION,
-                 tari=0, start_inventory=True,start_location=False,reset_on_connect=True,
+                 tari=0, start_inventory=False,start_location=False,reset_on_connect=True,
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
@@ -209,7 +209,7 @@ class LLRPClient(LineReceiver):
             logger.info('will reset reader state on connect')
         self.disconnect_when_done = disconnect_when_done
         self.tag_content_selector = tag_content_selector
-        if self.start_inventory and not self.start_location:
+        if self.start_inventory:
             logger.info('will start inventory on connect')
         if self.start_location:
             logger.info('will start location on connect')
@@ -792,7 +792,6 @@ class LLRPClient(LineReceiver):
             }}  
 
         if location_mode:
-
             tagReportContentSelector = {
                 'EnableROSpecID': False,
                 'EnableSpecIndex': False,
@@ -864,7 +863,8 @@ class LLRPClient(LineReceiver):
         logger.debug('about to send_ADD_ROSPEC')
 
         try:
-            if(location_mode):
+            if location_mode:
+                logger.debug("send_ADD_ROSPEC_LOCATION")
                 add_rospec = LLRPMessage(msgdict={
                     'ADD_ROSPEC_LOCATION': {
                         'Ver':  1,
@@ -874,6 +874,7 @@ class LLRPClient(LineReceiver):
                         'ROSpec': rospec,
                     }})
             else:
+                logger.debug("send_ADD_ROSPEC_INVENTORY")
                 add_rospec = LLRPMessage(msgdict={
                     'ADD_ROSPEC': {
                         'Ver':  1,
@@ -1175,9 +1176,10 @@ class LLRPClient(LineReceiver):
                 'AccessSpecID': 0  # all AccessSpecs
             }}))
         self.setState(LLRPClient.STATE_SENT_DELETE_ACCESSSPEC)
-
+        
         d = defer.Deferred()
         d.addCallback(self.stopAllROSpecs)
+        
         d.addErrback(self.panic, 'DELETE_ACCESSSPEC failed')
 
         self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(d)
@@ -1192,7 +1194,7 @@ class LLRPClient(LineReceiver):
                 'ROSpecID': 0
             }}))
         self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
-
+        
         d = defer.Deferred()
         d.addErrback(self.panic, 'DELETE_ROSPEC failed')
 

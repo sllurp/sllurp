@@ -45,7 +45,7 @@ def cli(debug, logfile):
               help='Tari value (default 0=auto)')
 @click.option('-s', '--session', type=int, default=2,
               help='Gen2 session (default 2)')
-@click.option('--mode-identifier', type=int, help='ModeIdentifier value')
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value',default=1)
 @click.option('-P', '--tag-population', type=int, default=4,
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
@@ -203,7 +203,7 @@ def location(host, port, antennas, tx_power,modulation,tari,
                 tx_power=tx_power,
                 modulation=modulation,
                 tari=tari,
-                mode_identifier=mode_identifier, #As suuggested by the documentation
+                mode_identifier=mode_identifier,
                 reconnect=reconnect,
 				mqtt_broker=mqtt_broker,
                 mqtt_port=mqtt_port,

@@ -345,8 +345,6 @@ def encode_SetReaderConfig(msg):
         data += encode('ROReportSpec')(msg['ROReportSpec'])
     if 'EventsAndReports' in msg:
         data += encode('EventsAndReports')(msg['EventsAndReports'])
-    # if 'ImpinjLocationConfig' in msg:
-    #     data += encode('ImpinjLocationConfig')(msg['ImpinjLocationConfig'])
     if 'ImpinjPlacementConfiguration' in msg:
         data += encode('ImpinjPlacementConfiguration')(msg['ImpinjPlacementConfiguration'])
     if 'ImpinjLocationReporting' in msg:
