@@ -3230,6 +3230,7 @@ def encode_ImpinjInventorySearchModeParameter(par):
 Message_struct['ImpinjInventorySearchModeParameter'] = {
     'vendorid': 25882,
     'subtype': 23,
+    'fields': [],
     'encode': encode_ImpinjInventorySearchModeParameter
 }
 
@@ -3274,6 +3275,7 @@ def encode_ImpinjEnableRFPhaseAngleParameter(par):
 Message_struct['ImpinjEnableRFPhaseAngleParameter'] = {
     'vendorid': 25882,
     'subtype': 52,
+    'fields': [],
     'encode': encode_ImpinjEnableRFPhaseAngleParameter
 }
 
@@ -3289,6 +3291,7 @@ def encode_ImpinjEnablePeakRSSIParameter(par):
 Message_struct['ImpinjEnablePeakRSSIParameter'] = {
     'vendorid': 25882,
     'subtype': 53,
+    'fields': [],
     'encode': encode_ImpinjEnablePeakRSSIParameter
 }
 
@@ -3304,6 +3307,7 @@ def encode_ImpinjEnableRFDopplerParameter(par):
 Message_struct['ImpinjEnableRFDopplerParameter'] = {
     'vendorid': 25882,
     'subtype': 67,
+    'fields': [],
     'encode': encode_ImpinjEnableRFDopplerParameter
 }
 
