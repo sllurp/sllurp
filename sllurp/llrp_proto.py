@@ -142,9 +142,6 @@ ConnEvent_Name2Type = {
 }
 
 ConnEvent_Type2Name = reverse_dict(ConnEvent_Name2Type)
-for m in ConnEvent_Name2Type:
-    i = ConnEvent_Name2Type[m]
-    ConnEvent_Type2Name[i] = m
 
 # http://www.gs1.org/gsmp/kc/epcglobal/llrp/llrp_1_0_1-standard-20070813.pdf
 # Section 14.1.1 Error messages
@@ -178,9 +175,6 @@ Error_Name2Type = {
 }
 
 Error_Type2Name = reverse_dict(Error_Name2Type)
-for m in Error_Name2Type:
-    i = Error_Name2Type[m]
-    Error_Type2Name[i] = m
 
 # 13.2.1 ROReportTrigger
 ROReportTrigger_Name2Type = {
