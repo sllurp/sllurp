@@ -176,23 +176,6 @@ Error_Name2Type = {
 
 Error_Type2Name = reverse_dict(Error_Name2Type)
 
-# 13.2.5.1 EventNotificationState events list
-EventState_Name2Value = {
-    'HoppingEvent': 0,
-    'GPIEvent': 1,
-    'ROSpecEvent': 2,
-    'ReportBufferFillWarning': 3,
-    'ReaderExceptionEvent': 4,
-    'RFSurveyEvent': 5,
-    'AISpecEvent': 6,
-    'AISpecEventWithSingulation': 7,
-    'AntennaEvent': 8,
-    # New event only available in llrp v.2:
-    #'SpecLoopEvent': 9,
-}
-
-EventState_Value2Name = reverse_dict(EventState_Name2Value)
-
 # 13.2.1 ROReportTrigger
 ROReportTrigger_Name2Type = {
     'None': 0,
