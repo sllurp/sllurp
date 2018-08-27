@@ -3218,7 +3218,6 @@ Message_struct['CustomParameter'] = {
 #
 
 def encode_ImpinjInventorySearchModeParameter(par):
-    logger.warn("@FLO: %r is %r", type(par), par)
     msg_struct_param = Message_struct['ImpinjInventorySearchModeParameter']
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
