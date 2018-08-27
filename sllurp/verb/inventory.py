@@ -5,10 +5,10 @@ from __future__ import print_function, division
 import logging
 import pprint
 import time
-from twisted.internet import reactor, defer
 
 from sllurp.util import monotonic
-from sllurp.llrp import LLRPClientFactory
+from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient
+from sllurp.llrp_proto import Modulation_DefaultTari
 
 start_time = None
 
@@ -16,16 +16,10 @@ numtags = 0
 logger = logging.getLogger(__name__)
 
 
-def finish(*args):
+def finish_cb(*args):
     runtime = monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
                 numtags/runtime)
-    if reactor.running:
-        reactor.stop()
-
-
-def shutdown(factory):
-    return factory.politeShutdown()
 
 
 def tag_report_cb(llrp_msg):
@@ -40,7 +34,6 @@ def tag_report_cb(llrp_msg):
         logger.info('no tags seen')
         return
 
-
 def main(args):
     global start_time
 
@@ -49,23 +42,13 @@ def main(args):
         return 0
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
-    antmap = {
-        host: {
-            str(ant): 'Antenna {}'.format(ant) for ant in enabled_antennas
-        } for host in args.host
-    }
-    logger.info('Antenna map: %s', antmap)
-
-    # d.callback will be called when all connections have terminated normally.
-    # use d.addCallback(<callable>) to define end-of-program behavior.
-    d = defer.Deferred()
-    d.addCallback(finish)
 
     factory_args = dict(
-        onFinish=d,
+        on_finish_callback=finish_cb,
+        on_tag_report_callback=tag_report_cb,
         duration=args.time,
         report_every_n_tags=args.every_n,
-        antenna_dict=antmap,
+        antennas=enabled_antennas,
         tx_power=args.tx_power,
         tari=args.tari,
         session=args.session,
@@ -94,8 +77,8 @@ def main(args):
     if args.impinj_reports:
         factory_args['impinj_tag_content_selector'] = {
             'EnableRFPhaseAngle': True,
-            'EnablePeakRSSI': False,
-            'EnableRFDopplerFrequency': False
+            'EnablePeakRSSI': True,
+            'EnableRFDopplerFrequency': True
         }
     if args.impinj_fixed_freq:
         factory_args['impinj_fixed_frequency_param'] = {
@@ -103,24 +86,44 @@ def main(args):
             'ChannelListIndex': [1]
         }
 
-    fac = LLRPClientFactory(**factory_args)
 
-    # tag_report_cb will be called every time the reader sends a TagReport
-    # message (i.e., when it has "seen" tags).
-    fac.addTagReportCallback(tag_report_cb)
-
+    reader_clients = []
     for host in args.host:
         if ':' in host:
             host, port = host.split(':', 1)
             port = int(port)
         else:
             port = args.port
-        reactor.connectTCP(host, port, fac, timeout=3)
 
-    # catch ctrl-C and stop inventory before disconnecting
-    reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
+        config = LLRPReaderConfig(factory_args)
+        reader = LLRPReaderClient(host, port, config)
+        reader_clients.append(reader)
 
-    # start runtime measurement to determine rates
+
     start_time = monotonic()
+    try:
+        for reader in reader_clients:
+            reader.connect()
+    except Exception:
+        # On one error, abort all
+        for reader in reader_clients:
+            reader.disconnect()
 
-    reactor.run()
+    while True:
+        try:
+            # Join all threads using a timeout so it doesn't block
+            # Filter out threads which have been joined or are None
+            alive_readers = [reader for reader in reader_clients if reader.is_alive()]
+            if not alive_readers:
+                break
+            for reader in alive_readers:
+                reader.join(1)
+        except (KeyboardInterrupt, SystemExit):
+            # catch ctrl-C and stop inventory before disconnecting
+            logger.info("Exit detected! Stopping readers...")
+            for reader in reader_clients:
+                try:
+                    reader.disconnect()
+                except:
+                    logger.exception("Error during disconnect. Ignoring...")
+                    pass
