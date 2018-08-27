@@ -230,6 +230,8 @@ class LLRPClient(LineReceiver):
         self.disconnecting = False
         self.rospec = None
 
+        self.last_msg_id = 0
+
     def addStateCallback(self, state, cb):
         """Add a callback to run upon a state transition.
 
@@ -705,15 +707,15 @@ class LLRPClient(LineReceiver):
         logger.warn('complain(): %s', args)
 
     def send_KEEPALIVE_ACK(self):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'KEEPALIVE_ACK': {
                 'Ver':  1,
                 'Type': 72,
                 'ID':   0,
-            }}))
+            }})
 
     def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'CUSTOM_MESSAGE': {
                 'Ver': 1,
                 'Type': 1023,
@@ -721,50 +723,50 @@ class LLRPClient(LineReceiver):
                 'VendorID': 25882,
                 'Subtype': 21,
                 # skip payload
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS)
         self._deferreds['CUSTOM_MESSAGE'].append(onCompletion)
 
     def send_GET_READER_CAPABILITIES(self, _, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'GET_READER_CAPABILITIES': {
                 'Ver':  1,
                 'Type': 1,
                 'ID':   0,
                 'RequestedData': Capability_Name2Type['All']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
         self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(
             onCompletion)
 
     def send_GET_READER_CONFIG(self, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'GET_READER_CONFIG': {
                 'Ver':  1,
                 'Type': 2,
                 'ID':   0,
                 'RequestedData': Capability_Name2Type['All']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
     def send_ENABLE_EVENTS_AND_REPORTS(self):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ENABLE_EVENTS_AND_REPORTS': {
                 'Ver': 1,
                 'Type': 64,
                 'ID': 0,
-            }}))
+            }})
 
     def send_SET_READER_CONFIG(self, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'SET_READER_CONFIG': {
                 'Ver':  1,
                 'Type': 3,
                 'ID':   0,
                 'ResetToFactoryDefaults': False,
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
@@ -772,74 +774,72 @@ class LLRPClient(LineReceiver):
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         logger.debug('about to send_ADD_ROSPEC')
         try:
-            add_rospec = LLRPMessage(msgdict={
+            self.sendMessage({
                 'ADD_ROSPEC': {
                     'Ver':  1,
                     'Type': 20,
                     'ID':   0,
                     'ROSpecID': rospec['ROSpecID'],
                     'ROSpec': rospec,
-                }})
+            }})
         except Exception as ex:
             logger.exception(ex)
-        else:
-            self.sendLLRPMessage(add_rospec)
         logger.debug('sent ADD_ROSPEC')
         self.setState(LLRPClient.STATE_SENT_ADD_ROSPEC)
         self._deferreds['ADD_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ENABLE_ROSPEC(self, _, rospec, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ENABLE_ROSPEC': {
                 'Ver':  1,
                 'Type': 24,
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_ENABLE_ROSPEC)
         self._deferreds['ENABLE_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_START_ROSPEC(self, _, rospec, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'START_ROSPEC': {
                 'Ver':  1,
                 'Type': 22,
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_START_ROSPEC)
         self._deferreds['START_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ADD_ACCESSSPEC(self, accessSpec, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ADD_ACCESSSPEC': {
                 'Ver':  1,
                 'Type': 40,
                 'ID':   0,
                 'AccessSpec': accessSpec,
-            }}))
+            }})
         self._deferreds['ADD_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
     def send_DISABLE_ACCESSSPEC(self, accessSpecID=1, onCompletion=None):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DISABLE_ACCESSSPEC': {
                 'Ver':  1,
                 'Type': 43,
                 'ID':   0,
                 'AccessSpecID': accessSpecID,
-            }}))
+            }})
 
         if onCompletion:
             self._deferreds['DISABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
     def send_ENABLE_ACCESSSPEC(self, _, accessSpecID, onCompletion=None):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ENABLE_ACCESSSPEC': {
                 'Ver':  1,
                 'Type': 42,
                 'ID':   0,
                 'AccessSpecID': accessSpecID,
-            }}))
+            }})
 
         if onCompletion:
             self._deferreds['ENABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
@@ -848,13 +848,13 @@ class LLRPClient(LineReceiver):
                                writeSpecParam, stopParam, accessSpecID=1,
                                onCompletion=None):
         # logger.info('Deleting current accessSpec.')
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DELETE_ACCESSSPEC': {
                 'Ver': 1,
                 'Type': 41,
                 'ID': 0,
                 'AccessSpecID': accessSpecID  # ONE AccessSpec
-            }}))
+            }})
 
         # Hackfix to chain startAccess to send_DELETE, since appending a
         # deferred doesn't seem to work...
@@ -1025,13 +1025,13 @@ class LLRPClient(LineReceiver):
         if disconnect:
             logger.info('will disconnect when stopped')
             self.disconnecting = True
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DELETE_ACCESSSPEC': {
                 'Ver': 1,
                 'Type': 41,
                 'ID': 0,
                 'AccessSpecID': 0  # all AccessSpecs
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_DELETE_ACCESSSPEC)
 
         d = defer.Deferred()
@@ -1042,13 +1042,13 @@ class LLRPClient(LineReceiver):
         return d
 
     def stopAllROSpecs(self, *args):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DELETE_ROSPEC': {
                 'Ver':  1,
                 'Type': 21,
                 'ID':   0,
                 'ROSpecID': 0
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
 
         d = defer.Deferred()
@@ -1153,13 +1153,13 @@ class LLRPClient(LineReceiver):
 
         rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
 
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DISABLE_ROSPEC': {
                 'Ver':  1,
                 'Type': 25,
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_PAUSING)
 
         d = defer.Deferred()
@@ -1197,12 +1197,23 @@ class LLRPClient(LineReceiver):
         d.addCallback(self._setState_wrapper, LLRPClient.STATE_INVENTORYING)
         d.addErrback(self.panic, 'resume() failed')
         self.send_ENABLE_ROSPEC(None, self.rospec['ROSpec'], onCompletion=d)
+    def sendMessage(self, msg_dict):
+        """Serialize and send a dict LLRP Message
 
-    def sendLLRPMessage(self, llrp_msg):
-        assert isinstance(llrp_msg, LLRPMessage)
+        Note: IDs should be modified in original msg_dict as it is a reference.
+        That should be ok.
+        """
+        sent_ids = []
+        for name in msg_dict:
+            self.last_msg_id += 1
+            msg_dict[name]['ID'] = self.last_msg_id
+            sent_ids.append((name, self.last_msg_id))
+        llrp_msg = LLRPMessage(msgdict=msg_dict)
+
         assert llrp_msg.msgbytes, "LLRPMessage is empty"
         self.transport.write(llrp_msg.msgbytes)
 
+        return sent_ids
 
 class LLRPClientFactory(ReconnectingClientFactory):
     maxDelay = 60  # seconds
