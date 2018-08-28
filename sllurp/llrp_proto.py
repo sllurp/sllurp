@@ -2549,8 +2549,11 @@ def encode_TagReportContentSelector(par):
         if field in par and par[field]:
             flags = flags | (1 << i)
         i = i - 1
-
     data = struct.pack('!H', flags)
+
+    if 'C1G2EPCMemorySelector' in par:
+        data += encode('C1G2EPCMemorySelector')(par['C1G2EPCMemorySelector'])
+
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
 
@@ -2574,6 +2577,35 @@ Message_struct['TagReportContentSelector'] = {
     'encode': encode_TagReportContentSelector
 }
 
+# 15.2.1.5.1 C1G2EPCMemorySelector Parameter
+def encode_C1G2EPCMemorySelector(par):
+    msgtype = Message_struct['C1G2EPCMemorySelector']['type']
+    msg_header = '!HH'
+
+    flags = 0
+    i = 7
+    for field in Message_struct['C1G2EPCMemorySelector']['fields']:
+        if field in par and par[field]:
+            flags = flags | (1 << i)
+        i = i - 1
+
+    data = struct.pack('!B', flags)
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+
+    return data
+
+
+Message_struct['C1G2EPCMemorySelector'] = {
+    'type': 348,
+    'fields': [
+        'EnableCRC',
+        'EnablePCBits',
+        # New in protocol v2 (llrp 1_1)
+        #'EnableXPCBits'
+    ],
+    'encode': encode_C1G2EPCMemorySelector
+}
 
 # 16.2.7.3 TagReportData Parameter
 def decode_TagReportData(data):
@@ -2638,9 +2670,19 @@ Message_struct['TagReportData'] = {
         'LastSeenTimestampUTC',
         'LastSeenTimestampUptime',
         'TagSeenCount',
-        'AirProtocolTagData',
+        # AirProtocolTagDataParameter
+        'C1G2CRC',
+        'C1G2PC',
+        # protocol v2 (llrp 1_1)
+        'C1G2XPCW1',
+        'C1G2XPCW2',
+        # End of AirProtocolTagDataParameter
         'AccessSpecID',
         'OpSpecResult',
+        ## Custom parameters:
+        'ImpinjPhase',
+        'ImpinjPeakRSSI',
+        'ImpinjRFDopplerFrequency'
     ],
     'decode': decode_TagReportData
 }
@@ -3149,6 +3191,7 @@ def decode_AISpecEvent(data):
     body = data[par_header_len:length]
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
+
     # Decode fields
     (_,
      par['ROSpecID'],
@@ -3158,8 +3201,16 @@ def decode_AISpecEvent(data):
     # possible.
     par ['EventType'] = 'End_of_AISpec'
 
-    # Ignoring AirProtocolSingulationDetailsParameter additionnal parameter
-    # for the moment
+    # Optionnal AirProtocolSingulationDetailsParameter parameter:
+    # C1G2SingulationDetails that is a tve
+    offset = struct.calcsize('!BIH')
+    body = body[offset:]
+
+    if body:
+        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        if ret:
+            par.update(ret)
+            body = body[nbytes:]
 
     return par, data[length:]
 
@@ -3170,7 +3221,8 @@ Message_struct['AISpecEvent'] = {
         'Type',
         'EventType',
         'ROSpecID',
-        'PreemptingROSpecID'
+        'SpecIndex',
+        'C1G2SingulationDetails'
     ],
     'decode': decode_AISpecEvent
 }
@@ -3762,6 +3814,10 @@ class LLRPROSpec(dict):
             'EnableLastSeenTimestamp': True,
             'EnableTagSeenCount': True,
             'EnableAccessSpecID': False,
+            'C1G2EPCMemorySelector': {
+                'EnableCRC': False,
+                'EnablePCBits': False,
+            }
         }
         if tag_content_selector:
             tagReportContentSelector.update(tag_content_selector)
