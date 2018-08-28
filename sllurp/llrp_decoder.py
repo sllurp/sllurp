@@ -20,16 +20,21 @@ tve_param_formats = {
     8: ('TagSeenCount', '!H'),
     9: ('ROSpecID', '!I'),
     10: ('InventoryParameterSpecID', '!H'),
+    11: ('C1G2CRC', '!H'),
+    12: ('C1G2PC', '!H'),
     14: ('SpecIndex', '!H'),
     15: ('ClientRequestOpSpecResult', '!H'),
     16: ('AccessSpecID', '!I'),
-    17: ('OpSpecID', '!H')
+    17: ('OpSpecID', '!H'),
+    18: ('C1G2SingulationDetails', '!HH'),
+    19: ('C1G2XPCW1', '!H'),
+    20: ('C1G2XPCW2', '!H'),
 }
 
 ext_param_formats = {
     56: ('ImpinjPhase', '!H'),
     57: ('ImpinjPeakRSSI', '!h'),
-    68: ('RFDopplerFrequency', '!h')
+    68: ('ImpinjRFDopplerFrequency', '!h')
 }
 
 nontve_header = '!H'
