@@ -1197,6 +1197,7 @@ class LLRPClient(LineReceiver):
         d.addCallback(self._setState_wrapper, LLRPClient.STATE_INVENTORYING)
         d.addErrback(self.panic, 'resume() failed')
         self.send_ENABLE_ROSPEC(None, self.rospec['ROSpec'], onCompletion=d)
+
     def sendMessage(self, msg_dict):
         """Serialize and send a dict LLRP Message
 
