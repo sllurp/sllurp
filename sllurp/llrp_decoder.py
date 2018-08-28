@@ -69,6 +69,9 @@ def decode_tve_parameter(data):
     end = tve_header_len + nbytes
     try:
         unpacked = struct.unpack(param_fmt, data[tve_header_len:end])
+        # return directly the value if only 1 element.
+        if len(unpacked) == 1:
+            unpacked = unpacked[0]
         return {param_name: unpacked}, end
     except struct.error:
         return None, 0
