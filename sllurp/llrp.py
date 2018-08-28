@@ -766,6 +766,22 @@ class LLRPClient(LineReceiver):
                 'Type': 3,
                 'ID':   0,
                 'ResetToFactoryDefaults': False,
+                'ReaderEventNotificationSpec': {
+                    'EventNotificationState': {
+                            'HoppingEvent': False,
+                            'GPIEvent': False,
+                            'ROSpecEvent': False,
+                            'ReportBufferFillWarning': False,
+                            'ReaderExceptionEvent': False,
+                            'RFSurveyEvent': False,
+                            'AISpecEvent': False,
+                            'AISpecEventWithSingulation': False,
+                            'AntennaEvent': False,
+                            ## Next one will only be available
+                            ## with llrp v2 (spec 1_1)
+                            #'SpecLoopEvent': True,
+                    },
+                }
             }})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(

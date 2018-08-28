@@ -142,9 +142,6 @@ ConnEvent_Name2Type = {
 }
 
 ConnEvent_Type2Name = reverse_dict(ConnEvent_Name2Type)
-for m in ConnEvent_Name2Type:
-    i = ConnEvent_Name2Type[m]
-    ConnEvent_Type2Name[i] = m
 
 # http://www.gs1.org/gsmp/kc/epcglobal/llrp/llrp_1_0_1-standard-20070813.pdf
 # Section 14.1.1 Error messages
@@ -178,9 +175,23 @@ Error_Name2Type = {
 }
 
 Error_Type2Name = reverse_dict(Error_Name2Type)
-for m in Error_Name2Type:
-    i = Error_Name2Type[m]
-    Error_Type2Name[i] = m
+
+# 13.2.5.1 EventNotificationState events list
+EventState_Name2Value = {
+    'HoppingEvent': 0,
+    'GPIEvent': 1,
+    'ROSpecEvent': 2,
+    'ReportBufferFillWarning': 3,
+    'ReaderExceptionEvent': 4,
+    'RFSurveyEvent': 5,
+    'AISpecEvent': 6,
+    'AISpecEventWithSingulation': 7,
+    'AntennaEvent': 8,
+    # New event only available in llrp v.2:
+    #'SpecLoopEvent': 9,
+}
+
+EventState_Value2Name = reverse_dict(EventState_Name2Value)
 
 # 13.2.1 ROReportTrigger
 ROReportTrigger_Name2Type = {
@@ -2502,8 +2513,12 @@ def encode_ReaderEventNotificationSpec(par):
 
     data = b''
     for ev_type, flag in states.items():
+        if not ev_type in EventState_Name2Value:
+            logger.warning('Unknown event name %s', ev_type)
+            continue
         parlen = struct.calcsize('!HHHB')
-        data += struct.pack('!HHHB', 245, parlen, ev_type,
+        data += struct.pack('!HHHB', 245, parlen,
+                            EventState_Name2Value[ev_type],
                             (int(bool(flag)) << 7) & 0xff)
 
     data = struct.pack('!HH', msgtype,
@@ -2888,57 +2903,275 @@ Message_struct['ROSpecID'] = {
     'tv_encoded': True,
 }
 
-
-# 16.2.7.6 ReaderEventNotificationData Parameter
-def decode_ReaderEventNotificationData(data):
+# 16.2.7.6.1 HoppingEvent Parameter
+def decode_HoppingEvent(data):
+    logger.debug(func())
     par = {}
-
-    if len(data) == 0:
-        return None, data
 
     header = data[0:par_header_len]
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['HoppingEvent']['type']:
+        return (None, data)
     body = data[par_header_len:length]
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
-    # Decode parameters
-    ret, body = decode('UTCTimestamp')(body)
-    if ret:
-        par['UTCTimestamp'] = ret
-    else:
-        raise LLRPError('missing or invalid UTCTimestamp parameter')
+    # Decode fields
+    (par['HopTableID'], par['NextChannelIndex']) = struct.unpack('!HH', body)
 
-    ret, body = decode('ConnectionAttemptEvent')(body)
-    if ret:
-        par['ConnectionAttemptEvent'] = ret
+    return par, data[length:]
 
-    ret, body = decode('AntennaEvent')(body)
-    if ret:
-        par['AntennaEvent'] = ret
-
-    return par, body
-
-
-Message_struct['ReaderEventNotificationData'] = {
-    'type': 246,
+Message_struct['HoppingEvent'] = {
+    'type': 247,
     'fields': [
         'Type',
-        'HoppingEvent',
-        'GPIEvent',
-        'ROSpecEvent',
-        'ReportBufferLevelWarningEvent',
-        'ReportBufferOverflowErrorEvent',
-        'ReaderExceptionEvent',
-        'RFSurveyEvent',
-        'AISpecEvent',
-        'AntennaEvent',
-        'ConnectionAttemptEvent',
-        'ConnectionCloseEvent'
+        'HopTableID',
+        'NextChannelIndex'
     ],
-    'decode': decode_ReaderEventNotificationData
+    'decode': decode_HoppingEvent
 }
 
+# 16.2.7.6.2 GPIEvent Parameter
+def decode_GPIEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['GPIEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (par['GPIPortNumber'], flags) = struct.unpack('!HB', body)
+    par['GPIEvent'] = flags & BIT(7) == BIT(7)
+
+    return par, data[length:]
+
+Message_struct['GPIEvent'] = {
+    'type': 248,
+    'fields': [
+        'Type',
+        'GPIPortNumber',
+        'GPIEvent'
+    ],
+    'decode': decode_GPIEvent
+}
+
+# 16.2.7.6.3 ROSpecEvent Parameter
+def decode_ROSpecEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ROSpecEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (event_type,
+     par['ROSpecID'],
+     par['PreemptingROSpecID']) = struct.unpack('!BII', body)
+
+    if event_type == 0:
+        par['EventType'] = 'Start_of_ROSpec'
+    elif event_type == 1:
+        par['EventType'] = 'End_of_ROSpec'
+    else:
+        par['EventType'] = 'Preemption_of_ROSpec'
+
+    return par, data[length:]
+
+
+Message_struct['ROSpecEvent'] = {
+    'type': 249,
+    'fields': [
+        'Type',
+        'EventType',
+        'ROSpecID',
+        'PreemptingROSpecID'
+    ],
+    'decode': decode_ROSpecEvent
+}
+
+
+def decode_ReportBufferLevelWarning(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ReportBufferLevelWarning']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    par['ReportBufferPercentageFull'] = struct.unpack('!B', body)[0]
+
+    return par, data[length:]
+
+
+Message_struct['ReportBufferLevelWarning'] = {
+    'type': 250,
+    'fields': [
+        'Type',
+        'ReportBufferPercentageFull'
+    ],
+    'decode': decode_ReportBufferLevelWarning
+}
+
+
+def decode_ReportBufferOverflowErrorEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ReportBufferOverflowErrorEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    return par, data[length:]
+
+
+Message_struct['ReportBufferOverflowErrorEvent'] = {
+    'type': 251,
+    'fields': [
+        'Type',
+    ],
+    'decode': decode_ReportBufferOverflowErrorEvent
+}
+
+
+def decode_ReaderExceptionEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ReaderExceptionEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    offset = struct.calcsize('!H')
+    msg_bytecount = struct.unpack('!H', body[:offset])
+    par['Message'] = body[offset:offset + msg_bytecount]
+    body = body[offset + msg_bytecount:]
+
+    # grab TV-encoded parameters
+    while body:
+        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        if ret:
+            par.update(ret)
+            body = body[nbytes:]
+        else:
+            break
+
+    return par, data[length:]
+
+
+Message_struct['ReaderExceptionEvent'] = {
+    'type': 252,
+    'fields': [
+        'Type',
+        'MessageByteCount',
+        'Message',
+        'ROSpecID',
+        'SpecIndex',
+        'InventoryParameterSpec',
+        'AntennaID',
+        'AccessSpecID',
+        'OpSpecID',
+        # Optional N custom parameters after
+    ],
+    'decode': decode_ReaderExceptionEvent
+}
+
+
+def decode_RFSurveyEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['RFSurveyEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (event_type,
+     par['ROSpecID'],
+     par['SpecIndex']) = struct.unpack('!BIH', body)
+
+    if event_type == 0:
+        par['EventType'] = 'Start_of_RFSurvey'
+    else:
+        par['EventType'] = 'End_of_RFSurvey'
+
+
+    return par, data[length:]
+
+Message_struct['RFSurveyEvent'] = {
+    'type': 253,
+    'fields': [
+        'Type',
+        'EventType',
+        'ROSpecID',
+        'SpecIndex'
+    ],
+    'decode': decode_RFSurveyEvent
+}
+
+
+def decode_AISpecEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['AISpecEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (_,
+     par['ROSpecID'],
+     par['SpecIndex']) = struct.unpack('!BIH', body)
+
+    # first parameter (event_type) is ignored as just a single value is
+    # possible.
+    par ['EventType'] = 'End_of_AISpec'
+
+    # Ignoring AirProtocolSingulationDetailsParameter additionnal parameter
+    # for the moment
+
+    return par, data[length:]
+
+
+Message_struct['AISpecEvent'] = {
+    'type': 254,
+    'fields': [
+        'Type',
+        'EventType',
+        'ROSpecID',
+        'PreemptingROSpecID'
+    ],
+    'decode': decode_AISpecEvent
+}
 
 # 16.2.7.6.9 AntennaEvent Parameter
 def decode_AntennaEvent(data):
@@ -2974,7 +3207,6 @@ Message_struct['AntennaEvent'] = {
     'decode': decode_AntennaEvent
 }
 
-
 # 16.2.7.6.10 ConnectionAttemptEvent Parameter
 def decode_ConnectionAttemptEvent(data):
     logger.debug(func())
@@ -3006,6 +3238,143 @@ Message_struct['ConnectionAttemptEvent'] = {
     ],
     'decode': decode_ConnectionAttemptEvent
 }
+
+
+def decode_ConnectionCloseEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ConnectionCloseEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    return par, data[length:]
+
+
+Message_struct['ConnectionCloseEvent'] = {
+    'type': 257,
+    'fields': [
+        'Type'
+    ],
+    'decode': decode_ConnectionCloseEvent
+}
+
+
+def decode_SpecLoopEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['SpecLoopEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (par['ROSpecID'],
+     par['LoopCount']) = struct.unpack('!II', body)
+
+    return par, data[length:]
+
+
+# Only available with protocol v2 (llrp 1_1)
+Message_struct['SpecLoopEvent'] = {
+    'type': 356,
+    'fields': [
+        'Type',
+        'ROSpecID',
+        'LoopCount'
+    ],
+    'decode': decode_SpecLoopEvent
+}
+
+
+# 16.2.7.6 ReaderEventNotificationData Parameter
+def decode_ReaderEventNotificationData(data):
+    par = {}
+
+    if len(data) == 0:
+        return None, data
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode parameters
+    ret, body = decode('UTCTimestamp')(body)
+    if ret:
+        par['UTCTimestamp'] = ret
+    else:
+        raise LLRPError('missing or invalid UTCTimestamp parameter')
+
+    while len(body):
+        evt_header = body[0:par_header_len]
+        evt_msgtype, evt_length = struct.unpack(par_header, evt_header)
+        evt_msgtype = evt_msgtype & BITMASK(10)
+
+        event_name = Event_Type2Name.get(evt_msgtype)
+        if not event_name:
+            logger.warning('skipping unsupported event (type: %d)',
+                           evt_msgtype)
+            logger.debug('Unprocessed bytes of unsupported reader EVENT: %s',
+                         hexlify(body[:evt_length]))
+            body = body[evt_length:]
+            continue
+
+        if event_name not in Message_struct:
+            logger.warning('No decoder available for event: %s . Skipping...',
+                           event_name)
+            body = body[evt_length:]
+            continue
+
+        ret, body = decode(event_name)(body)
+        if ret:
+            par[event_name] = ret
+        else:
+            logger.warning('error decoding event %s', )
+            body = body[evt_length:]
+            continue
+
+    return par, body
+
+
+Message_struct['ReaderEventNotificationData'] = {
+    'type': 246,
+    'fields': [
+        'Type',
+        'HoppingEvent',
+        'GPIEvent',
+        'ROSpecEvent',
+        'ReportBufferLevelWarningEvent',
+        'ReportBufferOverflowErrorEvent',
+        'ReaderExceptionEvent',
+        'RFSurveyEvent',
+        'AISpecEvent',
+        'AntennaEvent',
+        'ConnectionAttemptEvent',
+        'ConnectionCloseEvent',
+        'SpecLoopEvent'
+    ],
+    'decode': decode_ReaderEventNotificationData
+}
+
+
+# 13.2.6 ReaderEventNotificationData events list
+Event_Type2Name = {}
+for field_name in Message_struct['ReaderEventNotificationData']['fields']:
+    if field_name == 'Type':
+        continue
+    event_type_id = Message_struct.get(field_name, {}).get('type')
+    if event_type_id:
+        Event_Type2Name[event_type_id] = field_name
 
 
 # 16.2.8.1 LLRPStatus Parameter
