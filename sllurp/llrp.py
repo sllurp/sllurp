@@ -848,9 +848,9 @@ class LLRPClient(LineReceiver):
                         'VendorID': 25882,
                         'Subtype': 1544,            
                         'EnableUpdateReport': True,
-                        'EnableEntryReport' : True,
-                        'EnableExitReport': True,
-                        'EnableDiagnosticReport': True
+                        'EnableEntryReport' : False,
+                        'EnableExitReport': False,
+                        'EnableDiagnosticReport': False
                     }
                 }})
 
