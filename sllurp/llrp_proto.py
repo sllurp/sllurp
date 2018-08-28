@@ -3471,6 +3471,7 @@ Message_struct['ReaderEventNotificationData'] = {
     'type': 246,
     'fields': [
         'Type',
+        'UTCTimestamp',
         'HoppingEvent',
         'GPIEvent',
         'ROSpecEvent',
@@ -3491,7 +3492,7 @@ Message_struct['ReaderEventNotificationData'] = {
 # 13.2.6 ReaderEventNotificationData events list
 Event_Type2Name = {}
 for field_name in Message_struct['ReaderEventNotificationData']['fields']:
-    if field_name == 'Type':
+    if field_name in ['Type', 'UTCTimestamp']:
         continue
     event_type_id = Message_struct.get(field_name, {}).get('type')
     if event_type_id:
