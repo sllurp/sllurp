@@ -1,12 +1,7 @@
-import unittest
-from . import sgtin_96, gtin
-import logging
+"""Tests for EPC utility functions."""
 
-logLevel = logging.WARNING
-logging.basicConfig(level=logLevel,
-                    format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
-logger = logging.getLogger('sllurp')
-logger.setLevel(logLevel)
+import unittest
+from sllurp.epc import sgtin_96, gtin
 
 
 class SGTIN_96_Tests(unittest.TestCase):
@@ -55,7 +50,3 @@ class SGTIN_96_Tests(unittest.TestCase):
         epc = "30204ed9496334000000006e"
         uri = "urn:epc:id:sgtin:084663228621.0.110"
         self.assertEqual(sgtin_96.parse_sgtin_96_to_uri(epc), uri)
-
-
-if __name__ == '__main__':
-    unittest.main()
