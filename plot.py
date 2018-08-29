@@ -127,7 +127,24 @@ def update_graph_live(n):
         
     )
     data = [trace]
-    layout = go.Layout(autosize=True,title='Tag Location', xaxis=dict(range=[-250, 250]),yaxis=dict(range=[-250, 250]),scene=dict(aspectmode="data"))
+    layout = go.Layout(autosize=True,title='Tag Location', 
+        xaxis=dict(range=[-250, 250],
+        title='X Distance cm',
+        tick0=0,
+        dtick=25,
+        ticklen=8,
+        tickwidth=4,
+        tickcolor='#000'
+        ),
+        yaxis=dict(range=[-250, 250],
+        title='Y Distance cm',
+        tick0=0,
+        dtick=50,
+        ticklen=8,
+        tickwidth=4,
+        tickcolor='#000'
+        )
+    )
 
     return go.Figure(data=data,layout=layout)
 
