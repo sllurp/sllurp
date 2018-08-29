@@ -168,7 +168,7 @@ def main():
     fac.addTagReportCallback(tagReportCallback)
 
     # start tag access once inventorying
-    fac.addStateCallback(llrp.LLRPClient.STATE_INVENTORYING, access)
+    fac.addStateCallback(llrp.LLRPReaderState.STATE_INVENTORYING, access)
 
     for host in args.host:
         reactor.connectTCP(host, args.port, fac, timeout=3)
