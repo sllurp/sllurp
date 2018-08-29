@@ -78,14 +78,22 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
 
 @cli.command()
 @click.argument('host', type=str, nargs=-1)
+@click.option('-p', '--port', type=int, default=5084)
 @click.option('-o', '--outfile', type=click.File('w'), default='-')
 @click.option('-a', '--antennas', type=str, default='0',
               help='comma-separated list of antennas to use (default 0=all)')
+@click.option('-X', '--tx-power', type=int, default=0,
+              help='transmit power (default 0=max power)')
 @click.option('-e', '--epc', type=str, help='log only a specific EPC')
 @click.option('-r', '--reader-timestamp', is_flag=True, default=False,
               help='Use reader-provided timestamps instead of our own')
-def log(host, outfile, antennas, epc, reader_timestamp):
-    _log.main(host, outfile, antennas, epc, reader_timestamp)
+def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp):
+    Args = namedtuple('Args', ['host', 'port', 'outfile', 'antennas',
+                               'tx_power', 'epc', 'reader_timestamp'])
+    args = Args(host=host, port=port, outfile=outfile, tx_power=tx_power,
+                antennas=antennas, epc=epc, reader_timestamp=reader_timestamp)
+    logger.debug('log args: %s', args)
+    _log.main(args)
 
 
 @cli.command()
