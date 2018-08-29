@@ -154,4 +154,6 @@ def version():
 @click.argument('host', type=str, nargs=-1)
 @click.option('-p', '--port', type=int, default=5084)
 def reset(host, port):
-    _reset.main(host, port)
+    Args = namedtuple('Args', ['host', 'port'])
+    args = Args(host=host, port=port)
+    _reset.main(args)
