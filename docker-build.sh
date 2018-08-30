@@ -1,3 +1,4 @@
 #!/bin/bash
 
-docker build -t python_llrp_mqtt .
+docker build -t pom_inventory -f Dockerfile.inventory .
+docker build -t pom_location -f Dockerfile.location .

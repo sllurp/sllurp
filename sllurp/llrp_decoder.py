@@ -28,7 +28,7 @@ tve_param_formats = {
 ext_param_formats = {
     56: ('ImpinjPhase', '!H'),
     57: ('ImpinjPeakRSSI', '!h'),
-    68: ('RFDopplerFrequency', '!h')
+    68: ('RFDopplerFrequency', '!h'),
 }
 
 nontve_header = '!H'
@@ -46,9 +46,12 @@ def decode_tve_parameter(data):
     if nontve == 1023:  # customparameter
         (size,) = struct.unpack('!H',
                                 data[nontve_header_len:nontve_header_len+2])
+        logger.debug('tve size %s',size)
         (subtype,) = struct.unpack('!H', data[size-4:size-2])
+        logger.debug('tve msgtype %s', subtype)
         param_name, param_fmt = ext_param_formats[subtype]
         (unpacked,) = struct.unpack(param_fmt, data[size-2:size])
+
         return {param_name: unpacked}, size
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
@@ -57,6 +60,7 @@ def decode_tve_parameter(data):
         # not a TV-encoded param
         return None, 0
     msgtype = msgtype & 0x7f
+    logger.log('tve msgtype %s', msgtype)
     try:
         param_name, param_fmt = tve_param_formats[msgtype]
         logger.debug('found %s (type=%s)', param_name, msgtype)

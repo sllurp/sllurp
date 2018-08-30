@@ -78,7 +78,8 @@ par_header = '!HH'
 par_header_len = struct.calcsize(par_header)
 tve_header = '!B'
 tve_header_len = struct.calcsize(tve_header)
-
+vendor_subtype = '!II'
+vendor_subtype_len = struct.calcsize(vendor_subtype)
 AirProtocol = {
     'UnspecifiedAirProtocol': 0,
     'EPCGlobalClass1Gen2': 1,
@@ -337,11 +338,18 @@ def encode_SetReaderConfig(msg):
     reset_flag = int(msg.get('ResetToFactoryDefaults', False))
     reset = (reset_flag << 7) & 0xff
     data = struct.pack('!B', reset)
+
+    if 'ReaderEventNotificationSpec' in msg:
+        data += encode('ReaderEventNotificationSpec')(msg['ReaderEventNotificationSpec'])
     if 'ROReportSpec' in msg:
         data += encode('ROReportSpec')(msg['ROReportSpec'])
-    if 'ReaderEventNotificationSpec' in msg:
-        data += encode('ReaderEventNotificationSpec')(
-            msg['ReaderEventNotificationSpec'])
+    if 'EventsAndReports' in msg:
+        data += encode('EventsAndReports')(msg['EventsAndReports'])
+    if 'ImpinjPlacementConfiguration' in msg:
+        data += encode('ImpinjPlacementConfiguration')(msg['ImpinjPlacementConfiguration'])
+    if 'ImpinjLocationReporting' in msg:
+        data += encode('ImpinjLocationReporting')(msg['ImpinjLocationReporting'])
+
     # XXX other params
     return data
 
@@ -360,6 +368,9 @@ Message_struct['SET_READER_CONFIG'] = {
         'GPOWriteData',
         'GPIPortCurrentState',
         'EventsAndReports',
+        'ImpinjLocationConfig',
+        'ImpinjPlacementConfiguration',
+        'ImpinjLocationReporting',
     ],
     'encode': encode_SetReaderConfig,
 }
@@ -399,7 +410,7 @@ Message_struct['ENABLE_EVENTS_AND_REPORTS'] = {
 
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
-    return encode('ROSpec')(msg['ROSpec'])
+    return encode('ROSpec')(msg['ROSpec'],False)
 
 
 Message_struct['ADD_ROSPEC'] = {
@@ -409,6 +420,19 @@ Message_struct['ADD_ROSPEC'] = {
         'ROSpec'
     ],
     'encode': encode_AddROSpec
+}
+
+
+def encode_AddROSpec_Location(msg):
+    return encode('ROSpec')(msg['ROSpec'],True)
+
+Message_struct['ADD_ROSPEC_LOCATION'] = {
+    'type': 20,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'ROSpec'
+    ],
+    'encode': encode_AddROSpec_Location
 }
 
 
@@ -678,19 +702,24 @@ def decode_ROAccessReport(data):
 
     # Decode parameters
     msg['TagReportData'] = []
-    while True:
+    msg['ImpinjExtendedTagInformation'] = []
+    try:
+        tag_report, _ = decode('TagReportData')(data)
+    except TypeError:  # XXX
+        logger.error('Unable to decode TagReportData')
+    if not tag_report:
         try:
-            ret, data = decode('TagReportData')(data)
-        except TypeError:  # XXX
-            logger.error('Unable to decode TagReportData')
-            break
-        # print('len(ret) = {}'.format(len(ret)))
-        # print('len(data) = {}'.format(len(data)))
-        if ret:
-            msg['TagReportData'].append(ret)
-        else:
-            break
-
+            extended_tag = list(decode('ImpinjExtendedTagInformation')(data))
+            extended_tag = extended_tag[0]
+            
+        except Exception as e:
+            logger.error('Unable to decode ImpinjExtendedTagInformation becaue %s',e)
+    # print('len(ret) = {}'.format(len(ret)))
+    # print('len(data) = {}'.format(len(data)))
+    if tag_report:
+        msg['TagReportData'] = tag_report
+    elif extended_tag:
+        msg['ImpinjExtendedTagInformation'] = extended_tag
     return msg
 
 
@@ -699,6 +728,7 @@ Message_struct['RO_ACCESS_REPORT'] = {
     'fields': [
         'Ver', 'Type', 'ID',
         'TagReportData',
+        'ImpinjExtendedTagInformation'
     ],
     'decode': decode_ROAccessReport
 }
@@ -1534,7 +1564,7 @@ Message_struct['ErrorMessage'] = {
 
 
 # 16.2.4.1 ROSpec Parameter
-def encode_ROSpec(par):
+def encode_ROSpec(par,location_mode):
     msgtype = Message_struct['ROSpec']['type']
     msgid = par['ROSpecID'] & BITMASK(10)
     priority = par['Priority'] & BITMASK(7)
@@ -1542,11 +1572,13 @@ def encode_ROSpec(par):
 
     msg_header = '!HHIBB'
     msg_header_len = struct.calcsize(msg_header)
-
     data = encode('ROBoundarySpec')(par['ROBoundarySpec'])
-    data += encode('AISpec')(par['AISpec'])
-    data += encode('ROReportSpec')(par['ROReportSpec'])
-
+    if  location_mode:
+        data += encode('ImpinjLISpec')(par['ImpinjLISpec'])
+        data += encode('ROReportSpec')(par['ROReportSpec'])
+    else:
+        data += encode('AISpec')(par['AISpec'])
+        data += encode('ROReportSpec')(par['ROReportSpec'])
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
                        msgid, priority, state) + data
@@ -1562,6 +1594,7 @@ Message_struct['ROSpec'] = {
         'Priority',
         'CurrentState',
         'ROBoundarySpec',
+        'ImpinjLISpec',
         'AISpec',
         'RFSurveySpec',
         'ROReportSpec'
@@ -2374,7 +2407,6 @@ Message_struct['RFTransmitter'] = {
     'encode': encode_RFTransmitter
 }
 
-
 # 16.3.1.2.1 C1G2InventoryCommand Parameter
 def encode_C1G2InventoryCommand(par):
     msgtype = Message_struct['C1G2InventoryCommand']['type']
@@ -2441,7 +2473,6 @@ Message_struct['C1G2RFControl'] = {
     'encode': encode_C1G2RFControl
 }
 
-
 # 16.3.1.2.1.3 C1G2SingulationControl Parameter
 def encode_C1G2SingulationControl(par):
     msgtype = Message_struct['C1G2SingulationControl']['type']
@@ -2453,7 +2484,6 @@ def encode_C1G2SingulationControl(par):
                        len(data) + struct.calcsize(msg_header)) + data
     return data
 
-
 Message_struct['C1G2SingulationControl'] = {
     'type': 336,
     'fields': [
@@ -2464,6 +2494,24 @@ Message_struct['C1G2SingulationControl'] = {
     'encode': encode_C1G2SingulationControl
 }
 
+# 16.2.6.10 EventsAndReports Parameter
+def encode_EventsAndReports(par):
+    msgtype = Message_struct['EventsAndReports']['type']
+    msg_header = '!HH'
+    data = struct.pack('!?', par['HoldEventsAndReportsUponReconnect'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+
+Message_struct['EventsAndReports'] = {
+    'type': 226,
+    'fields': [
+        'Type',
+        'HoldEventsAndReportsUponReconnect '
+    ],
+    'encode': encode_EventsAndReports
+}
 
 # 16.2.7.1 ROReportSpec Parameter
 def encode_ROReportSpec(par):
@@ -2495,30 +2543,6 @@ Message_struct['ROReportSpec'] = {
         'ImpinjTagReportContentSelectorParameter',
     ],
     'encode': encode_ROReportSpec
-}
-
-
-def encode_ReaderEventNotificationSpec(par):
-    msgtype = Message_struct['ReaderEventNotificationSpec']['type']
-    states = par['EventNotificationState']
-
-    data = b''
-    for ev_type, flag in states.items():
-        parlen = struct.calcsize('!HHHB')
-        data += struct.pack('!HHHB', 245, parlen, ev_type,
-                            (int(bool(flag)) << 7) & 0xff)
-
-    data = struct.pack('!HH', msgtype,
-                       len(data) + struct.calcsize('!HH')) + data
-    return data
-
-
-Message_struct['ReaderEventNotificationSpec'] = {
-    'type': 244,
-    'fields': [
-        'EventNotificationState',
-    ],
-    'encode': encode_ReaderEventNotificationSpec
 }
 
 
@@ -2628,6 +2652,27 @@ Message_struct['TagReportData'] = {
         'OpSpecResult',
     ],
     'decode': decode_TagReportData
+}
+
+
+# 16.2.7.5 ReaderEventNotificationSpec
+def encode_ReaderEventNotificationSpec(par):
+    msgtype = Message_struct['ReaderEventNotificationSpec']['type']
+
+    data = b''
+    for item in par:
+        parlen = struct.calcsize('!HHHB')
+        data += struct.pack('!HHHB', 245, parlen, item['EventType'],
+                            (int(bool(item['NotificationState'])) << 7) & 0xff)
+
+    data = struct.pack('!HH', msgtype,
+                       len(data) + struct.calcsize('!HH')) + data
+    return data
+
+
+Message_struct['ReaderEventNotificationSpec'] = {
+    'type': 244,
+    'encode': encode_ReaderEventNotificationSpec
 }
 
 
@@ -3157,6 +3202,354 @@ Message_struct['ParameterError'] = {
     'decode': decode_ParameterError
 }
 
+# Custom Impinj Configurations
+def encode_ImpinjLocationConfig(par):
+    msgtype = Message_struct['ImpinjLocationConfig']['type']
+
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+    data += struct.pack('!H',par['ComputeWindowSeconds'])
+    data += struct.pack('!H',par['TagAgeIntervalSeconds'])
+    data += struct.pack('!H',par['UpdateIntervalSeconds'])
+
+  
+
+    
+    header = struct.pack(msg_header, msgtype,len(data) + msg_header_len) 
+
+    return header + data
+
+Message_struct['ImpinjLocationConfig'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'UpdateIntervalSeconds',
+        'ComputeWindowSeconds',
+        'TagAgeIntervalSeconds'
+    ],
+    'encode': encode_ImpinjLocationConfig
+}
+
+def encode_ImpinjPlacementConfiguration(par):
+    msgtype = Message_struct['ImpinjPlacementConfiguration']['type']
+
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+
+    data += struct.pack ('!H',par['HeightCm'])
+    data += struct.pack ('!i',par['FacilityXLocationCm'])
+    data += struct.pack ('!i',par['FacilityYLocationCm'])
+    data += struct.pack ('!h',par['OrientationDegrees'])
+    header = struct.pack(msg_header, msgtype,len(data) + msg_header_len) 
+
+    return header + data
+
+Message_struct['ImpinjPlacementConfiguration'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'HeightCm',
+        'FacilityXLocationCm',
+        'FacilityYLocationCm',
+        'OrientationDegrees'
+    ],
+    'encode': encode_ImpinjPlacementConfiguration
+}
+
+def encode_ImpinjLocationReporting(par):
+    msgtype = Message_struct['ImpinjLocationReporting']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+
+    # binary = boolListToBinString([par['EnableUpdateReport'],par['EnableEntryReport'],par['EnableExitReport'],par['EnableDiagnosticReport']])
+    # binary = int(binary,2) << 12
+    # binary = binary & 0xf0
+    data += struct.pack ('!B', 0xe0) # Hack to make location work. 0b1110000, 4 MSB bit sets the params
+    header = struct.pack(msg_header, msgtype,len(data) + msg_header_len) 
+    return header + data
+
+Message_struct['ImpinjLocationReporting'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'EnableUpdateReport',
+        'EnableEntryReport',
+        'EnableExitReport',
+        'EnableDiagnosticReport'
+    ],
+    'encode': encode_ImpinjLocationReporting
+}
+
+def boolListToBinString(lst):
+    return (''.join(['1' if x else '0' for x in lst]))
+
+def encode_ImpinjTagReportContentSelectorParameter(par):
+    msgtype = Message_struct['ImpinjTagReportContentSelectorParameter']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+
+    data += encode('CustomParameter')(par.get('EnableRFPhaseAngle', False))
+    data += encode('CustomParameter')(par.get('EnablePeakRSSI', False))
+    data += encode('CustomParameter')(
+        par.get('EnableRFDopplerFrequency', False))
+
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
+    return header + data
+
+
+Message_struct['ImpinjTagReportContentSelectorParameter'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'EnableRFPhaseAngle',
+        'EnablePeakRSSI',
+        'EnableRFDopplerFrequency'
+    ],
+    'encode': encode_ImpinjTagReportContentSelectorParameter
+}
+
+def encode_ImpinjLISpec(par):
+
+    msgtype = Message_struct['ImpinjLISpec']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+    data += encode('ImpinjLocationConfig')(par['ImpinjLocationConfig'])
+    data += encode('ImpinjC1G2LocationConfig')(par['ImpinjC1G2LocationConfig'])
+    
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data)  )
+    #logger.info(msg_header_len + len(data))
+    return header + data
+
+Message_struct['ImpinjLISpec'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'ImpinjLocationConfig',
+        'ImpinjC1G2LocationConfig',
+        'ImpinjTransmitPower'
+    ],
+    'encode': encode_ImpinjLISpec
+}
+
+def encode_ImpinjC1G2LocationConfig(par):
+
+    msgtype = Message_struct['ImpinjC1G2LocationConfig']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+
+    data += struct.pack('!H',par['ModeIndex'])
+    data += struct.pack('!B',par['Session'] << 6) #Session is a 2 bit number 
+
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data)  )
+    return header + data
+
+Message_struct['ImpinjC1G2LocationConfig'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'ModeIndex',
+        'Session',
+    ],
+    'encode': encode_ImpinjC1G2LocationConfig
+}
+
+
+def encode_ImpinjTransmitPower(par):
+    msgtype = Message_struct['ImpinjTransmitPower']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)  
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+
+    data += struct.pack('!H',par['TransmitPower'])
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data)  )
+    print(header+data)
+    return header + data
+
+Message_struct['ImpinjTransmitPower'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'ModeIndex',
+        'TransmitPower',
+    ],
+    'encode': encode_ImpinjTransmitPower
+}
+
+def decode_ImpinjExtendedTagInformation(data):
+    par = {}
+    logger.debug(func())
+    
+    if len(data) == 0:
+        logger.debug("no data seen")
+        return None, data
+
+    header = data[0:par_header_len]
+    _, length = struct.unpack(par_header, header)
+
+    vend_sub_data = data[par_header_len:par_header_len+vendor_subtype_len]
+    logger.debug(vend_sub_data)
+    _,subtype = struct.unpack(vendor_subtype,vend_sub_data)
+    if subtype != Message_struct['ImpinjExtendedTagInformation']['type']:
+        logger.debug("no ImpinjExtendedTagInformation found")
+        logger.debug("msgtype %s", subtype)
+        return None
+
+    body_start_idx = par_header_len+vendor_subtype_len
+    body = data[body_start_idx:]
+
+    # Decode parameters
+    epc_data, body = decode('EPCData')(body)
+    if epc_data:
+        logger.debug("got EPCData; won't try EPC-96")
+        #logger.info(epc_data)
+        par['EPCData'] = epc_data['EPC']
+    else:
+        logger.info('failed to decode EPCData; trying EPC-96')
+        epc_data, body = decode('EPC-96')(body)
+        if epc_data:
+            par['EPC-96'] = epc_data['EPC']
+            logger.debug('EPC-96: %s', epc_data['EPC'])
+        else:
+            raise LLRPError('missing or invalid EPCData parameter')
+    
+
+    logger.debug("ImpinjExtendedTagInformation body %s", body)
+    loc_report_body, subtype,loc_confidence_data = ImpinjExtendedTagInformationExtractor(body)
+    logger.debug('subtype is %s', subtype)
+    #Decode ImpinjLocationReportData
+    if subtype == Message_struct['ImpinjLocationReportData']['type']:
+        loc_report = decode_ImpinjLocationReportData(loc_report_body)
+        par['LastSeenTimestampUTC'] = loc_report['LastSeenTimestampUTC']
+        par['LocXCentimeters'] = loc_report['LocXCentimeters']
+        par['LocYCentimeters'] = loc_report['LocYCentimeters']
+        logger.debug('Last seen: %s',loc_report['LastSeenTimestampUTC'])
+        logger.debug('Loc X: %s', loc_report['LocXCentimeters'])
+        logger.debug('Loc Y: %s', loc_report['LocYCentimeters'])
+    #Decode ImpinjDirectionLocationReportData
+    # elif subtype == Message_struct['ImpinjDirectionReportData']['type']:
+    #     logger.debug("Received Direction data")
+    #     loc_direction_report = decode_ImpinjDirectionReportData(loc_report_body)
+    #     par['Direction'] = loc_direction_report
+    else:
+        raise Exception('No ImpinjLocationReport or ImpinjDirectoinLocationReport received')
+    #Decode ImpinjLocationConfidence
+    # if loc_confidence_data:
+    #     loc_confidence_body, subtype, _ = ImpinjExtendedTagInformationExtractor(loc_confidence_data)
+    #     if subtype == Message_struct['ImpinjLocationConfidence']['type']:
+    #         logger.debug("found ImpinjconfidenceReport: %s",loc_confidence_body )
+    return par, ""
+
+
+Message_struct['ImpinjExtendedTagInformation'] = {
+    'type': 1552,
+    'fields': [
+        'EPCData',
+        'ImpinjLocationReportData',
+        'ImpinjDirectionReportData'
+        #'ImpinjLocationConfidence',
+    ],
+    'decode': decode_ImpinjExtendedTagInformation
+}   
+
+def ImpinjExtendedTagInformationExtractor(data):
+    unused_data = []
+    header = data[0:par_header_len]
+    msgtype,length = struct.unpack(par_header, header) 
+    #the length returned is for the rest of the msg and not this particular section of the msg, this is a problem
+    if msgtype != 1023:
+        logger.debug('ImpinjExtendedTagInformationExtractor found msgtype %s', msgtype)
+        raise LLRPError("Msg was not of type 1023")
+    logger.debug('length %s', length)
+    body = data[par_header_len:par_header_len + length]
+    vend_sub_data = data[par_header_len:par_header_len+vendor_subtype_len]
+    _,subtype = struct.unpack(vendor_subtype,vend_sub_data)
+    if data[par_header_len + length:]:
+        unused_data = data[par_header_len + length:]
+    return body,subtype,unused_data
+
+
+def decode_ImpinjLocationReportData(data):
+    par = {}
+    data = data[0:28] #hack because the extractor returns too much data
+    logger.debug('ImpinjLocationReportData input data %s', data)
+    logger.debug('ImpinjLocationReportData input data length %s', len(data))
+    body = data[vendor_subtype_len:]
+    logger.debug('ImpinjLocationReportData input data %s', body)
+    logger.debug('ImpinjLocationReportData input data length %s', len(body))
+    par['LastSeenTimestampUTC'],\
+    par['LocXCentimeters'],\
+    par['LocYCentimeters'],\
+    _ = struct.unpack('!QiiI',body)
+    return par
+Message_struct['ImpinjLocationReportData'] = {
+    'type': 1545,
+    'fields': [
+        'LastSeenTimestampUTC',
+        'LocXCentimeters',
+        'LocYCentimeters'
+        #'Type',
+        #'ImpinjLocationConfidence'
+    ],
+    'decode': decode_ImpinjLocationReportData
+}   
+
+def decode_ImpinjDirectionReportData(data):
+
+    return data
+
+Message_struct['ImpinjDirectionReportData'] = {
+    'type': 1573,
+    'fields': [
+        'Type',
+        'TagpopulationStatus'
+        'FirstSeenSectorID',
+        'FirstSeenTimeStampUTC',
+        'LastSeenSectorID',
+        'LastSeenTimeStampUTC',
+        'ImpinjDirectionDiagnosticData'
+    ],
+    'decode': decode_ImpinjDirectionReportData,
+}
+
+
+def decode_ImpinjLocationConfidence(data):
+
+    return data
+
+Message_struct['ImpinjLocationConfidence'] ={
+    'type': 1553,
+    'fields':[
+        'ReadCount',
+        'ConfidenceData Word Count'
+        'ConfidenceData'
+    ],
+    'decode': decode_ImpinjLocationConfidence
+}
+
 def encode_CustomMessage(msg):
     vendor_id = msg['VendorID']
     subtype = msg['Subtype']
@@ -3343,12 +3736,13 @@ def llrp_data2xml(msg):
 
 
 class LLRPROSpec(dict):
-    def __init__(self, reader_mode, rospecid, priority=0, state='Disabled',
+    def __init__(self, reader_mode, rospecid,update_interval,compute_window,tag_age_interval,priority=0, state='Disabled',
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
-                 impinj_search_mode=None, impinj_tag_content_selector=None):
+                 impinj_search_mode=None, impinj_tag_content_selector=None,
+                 location_mode=False):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3396,113 +3790,168 @@ class LLRPROSpec(dict):
         if tag_content_selector:
             tagReportContentSelector.update(tag_content_selector)
 
-        self['ROSpec'] = {
-            'ROSpecID': rospecid,
-            'Priority': priority,
-            'CurrentState': state,
-            'ROBoundarySpec': {
-                'ROSpecStartTrigger': {
-                    'ROSpecStartTriggerType': 'Immediate',
-                },
-                'ROSpecStopTrigger': {
-                    'ROSpecStopTriggerType': 'Null',
-                    'DurationTriggerValue': 0,
-                },
-            },
-            'AISpec': {
-                'AntennaIDs': antennas,
-                'AISpecStopTrigger': {
-                    'AISpecStopTriggerType': 'Null',
-                    'DurationTriggerValue': 0,
-                },
-                'InventoryParameterSpec': {
-                    'InventoryParameterSpecID': 1,
-                    'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
-                    'AntennaConfiguration': [],
-                },
-            },
-            'ROReportSpec': {
-                'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
-                'TagReportContentSelector': tagReportContentSelector,
-                'N': 0,
-            },
-        }
-
-        if impinj_tag_content_selector:
-            self['ROSpec']['ROReportSpec'][
-                'ImpinjTagReportContentSelectorParameter'] = {
-                'VendorID': 25882,
-                'Subtype': 50,
-                'ImpinjEnableRFPhaseAngleParameter':
-                    impinj_tag_content_selector['EnableRFPhaseAngle'],
-                'ImpinjEnablePeakRSSIParameter':
-                    impinj_tag_content_selector['EnablePeakRSSI'],
-                'ImpinjEnableRFDopplerParameter':
-                    impinj_tag_content_selector['EnableRFDopplerFrequency']
-            }
-
-        # patch up per-antenna config
-        for antid in antennas:
-            transmit_power = tx_power[antid]
-            ips = self['ROSpec']['AISpec']['InventoryParameterSpec']
-            antconf = {
-                'AntennaID': antid,
-                'RFTransmitter': {
-                    'HopTableId': 1,
-                    'ChannelIndex': 1,
-                    'TransmitPower': transmit_power,
-                },
-                'C1G2InventoryCommand': {
-                    'TagInventoryStateAware': False,
-                    'C1G2SingulationControl': {
-                        'Session': session,
-                        'TagPopulation': tag_population,
-                        'TagTransitTime': 0
+        if location_mode:
+            logger.info("sending ROSpec for location")
+            self['ROSpec'] = {
+                'ROSpecID': rospecid,
+                'Priority': priority,
+                'CurrentState': state,
+                'ROBoundarySpec': {
+                    'ROSpecStartTrigger': {
+                        'ROSpecStartTriggerType': 'Null',
                     },
+                    'ROSpecStopTrigger': {
+                        'ROSpecStopTriggerType': 'Null',
+                        'DurationTriggerValue': 0,
+                    }
+                },
+                'ImpinjLISpec': {
+                    'VendorID': 25882,
+                    'Subtype': 1541,                    
+                    'ImpinjLocationConfig': {
+                        'VendorID': 25882,
+                        'Subtype': 1542,
+                        'UpdateIntervalSeconds' : update_interval, 
+                        'ComputeWindowSeconds': compute_window,
+                        'TagAgeIntervalSeconds': tag_age_interval
+                    },
+                    'ImpinjC1G2LocationConfig': {
+                        'VendorID': 25882,
+                        'Subtype': 1543,
+                        'ModeIndex' : mode_index,
+                        'Session' : 2,            #b'10
+                    },
+                    'ImpinjTransmitPower':{
+                        'VendorID': 25882,
+                        'Subtype': 1561,
+                        'TransmitPower': 81                        
+                    }
+                },
+                'ROReportSpec': {
+                    'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+                    'TagReportContentSelector': tagReportContentSelector,
+                    'N': 1,
                 }
+
             }
-            if reader_mode:
-                rfcont = {
-                    'ModeIndex': mode_index,
-                    'Tari': override_tari if override_tari else 0,
+
+        else:
+            logger.info("sending ROSpec for inventory")
+            self['ROSpec'] = {
+                'ROSpecID': rospecid,
+                'Priority': priority,
+                'CurrentState': state,
+                'ROBoundarySpec': {
+                    'ROSpecStartTrigger': {
+                        'ROSpecStartTriggerType': 'Immediate',
+                    },
+                    'ROSpecStopTrigger': {
+                        'ROSpecStopTriggerType': 'Null',
+                        'DurationTriggerValue': 0,
+                    },
+                },
+                'AISpec': {
+                    'AntennaIDs': antennas,
+                    'AISpecStopTrigger': {
+                        'AISpecStopTriggerType': 'Null',
+                        'DurationTriggerValue': 0,
+                    },
+                    'InventoryParameterSpec': {
+                        'InventoryParameterSpecID': 1,
+                        'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
+                        'AntennaConfiguration': [],
+                    },
+                },
+                'ROReportSpec': {
+                    'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
+                    'TagReportContentSelector': tagReportContentSelector,
+                    'N': 0,
+                },
+            }
+
+            if impinj_tag_content_selector:
+                self['ROSpec']['ROReportSpec'][
+                    'ImpinjTagReportContentSelectorParameter'] = {
+                    'VendorID': 25882,
+                    'Subtype': 50,
+                    'ImpinjEnableRFPhaseAngleParameter':
+                        impinj_tag_content_selector['EnableRFPhaseAngle'],
+                    'ImpinjEnablePeakRSSIParameter':
+                        impinj_tag_content_selector['EnablePeakRSSI'],
+                    'ImpinjEnableRFDopplerParameter':
+                        impinj_tag_content_selector['EnableRFDopplerFrequency']
                 }
-                antconf['C1G2InventoryCommand']['C1G2RFControl'] = rfcont
+            # patch up per-antenna config
+            for antid in antennas:
+                transmit_power = tx_power[antid]
+                ips = self['ROSpec']['AISpec']['InventoryParameterSpec']
+                antconf = {
+                    'AntennaID': antid,
+                    'RFTransmitter': {
+                        'HopTableId': 1,
+                        'ChannelIndex': 1,
+                        'TransmitPower': transmit_power,
+                    },
+                    'C1G2InventoryCommand': {
+                        'TagInventoryStateAware': False,
+                        'C1G2SingulationControl': {
+                            'Session': session,
+                            'TagPopulation': tag_population,
+                            'TagTransitTime': 0
+                        },
+                    }
+                }
+                if reader_mode:
+                    rfcont = {
+                        'ModeIndex': mode_index,
+                        'Tari': override_tari if override_tari else 0,
+                    }
+                    antconf['C1G2InventoryCommand']['C1G2RFControl'] = rfcont
+
+                # impinj extension: single mode or dual mode (XXX others?)
+                if impinj_search_mode is not None:
+                    logger.info('impinj_search_mode: %s', impinj_search_mode)
+                    antconf['C1G2InventoryCommand']['CustomParameter'] = {
+                        'VendorID': 25882,  # impinj
+                        'Subtype': 23,  # inventory search mode
+                        'Payload': struct.pack('!H', int(impinj_search_mode)),
+                    }
+
+                ips['AntennaConfiguration'].append(antconf)
+
+            if duration_sec is not None:
+                self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
+                    'ROSpecStopTriggerType': 'Duration',
+                    'DurationTriggerValue': int(duration_sec * 1000)
+                }
 
             # impinj extension: single mode or dual mode (XXX others?)
             if impinj_search_mode is not None:
                 logger.info('impinj_search_mode: %s', impinj_search_mode)
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
+                self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
+                    'AISpecStopTriggerType': 'Duration',
+                    'DurationTriggerValue': int(duration_sec * 1000)
+                }
 
-            ips['AntennaConfiguration'].append(antconf)
-
-        if duration_sec is not None:
-            self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
-                'ROSpecStopTriggerType': 'Duration',
-                'DurationTriggerValue': int(duration_sec * 1000)
-            }
-            self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
-                'AISpecStopTriggerType': 'Duration',
-                'DurationTriggerValue': int(duration_sec * 1000)
-            }
-
-        if report_every_n_tags is not None:
-            if report_timeout_ms:
-                logger.info('will report every ~N=%d tags or %d ms',
-                            report_every_n_tags, report_timeout_ms)
-            else:
-                logger.info('will report every ~N=%d tags',
-                            report_every_n_tags)
-            self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
-                'AISpecStopTriggerType': 'Tag observation',
-                'TagObservationTrigger': {
-                    'TriggerType': 'UponNTags',
-                    'NumberOfTags': report_every_n_tags,
-                    'NumberOfAttempts': 0,
-                    'T': 0,
-                    'Timeout': report_timeout_ms,  # milliseconds
-                },
-            })
+            if report_every_n_tags is not None:
+                if report_timeout_ms:
+                    logger.info('will report every ~N=%d tags or %d ms',
+                                report_every_n_tags, report_timeout_ms)
+                else:
+                    logger.info('will report every ~N=%d tags',
+                                report_every_n_tags)
+                self['ROSpec']['AISpec']['AISpecStopTrigger'].update({
+                    'AISpecStopTriggerType': 'Tag observation',
+                    'TagObservationTrigger': {
+                        'TriggerType': 'UponNTags',
+                        'NumberOfTags': report_every_n_tags,
+                        'NumberOfAttempts': 0,
+                        'T': 0,
+                        'Timeout': report_timeout_ms,  # milliseconds
+                    },
+                })
 
     def __repr__(self):
         return llrp_data2xml(self)

@@ -11,6 +11,7 @@ from .verb import reset as _reset
 from .verb import inventory as _inventory
 from .verb import log as _log
 from .verb import access as _access
+from .verb import location as _location
 from .llrp_proto import Modulation_Name2Type
 
 # Disable Click unicode warning since we use unicode string exclusively
@@ -85,6 +86,8 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
     _inventory.main(args)
 
 
+
+
 @cli.command()
 @click.argument('host', type=str, nargs=-1)
 @click.option('-o', '--outfile', type=click.File('w'), default='-')
@@ -141,6 +144,89 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
                 access_password=access_password)
     logger.debug('access args: %s', args)
     _access.main(args)
+
+
+@cli.command()
+@click.argument('host', type=str, nargs=-1)
+@click.option('-p', '--port', type=int, default=5084)
+@click.option('-a', '--antennas', type=str, default='1',
+              help='comma-separated list of antennas to use (0=all;'
+                   ' default 1)')
+@click.option('-X', '--tx-power', type=int, default=0,
+              help='transmit power (default 0=max power)')
+@click.option('-M', '--modulation', type=click.Choice(mods),
+              help='Reader-to-Tag Modulation')
+@click.option('-T', '--tari', type=int, default=0,
+              help='Tari value (default 0=auto)')
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value')
+@click.option('-r', '--reconnect', is_flag=True, default=False,
+              help='reconnect on connection failure or loss')
+@click.option('--mqtt-broker', type=str,
+               help="Address of MQTT broker")
+@click.option('--mqtt-port', type=int,default=1883,
+               help="Port of MQTT broker")
+@click.option('--mqtt-topic',type=str,
+               help="MQTT topic to publish")
+@click.option('--tag_age_interval',type=int,default=25,
+               help="Time in seconds for which the tag must \
+               not be read (seen) before it is considered to \
+               have exited from the field of view.")
+@click.option('-t','--time',type=int,default=20,
+                help="How fast in seconds do we want an update")
+@click.option('--compute_window',type=int,default=5,
+                help="Duration of the smoothing window in\
+                seconds over which tag location estimates are computed")
+@click.option('--height',type=int,default=100,help='Height in centimeters with respect to the average tag \
+                height')
+@click.option('--facility_x_loc',type=int,default=0,
+                help=" The relative position of the antenna in centimeters within \
+                the facility. This is used by the antenna when computing location and might be useful for \
+                multi-antennas deployments")
+@click.option('--facility_y_loc',type=int,default=0,
+                help="The relative position of the antennas in centimeters within \
+                the facility. This is used by the antennas when computing location and might be useful for \
+                multi-antennas deployments")
+@click.option('--orientation',type=int,default=0,
+                help="The relative orientation of the antennas X-Y coordinates \
+                relative to the Store X-Y coordinates in degrees")
+def location(host, port, antennas, tx_power,modulation,tari,
+              reconnect,mode_identifier,mqtt_broker,mqtt_port,mqtt_topic,
+              tag_age_interval,time,compute_window,height,facility_x_loc,facility_y_loc,orientation):
+    # XXX band-aid hack to provide many args to _inventory.main
+    Args = namedtuple('Args', ['host', 'port', 'antennas',
+                               'tx_power','modulation','tari','mode_identifier','reconnect', 
+                               'mqtt_broker','mqtt_port','mqtt_topic',
+                               'time','compute_window','tag_age_interval','height','facility_x_loc','facility_y_loc',
+                               'orientation'])
+    args = Args(host=host, port=port,
+                antennas=antennas, 
+                tx_power=tx_power,
+                modulation=modulation,
+                tari=tari,
+                mode_identifier=mode_identifier,
+                reconnect=reconnect,
+				mqtt_broker=mqtt_broker,
+                mqtt_port=mqtt_port,
+                mqtt_topic=mqtt_topic,
+                tag_age_interval=tag_age_interval,
+                time=time, 
+                compute_window=compute_window,
+                height=height,
+                facility_x_loc=facility_x_loc,
+                facility_y_loc=facility_y_loc,
+                orientation=orientation)
+    logger.debug('location args: %s', args)
+    _location.main(args)
+
+
+
+
+
+
+
+
+
+
 
 
 @cli.command()
