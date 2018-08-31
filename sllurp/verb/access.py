@@ -3,80 +3,61 @@ import binascii
 import logging
 import pprint
 import sys
-from twisted.internet import reactor, defer
 
 from sllurp.util import monotonic
-import sllurp.llrp as llrp
+from sllurp.llrp import (LLRPReaderConfig, LLRPReaderClient, LLRPReaderState,
+                         C1G2Read, C1G2Write)
+from sllurp.llrp_proto import Modulation_DefaultTari
 
-startTime = None
+start_time = None
 
 tagReport = 0
-logger = logging.getLogger('sllurp')
+logger = logging.getLogger(__name__)
 
 args = None
 
 
-def finish(_):
+def finish_cb(_):
     # stop runtime measurement to determine rates
-    runTime = monotonic() - startTime
+    runTime = monotonic() - start_time
 
     logger.info('total # of tags seen: %d (%d tags/second)', tagReport,
                 tagReport/runTime)
-    if reactor.running:
-        reactor.stop()
 
 
-def access(proto):
-    readSpecParam = None
+def access_cb(reader, state):
     if args.read_words:
-        readSpecParam = {
-            'OpSpecID': 0,
-            'MB': args.mb,
-            'WordPtr': args.word_ptr,
-            'AccessPassword': args.access_password,
-            'WordCount': args.read_words
-        }
-
-    writeSpecParam = None
-    if args.write_words:
-        # get the binary data from the standard input stream
+        opspec = C1G2Read(AccessPassword=args.access_password, MB=args.mb,
+                          WordPtr=args.word_ptr, WordCount=args.read_words)
+    elif args.write_words:
         if sys.version_info.major < 3:
             data = sys.stdin.read(args.write_words * 2)
         else:
-            data = sys.stdin.buffer.read(args.write_words * 2)        # bytes
-        writeSpecParam = {
-            'OpSpecID': 0,
-            'MB': args.mb,
-            'WordPtr': args.word_ptr,
-            'AccessPassword': args.access_password,
-            'WriteDataWordCount': args.write_words,
-            'WriteData': data,
-        }
+            # bytes
+            data = sys.stdin.buffer.read(args.write_words * 2)
 
-    accessStopParam = {
-        'AccessSpecStopTriggerType': 1 if args.count > 0 else 0,
-        'OperationCountValue': args.count,
-    }
-    return proto.startAccess(readWords=readSpecParam,
-                             writeWords=writeSpecParam,
-                             accessStopParam=accessStopParam)
+        opspec = C1G2Write(AccessPassword=args.access_password, MB=args.mb,
+                           WordPtr=args.word_ptr,
+                           WriteDataWordCount=args.write_words,
+                           WriteData=data)
+    else:
+        # Unexpected situation
+        return
+
+    return reader.start_access_spec(opspec, stop_after_count=args.count)
 
 
-def politeShutdown(factory):
-    return factory.politeShutdown()
 
-
-def tagReportCallback(llrpMsg):
+def tag_report_cb(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     global tagReport
-    tags = llrpMsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
         logger.info('saw tag(s): %s', pprint.pformat(tags))
     else:
         logger.info('no tags seen')
         return
     for tag in tags:
-        tagReport += tag['TagSeenCount'][0]
+        tagReport += tag['TagSeenCount']
         if "OpSpecResult" in tag:
             # copy the binary data to the standard output stream
             data = tag["OpSpecResult"].get("ReadData")
@@ -84,59 +65,110 @@ def tagReportCallback(llrpMsg):
                 if sys.version_info.major < 3:
                     sys.stdout.write(data)
                 else:
-                    sys.stdout.buffer.write(data)                     # bytes
+                    sys.stdout.buffer.write(data) # bytes
                 logger.debug("hex data: %s", binascii.hexlify(data))
 
 
 def main(main_args):
-    global startTime
+    global start_time
     global args
     args = main_args
 
-    # will be called when all connections have terminated normally
-    onFinish = defer.Deferred()
-    onFinish.addCallback(finish)
+    if not args.host:
+        logger.info('No readers specified.')
+        return 0
 
-    fac = llrp.LLRPClientFactory(onFinish=onFinish,
-                                 disconnect_when_done=True,
-                                 modulation=args.modulation,
-                                 tari=args.tari,
-                                 session=args.session,
-                                 tag_population=args.population,
-                                 start_inventory=True,
-                                 tx_power=args.tx_power,
-                                 report_every_n_tags=args.every_n,
-                                 tag_content_selector={
-                                     'EnableROSpecID': False,
-                                     'EnableSpecIndex': False,
-                                     'EnableInventoryParameterSpecID': False,
-                                     'EnableAntennaID': True,
-                                     'EnableChannelIndex': False,
-                                     'EnablePeakRSSI': True,
-                                     'EnableFirstSeenTimestamp': False,
-                                     'EnableLastSeenTimestamp': True,
-                                     'EnableTagSeenCount': True,
-                                     'EnableAccessSpecID': True
-                                 })
+    if not args.read_words and not args.write_words:
+        logger.info("Error: Either --read-words or --write-words has to be"
+                    " chosen.")
+        return 0
 
-    # tagReportCallback will be called every time the reader sends a TagReport
-    # message (i.e., when it has "seen" tags).
-    fac.addTagReportCallback(tagReportCallback)
+    # special case default Tari values
+    tari = args.tari
+    if args.modulation in Modulation_DefaultTari:
+        t_suggested = Modulation_DefaultTari[args.modulation]
+        if args.tari:
+            logger.warn('recommended Tari for %s is %d', args.modulation,
+                        t_suggested)
+        else:
+            tari = t_suggested
+            logger.info('selected recommended Tari of %d for %s', args.tari,
+                        args.modulation)
 
-    # start tag access once inventorying
-    fac.addStateCallback(llrp.LLRPReaderState.STATE_INVENTORYING, access)
+    enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
 
+    factory_args = dict(
+        report_every_n_tags=args.every_n,
+        antennas=enabled_antennas,
+        tx_power=args.tx_power,
+        modulation=args.modulation,
+        tari=tari,
+        session=args.session,
+        mode_identifier=args.mode_identifier,
+        tag_population=args.population,
+        start_inventory=True,
+        disconnect_when_done=True,
+        tag_content_selector={
+            'EnableROSpecID': False,
+            'EnableSpecIndex': False,
+            'EnableInventoryParameterSpecID': False,
+            'EnableAntennaID': True,
+            'EnableChannelIndex': False,
+            'EnablePeakRSSI': True,
+            'EnableFirstSeenTimestamp': False,
+            'EnableLastSeenTimestamp': True,
+            'EnableTagSeenCount': True,
+            'EnableAccessSpecID': True,
+        }
+    )
+
+    reader_clients = []
     for host in args.host:
-        reactor.connectTCP(host, args.port, fac, timeout=3)
+        if ':' in host:
+            host, port = host.split(':', 1)
+            port = int(port)
+        else:
+            port = args.port
 
-    # catch ctrl-C and stop inventory before disconnecting
-    reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)
+        config = LLRPReaderConfig(factory_args)
+        reader = LLRPReaderClient(host, port, config)
+        reader.add_disconnected_callback(finish_cb)
+        # tagReportCallback will be called every time the reader sends a TagReport
+        # message (i.e., when it has "seen" tags).
+        reader.add_tag_report_callback(tag_report_cb)
+        # start tag access once inventorying
+        reader.add_state_callback(LLRPReaderState.STATE_INVENTORYING, access_cb)
+
+        reader_clients.append(reader)
 
     # start runtime measurement to determine rates
-    startTime = monotonic()
+    start_time = monotonic()
+    try:
+        for reader in reader_clients:
+            reader.connect()
+    except:
+        # On one error, abort all
+        for reader in reader_clients:
+            reader.disconnect()
 
-    reactor.run()
+    while True:
+        try:
+            # Join all threads using a timeout so it doesn't block
+            # Filter out threads which have been joined or are None
+            alive_readers = [reader for reader in reader_clients if reader.is_alive()]
+            if not alive_readers:
+                break
+            for reader in alive_readers:
+                reader.join(1)
+        except (KeyboardInterrupt, SystemExit):
+            # catch ctrl-C and stop inventory before disconnecting
+            logger.info("Exit detected! Stopping readers...")
+            for reader in reader_clients:
+                try:
+                    reader.disconnect()
+                except:
+                    logger.exception("Error during disconnect. Ignoring...")
+                    pass
 
 
-if __name__ == '__main__':
-    main()
+

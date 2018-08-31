@@ -135,6 +135,120 @@ class LLRPMessage(object):
         return ret
 
 
+class C1G2TargetTag(object):
+    def __init__(self, MB=0, Pointer=0, MaskBitCount=0, TagMask=b'',
+                 DataBitCount=0, TagData=b''):
+        self.MB = MB
+        self.Match = 1
+        self.Pointer = Pointer
+        self.MaskBitCount = MaskBitCount
+        self.TagMask = TagMask
+        self.DataBitCount = DataBitCount
+        self.TagData = TagData
+
+
+class C1G2OpSpec(object):
+    pass
+
+class C1G2Read(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WordCount=0):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WordCount = WordCount
+
+class C1G2Write(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WriteDataWordCount=0, WriteData=b''):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WriteDataWordCount = WriteDataWordCount
+        self.WriteData = WriteData
+
+class C1G2Kill(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, KillPassword=0):
+        self.OpSpecID = OpSpecID
+        self.KillPassword = KillPassword
+
+class C1G2Recommission(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, KillPassword=0, Flag3SB=False,
+                 Flag2SB=False, FlagLSB=False):
+        self.OpSpecID = OpSpecID
+        self.KillPassword = KillPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.Flag3SB = Flag3SB
+        self.Flag2SB = Flag2SB
+        self.FlagLSB = FlagLSB
+
+class C1G2LockPayload:
+    def __init__(self, Privilege, DataField):
+        if Privilege < 0 or Privilege > 3:
+            raise ValueError("Invalid Privilege value")
+        if DataField < 0 or Privilege > 4:
+            raise ValueError("Invalid DataField value")
+
+        self.Privilege = Privilege
+        self.DataField = DataField
+
+class C1G2Lock(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, LockPayload=None):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        if not LockPayload:
+            raise ValueError("At least one C1G2LockPayload needs to be defined")
+        if not isinstance(LockPayload, list):
+            LockPayload = [LockPayload]
+        self.LockPayload = LockPayload
+
+class C1G2BlockErase(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WriteCount=0):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WriteCount = WriteCount
+
+class C1G2BlockWrite(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WriteDataWordCount=0, WriteData=b''):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WriteDataWordCount = WriteDataWordCount
+        self.WriteData = WriteData
+
+class C1G2BlockPermalock(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, BlockPtr=0,
+                 BlockMaskWordCount=0, BlockMask=b''):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.BlockPtr = BlockPtr
+        self.BlockMaskWordCount = BlockMaskWordCount
+        self.BlockMask = BlockMask
+
+class C1G2GetBlockPermalockStatus(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, BlockPtr=0,
+                 BlockRange=0):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.BlockPtr = BlockPtr
+        self.BlockRange = BlockRange
+
+
 class LLRPReaderState:
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
@@ -773,57 +887,65 @@ class LLRPClient:
         if onCompletion:
             self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
-    def startAccess(self, readWords=None, writeWords=None, target=None,
-                    accessStopParam=None, accessSpecID=1, param=None,
-                    *args):
-        m = Message_struct['AccessSpec']
-        if not target:
-            target = {
-                'MB': 0,
-                'Pointer': 0,
-                'MaskBitCount': 0,
-                'TagMask': b'',
-                'DataBitCount': 0,
-                'TagData': b''
-            }
+    def startAccess(self, opSpec, targetSpec=None, stopAfterCount=0,
+                    accessSpecID=1):
+        if not targetSpec:
+            # XXX correct default values?
+            targetSpec = [C1G2TargetTag()]
+        if not isinstance(targetSpec, list):
+            targetSpec = [targetSpec]
+        elif len(targetSpec) > 2:
+            raise ValueError("A maximum of 2 C1G2TargetTag is allowed per "
+                             "accessSpec")
+        targetParam = []
+        for target in targetSpec:
+            targetParam.append({
+                'MB': target.MB,
+                'M': target.Match,
+                'Pointer': target.Pointer,
+                'MaskBitCount': target.MaskBitCount,
+                'TagMask': target.TagMask,
+                'DataBitCount': target.DataBitCount,
+                'TagData': target.TagData
+            })
 
-        opSpecParam = {
-            'OpSpecID': 0,
-            'AccessPassword': 0,
+        accessStopParam = {
+            'AccessSpecStopTriggerType': 1 if stopAfterCount > 0 else 0,
+            'OperationCountValue': stopAfterCount,
         }
 
-        if readWords:
-            opSpecParam['MB'] = readWords['MB']
-            opSpecParam['WordPtr'] = readWords['WordPtr']
-            opSpecParam['WordCount'] = readWords['WordCount']
-            if 'OpSpecID' in readWords:
-                opSpecParam['OpSpecID'] = readWords['OpSpecID']
-            if 'AccessPassword' in readWords:
-                opSpecParam['AccessPassword'] = readWords['AccessPassword']
-
-        elif writeWords:
-            opSpecParam['MB'] = writeWords['MB']
-            opSpecParam['WordPtr'] = writeWords['WordPtr']
-            opSpecParam['WriteDataWordCount'] = \
-                writeWords['WriteDataWordCount']
-            opSpecParam['WriteData'] = writeWords['WriteData']
-            if 'OpSpecID' in writeWords:
-                opSpecParam['OpSpecID'] = writeWords['OpSpecID']
-            if 'AccessPassword' in writeWords:
-                opSpecParam['AccessPassword'] = writeWords['AccessPassword']
-
-        elif param:
-            # special parameters like C1G2Lock
-            opSpecParam = param
-
+        if isinstance(opSpec, C1G2Read):
+            opSpecParam = {
+                'OpSpecID': opSpec.OpSpecID,
+                'AccessPassword': opSpec.AccessPassword,
+                'MB': opSpec.MB,
+                'WordPtr': opSpec.WordPtr,
+                'WordCount': opSpec.WordCount
+            }
+        elif isinstance(opSpec, (C1G2Write, C1G2BlockWrite)):
+            opSpecParam = {
+                'OpSpecID': opSpec.OpSpecID,
+                'AccessPassword': opSpec.AccessPassword,
+                'MB': opSpec.MB,
+                'WordPtr': opSpec.WordPtr,
+                'WriteDataWordCount': opSpec.WriteDataWordCount,
+                'WriteData': opSpec.WriteData
+            }
+        elif isinstance(opSpec, C1G2Lock):
+            opSpecParam = {
+                'OpSpecID': opSpec.OpSpecID,
+                'AccessPassword': opSpec.AccessPassword,
+                'LockPayload': []
+            }
+            for payload in opSpec.LockPayload:
+                opSpecParam['LockPayload'].append({
+                    'Privilege': opSpec.Privilege,
+                    'DataField': opSpec.DataField
+                })
         else:
-            raise LLRPError('startAccess requires readWords or writeWords.')
+            raise LLRPError('Selected opSpec type is not yet supported.')
 
-        if accessStopParam is None:
-            accessStopParam = {}
-            accessStopParam['AccessSpecStopTriggerType'] = 0
-            accessStopParam['OperationCountValue'] = 0
-
+        m = Message_struct['AccessSpec']
         accessSpec = {
             'Type': m['type'],
             'AccessSpecID': accessSpecID,
@@ -834,15 +956,7 @@ class LLRPClient:
             'AccessSpecStopTrigger': accessStopParam,
             'AccessCommand': {
                 'TagSpecParameter': {
-                    'C1G2TargetTag': {  # XXX correct values?
-                        'MB': target['MB'],
-                        'M': 1,
-                        'Pointer': target['Pointer'],
-                        'MaskBitCount': target['MaskBitCount'],
-                        'TagMask': target['TagMask'],
-                        'DataBitCount': target['DataBitCount'],
-                        'TagData': target['TagData']
-                    }
+                    'C1G2TargetTag': targetParam,
                 },
                 'OpSpecParameter': opSpecParam,
             },
@@ -861,12 +975,12 @@ class LLRPClient:
         self.send_ADD_ACCESSSPEC(accessSpec,
                                  onCompletion=add_accessspec_cb)
 
-    def nextAccess(self, readSpecPar, writeSpecPar, stopSpecPar,
-                   accessSpecID=1):
+    def nextAccess(self, opSpec, targetSpec=None, stopAfterCount=0,
+                    accessSpecID=1):
         def start_next_accessspec_cb(state, is_success, *args):
-            self.startAccess(readWords=readSpecPar,
-                             writeWords=writeSpecPar,
-                             accessStopParam=stopSpecPar,
+            self.startAccess(opSpec=opSpec,
+                             targetSpec=targetSpec,
+                             stopAfterCount=stopAfterCount,
                              accessSpecID=accessSpecID)
 
         def disable_accessspec_cb(state, is_success, *args):
@@ -1514,6 +1628,29 @@ class LLRPReaderClient:
                                      'will not decode %d remaining bytes',
                                      len(data))
                     break
+
+    def start_access_spec(self, op_spec, target_spec=None, stop_after_count=0,
+                          access_spec_id=1):
+        """Add and start a AccessOpSpec command
+
+        stop_after_count=N: (AccessSpecStopTriggerType) Stop the access spec
+            after N executions of the spec. N=0 to define no stop trigger.
+        """
+        if not isinstance(op_spec, C1G2OpSpec):
+            raise ValueError("op_spec needs to be a valid C1G2OpSpec object")
+
+        if target_spec and not isinstance(target_spec, C1G2TargetTag):
+            raise ValueError("target_spec needs to be a valid C1G2TargetTag "
+                             "object")
+
+        if stop_after_count < 0:
+            stop_after_count = 0
+
+        self.llrp.startAccess(opSpec=op_spec,
+                              targetSpec=target_spec,
+                              stopAfterCount=stop_after_count,
+                              accessSpecID=access_spec_id)
+
 
     def _on_disconnected(self):
         for fn in self._disconnected_callbacks:

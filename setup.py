@@ -20,7 +20,6 @@ test_deps = ['pytest']
 install_deps = [
     'click',
     'monotonic;python_version<"3.3"',
-    'twisted',
 ]
 
 
