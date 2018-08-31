@@ -4,7 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..', '..')))
 
 from argparse import ArgumentParser
 from logging import getLogger, INFO, Formatter, StreamHandler, WARN
-from sllurp.llrp import LLRP_PORT, LLRPClientFactory
+from sllurp.llrp import LLRP_DEFAULT_PORT, LLRPClientFactory
 import smokesignal
 from tornado.escape import json_decode
 from tornado.platform.twisted import TwistedIOLoop
@@ -97,8 +97,8 @@ def parse_args():
     parser = ArgumentParser(description='Simple RFID Reader Inventory')
     parser.add_argument('host', help='hostname or IP address of RFID reader',
                         nargs='*')
-    parser.add_argument('-p', '--port', default=LLRP_PORT, type=int,
-                        help='port to connect to (default {})'.format(LLRP_PORT))
+    parser.add_argument('-p', '--port', default=LLRP_DEFAULT_PORT, type=int,
+                        help='port to connect to (default {})'.format(LLRP_DEFAULT_PORT))
     parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
                         dest='every_n', metavar='N', help='issue a TagReport every N tags')
     parser.add_argument('-a', '--antennas', default='1',
