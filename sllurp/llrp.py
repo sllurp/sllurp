@@ -19,7 +19,7 @@ from .llrp_errors import ReaderConfigurationError
 from binascii import hexlify
 from .util import BITMASK, natural_keys, iterkeys
 
-LLRP_PORT = 5084
+LLRP_DEFAULT_PORT = 5084
 
 logger = logging.getLogger(__name__)
 
@@ -1280,11 +1280,9 @@ class LLRPReaderConfig:
                 raise LLRPError('tx_power must be dict or int')
 
 class LLRPReaderClient:
-    DEFAULT_PORT = 5084
-
     def __init__(self, host, port=None, config=None, timeout=5.0):
         if port is None:
-            port = self.DEFAULT_PORT
+            port = LLRP_DEFAULT_PORT
         self._port = port
         self._host = host
 

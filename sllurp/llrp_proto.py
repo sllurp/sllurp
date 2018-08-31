@@ -66,8 +66,6 @@ def encode(data):
 #
 
 
-LLRP_PORT = 5084
-
 VER_PROTO_V1 = 1
 
 gen_header = '!HI'
