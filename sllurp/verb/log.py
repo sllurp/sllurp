@@ -9,7 +9,6 @@ import csv
 import datetime
 import logging
 import threading
-from twisted.internet import reactor
 
 import sllurp.llrp as llrp
 

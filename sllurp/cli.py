@@ -115,12 +115,15 @@ def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp):
 @click.option('-t', '--time', type=float, help='seconds to inventory')
 @click.option('-n', '--report-every-n-tags', type=int,
               help='issue a TagReport every N tags')
+@click.option('-a', '--antennas', type=str, default='0',
+              help='comma-separated list of antennas to use (default 0=all)')
 @click.option('-X', '--tx-power', type=int, default=0,
               help='transmit power (default 0=max power)')
 @click.option('-T', '--tari', type=int, default=0,
               help='Tari value (default 0=auto)')
 @click.option('-s', '--session', type=int, default=2,
               help='Gen2 session (default 2)')
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value')
 @click.option('-P', '--tag-population', type=int, default=4,
               help='Tag Population value (default 4)')
 @click.option('-r', '--read-words', type=int,
@@ -136,19 +139,21 @@ def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp):
               help='Word addresss of the first word to read/write')
 @click.option('-ap', '--access-password', type=int, default=0,
               help='Access password for secure state if R/W locked')
-def access(host, port, time, report_every_n_tags, tx_power, tari,
-           session, tag_population, read_words, write_words, count,
-           memory_bank, word_ptr, access_password):
-    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n',
-                               'tx_power', 'tari', 'session',
-                               'population', 'read_words', 'write_words',
-                               'count', 'mb', 'word_ptr', 'access_password'])
+def access(host, port, time, report_every_n_tags, antennas, tx_power,
+           modulation, tari, session, mode_identifier, tag_population,
+           read_words, write_words, count, memory_bank, word_ptr,
+           access_password):
+    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
+                               'tx_power', 'modulation', 'tari', 'session',
+                               'mode_identifier', 'population', 'read_words',
+                               'write_words', 'count', 'mb', 'word_ptr',
+                               'access_password'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
-                tx_power=tx_power, tari=tari,
-                session=session, population=tag_population,
-                read_words=read_words, write_words=write_words, count=count,
-                mb=memory_bank, word_ptr=word_ptr,
-                access_password=access_password)
+                antennas=antennas, tx_power=tx_power, modulation=modulation,
+                tari=tari, session=session, mode_identifier=mode_identifier,
+                population=tag_population, read_words=read_words,
+                write_words=write_words, count=count, mb=memory_bank,
+                word_ptr=word_ptr, access_password=access_password)
     logger.debug('access args: %s', args)
     _access.main(args)
 
