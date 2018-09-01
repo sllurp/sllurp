@@ -8,9 +8,6 @@ from __future__ import print_function, unicode_literals
 import csv
 import datetime
 import logging
-import threading
-
-import sllurp.llrp as llrp
 
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient
 
@@ -143,5 +140,3 @@ def main(args):
 
     csvlogger.flush()
 
-if __name__ == '__main__':
-    main()
