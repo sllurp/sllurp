@@ -3,13 +3,11 @@ from collections import defaultdict
 import logging
 import pprint
 import struct
-
-import sys
 import select
 
-from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, socket,
-                    timeout as socktimeout, SOL_SOCKET, SO_KEEPALIVE,
-                    error as SocketError)
+from binascii import hexlify
+from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
+                    socket, error as SocketError)
 from threading import Thread, Event
 
 from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
@@ -17,7 +15,7 @@ from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION
 from .llrp_errors import ReaderConfigurationError
-from binascii import hexlify
+
 from .util import BITMASK, natural_keys, iterkeys
 
 LLRP_DEFAULT_PORT = 5084
@@ -186,7 +184,7 @@ class C1G2Recommission(C1G2OpSpec):
         self.Flag2SB = Flag2SB
         self.FlagLSB = FlagLSB
 
-class C1G2LockPayload:
+class C1G2LockPayload(object):
     def __init__(self, Privilege, DataField):
         if Privilege < 0 or Privilege > 3:
             raise ValueError("Invalid Privilege value")
@@ -249,7 +247,7 @@ class C1G2GetBlockPermalockStatus(C1G2OpSpec):
         self.BlockRange = BlockRange
 
 
-class LLRPReaderState:
+class LLRPReaderState(object):
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
     STATE_CONNECTED = 3
@@ -267,22 +265,22 @@ class LLRPReaderState:
     STATE_SENT_ENABLE_IMPINJ_EXTENSIONS = 24
 
     @classmethod
-    def getStates(_):
-        state_names = [st for st in dir(LLRPReaderState) if st.startswith('STATE_')]
+    def getStates(cls):
+        state_names = [st for st in dir(cls) if st.startswith('STATE_')]
         for state_name in state_names:
             state_num = getattr(LLRPReaderState, state_name)
             yield state_name, state_num
 
     @classmethod
-    def getStateName(_, state):
+    def getStateName(cls, state):
         try:
-            return [st_name for st_name, st_num in LLRPReaderState.getStates()
+            return [st_name for st_name, st_num in cls.getStates()
                     if st_num == state][0]
         except IndexError:
             raise LLRPError('unknown state {}'.format(state))
 
 
-class LLRPClient:
+class LLRPClient(object):
     def __init__(self, config, transport_tx_write=None,
                  state_change_callback=None):
 
@@ -305,8 +303,8 @@ class LLRPClient:
         if config.start_inventory:
             logger.info('will start inventory on connect')
 
-        if (config.impinj_search_mode is not None or
-            config.impinj_tag_content_selector is not None):
+        if config.impinj_search_mode is not None \
+           or config.impinj_tag_content_selector is not None:
             logger.info('Enabling Impinj extensions')
 
         logger.info('using antennas: %s', config.antennas)
@@ -324,7 +322,7 @@ class LLRPClient:
 
 
 
-    def setState(self, newstate, onComplete=None):
+    def setState(self, newstate, onCompletion=None):
         assert newstate is not None
         logger.debug('state change: %s -> %s',
                      LLRPReaderState.getStateName(self.state),
@@ -472,8 +470,8 @@ class LLRPClient:
                 else:
                     self.panic(None, 'GET_READER_CAPABILITIES failed')
 
-            if (self.config.impinj_search_mode is not None or
-                self.config.impinj_tag_content_selector is not None):
+            if self.config.impinj_search_mode is not None \
+               or self.config.impinj_tag_content_selector is not None:
 
                 def enable_impinj_ext_cb(state, is_success, *args):
                     if is_success:
@@ -781,38 +779,37 @@ class LLRPClient:
                 'ResetToFactoryDefaults': False,
                 'ReaderEventNotificationSpec': {
                     'EventNotificationState': {
-                            'HoppingEvent': False,
-                            'GPIEvent': False,
-                            'ROSpecEvent': False,
-                            'ReportBufferFillWarning': False,
-                            'ReaderExceptionEvent': False,
-                            'RFSurveyEvent': False,
-                            'AISpecEvent': False,
-                            'AISpecEventWithSingulation': False,
-                            'AntennaEvent': False,
-                            ## Next one will only be available
-                            ## with llrp v2 (spec 1_1)
-                            #'SpecLoopEvent': True,
+                        'HoppingEvent': False,
+                        'GPIEvent': False,
+                        'ROSpecEvent': False,
+                        'ReportBufferFillWarning': False,
+                        'ReaderExceptionEvent': False,
+                        'RFSurveyEvent': False,
+                        'AISpecEvent': False,
+                        'AISpecEventWithSingulation': False,
+                        'AntennaEvent': False,
+                        ## Next one will only be available
+                        ## with llrp v2 (spec 1_1)
+                        #'SpecLoopEvent': True,
                     },
                 }
-            }})
+            }
+        })
         self.setState(LLRPReaderState.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         logger.debug('about to send_ADD_ROSPEC')
-        try:
-            self.sendMessage({
-                'ADD_ROSPEC': {
-                    'Ver':  1,
-                    'Type': 20,
-                    'ID':   0,
-                    'ROSpecID': rospec['ROSpecID'],
-                    'ROSpec': rospec,
-            }})
-        except Exception as ex:
-            logger.exception(ex)
+        self.sendMessage({
+            'ADD_ROSPEC': {
+                'Ver':  1,
+                'Type': 20,
+                'ID':   0,
+                'ROSpecID': rospec['ROSpecID'],
+                'ROSpec': rospec,
+            }
+        })
         logger.debug('sent ADD_ROSPEC')
         self.setState(LLRPReaderState.STATE_SENT_ADD_ROSPEC)
         self._deferreds['ADD_ROSPEC_RESPONSE'].append(onCompletion)
@@ -939,8 +936,8 @@ class LLRPClient:
             }
             for payload in opSpec.LockPayload:
                 opSpecParam['LockPayload'].append({
-                    'Privilege': opSpec.Privilege,
-                    'DataField': opSpec.DataField
+                    'Privilege': payload.Privilege,
+                    'DataField': payload.DataField
                 })
         else:
             raise LLRPError('Selected opSpec type is not yet supported.')
@@ -976,7 +973,7 @@ class LLRPClient:
                                  onCompletion=add_accessspec_cb)
 
     def nextAccess(self, opSpec, targetSpec=None, stopAfterCount=0,
-                    accessSpecID=1):
+                   accessSpecID=1):
         def start_next_accessspec_cb(state, is_success, *args):
             self.startAccess(opSpec=opSpec,
                              targetSpec=targetSpec,
@@ -992,7 +989,7 @@ class LLRPClient:
         self.send_DISABLE_ACCESSSPEC(accessSpecID,
                                      onCompletion=disable_accessspec_cb)
 
-    def startInventory(self, proto=None, force_regen_rospec=False):
+    def startInventory(self, force_regen_rospec=False):
         """Add a ROSpec to the reader and enable it."""
         if self.state == LLRPReaderState.STATE_INVENTORYING:
             logger.warn('ignoring startInventory() while already inventorying')
@@ -1073,7 +1070,7 @@ class LLRPClient:
 
         def send_delete_accessspec_cb(state, is_success, *args):
             if is_success:
-                self.stopAllROSpecs(onCompletion, state)
+                self.stopAllROSpecs(onCompletion)
             else:
                 self.panic(None, 'DELETE_ACCESSSPEC failed')
                 if onCompletion:
@@ -1082,7 +1079,7 @@ class LLRPClient:
         self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(
             send_delete_accessspec_cb)
 
-    def stopAllROSpecs(self, onCompletion=None, *args):
+    def stopAllROSpecs(self, onCompletion=None):
         self.sendMessage({
             'DELETE_ROSPEC': {
                 'Ver':  1,
@@ -1194,7 +1191,7 @@ class LLRPClient:
         if self.state != LLRPReaderState.STATE_INVENTORYING:
             if not force:
                 logger.info('ignoring pause(); not inventorying (state==%s)',
-                            self.getStateName(self.state))
+                            LLRPReaderState.getStateName(self.state))
                 return None
             else:
                 logger.info('forcing pause()')
@@ -1244,7 +1241,7 @@ class LLRPClient:
 
         if self.state != LLRPReaderState.STATE_PAUSED:
             logger.debug('cannot resume() if not paused (state=%s); ignoring',
-                         self.getStateName(self.state))
+                         LLRPReaderState.getStateName(self.state))
             return None
 
         logger.info('resuming')
@@ -1277,7 +1274,7 @@ class LLRPClient:
         return sent_ids
 
 
-class LLRPReaderConfig:
+class LLRPReaderConfig(object):
     def __init__(self, config_dict=None):
 
         self.duration = None
@@ -1341,12 +1338,13 @@ class LLRPReaderConfig:
             else:
                 raise LLRPError('tx_power must be dict or int')
 
-class LLRPReaderClient:
+class LLRPReaderClient(object):
     def __init__(self, host, port=None, config=None, timeout=5.0):
         if port is None:
             port = LLRP_DEFAULT_PORT
         self._port = port
         self._host = host
+        self._socktimeout = timeout
 
         self._socket = None
         self._socket_thread = None
@@ -1402,7 +1400,7 @@ class LLRPReaderClient:
         self._llrp_message_callbacks[msg_type].append(cb)
 
     def add_tag_report_callback(self, cb):
-        if not 'RO_ACCESS_REPORT' in self._llrp_message_callbacks:
+        if 'RO_ACCESS_REPORT' not in self._llrp_message_callbacks:
             self._llrp_message_callbacks['RO_ACCESS_REPORT'].append(
                 self._on_llrp_tag_report)
 
@@ -1418,9 +1416,8 @@ class LLRPReaderClient:
             self._socket = socket(AF_INET, SOCK_STREAM)
             self._socket.connect((self._host, self._port))
             # Sllurp original timeout is 3s
-            self._socket.settimeout(5.0)
+            self._socket.settimeout(self._socktimeout)
             self._socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
-
         except:
             self._socket = None
             raise
@@ -1540,8 +1537,8 @@ class LLRPReaderClient:
                 lost_connection = False
                 socket_list = [self._socket]
                 # Get the list sockets which are readable
-                read_sockets, write_sockets, error_sockets = select.select(
-                    socket_list , [], [])
+                read_sockets, write_sockets, error_sockets = \
+                    select.select(socket_list, [], [])
                 for sock in read_sockets:
                     #incoming message from remote server
                     if sock == self._socket:

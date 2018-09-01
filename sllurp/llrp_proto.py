@@ -1817,7 +1817,7 @@ def encode_C1G2TagSpec(par):
     msg_header_len = struct.calcsize(msg_header)
 
     targets = par['C1G2TargetTag']
-    if type(targets) != list:
+    if not isinstance(targets, list):
         targets = (targets,)
     for target in targets:
         data = encode_C1G2TargetTag(target)
@@ -2175,7 +2175,7 @@ def encode_AISpec(par):
 
     antid = par['AntennaIDs']
     antennas = []
-    if type(antid) is str:
+    if isinstance(antid, str):
         antennas = antid.split()
     else:
         antennas.extend(antid)
@@ -2513,7 +2513,7 @@ def encode_ReaderEventNotificationSpec(par):
 
     data = b''
     for ev_type, flag in states.items():
-        if not ev_type in EventState_Name2Value:
+        if ev_type not in EventState_Name2Value:
             logger.warning('Unknown event name %s', ev_type)
             continue
         parlen = struct.calcsize('!HHHB')
@@ -3197,7 +3197,7 @@ def decode_AISpecEvent(data):
 
     # first parameter (event_type) is ignored as just a single value is
     # possible.
-    par ['EventType'] = 'End_of_AISpec'
+    par['EventType'] = 'End_of_AISpec'
 
     # Optionnal AirProtocolSingulationDetailsParameter parameter:
     # C1G2SingulationDetails that is a tve
@@ -3735,7 +3735,7 @@ def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
 
-        str = tabs + '<%s>\n' % name
+        xml_str = tabs + '<%s>\n' % name
 
         fields = Message_struct[name]['fields']
         for p in fields:
@@ -3744,17 +3744,17 @@ def llrp_data2xml(msg):
             except KeyError:
                 continue
 
-            if type(sub) is dict:
-                str += __llrp_data2xml(sub, p, level + 1)
-            elif type(sub) is list and sub and type(sub[0]) is dict:
+            if isinstance(sub, dict):
+                xml_str += __llrp_data2xml(sub, p, level + 1)
+            elif isinstance(sub, list) and sub and isinstance(sub[0], dict):
                 for e in sub:
-                    str += __llrp_data2xml(e, p, level + 1)
+                    xml_str += __llrp_data2xml(e, p, level + 1)
             else:
-                str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
+                xml_str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
-        str += tabs + '</%s>\n' % name
+        xml_str += tabs + '</%s>\n' % name
 
-        return str
+        return xml_str
 
     ans = ''
     for p in msg:
@@ -3766,19 +3766,19 @@ class LLRPROSpec(dict):
     def __init__(self, reader_mode, rospecid, priority=0, state='Disabled',
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
-                 tag_content_selector={}, tari=None,
+                 tag_content_selector=None, tari=None,
                  session=2, tag_population=4,
                  impinj_search_mode=None, impinj_tag_content_selector=None):
         # Sanity checks
         if rospecid <= 0:
-            raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
-                            rospecid))
+            raise LLRPError('invalid ROSpec message ID {} (need >0)'\
+                .format(rospecid))
         if priority < 0 or priority > 7:
-            raise LLRPError('invalid ROSpec priority {} (need [0-7])'.format(
-                            priority))
+            raise LLRPError('invalid ROSpec priority {} (need [0-7])'\
+                .format(priority))
         if state not in ROSpecState_Name2Type:
-            raise LLRPError('invalid ROSpec state {} (need [{}])'.format(
-                            state, ','.join(ROSpecState_Name2Type.keys())))
+            raise LLRPError('invalid ROSpec state {} (need [{}])'\
+                .format(state, ','.join(ROSpecState_Name2Type.keys())))
         # backward compatibility: allow integer tx_power
         if isinstance(tx_power, int):
             tx_power = {antenna: tx_power for antenna in antennas}
@@ -3853,17 +3853,15 @@ class LLRPROSpec(dict):
         }
 
         if impinj_tag_content_selector:
-            self['ROSpec']['ROReportSpec'][
-                'ImpinjTagReportContentSelectorParameter'] = {
-                'VendorID': 25882,
-                'Subtype': 50,
-                'ImpinjEnableRFPhaseAngleParameter':
-                    impinj_tag_content_selector['EnableRFPhaseAngle'],
-                'ImpinjEnablePeakRSSIParameter':
-                    impinj_tag_content_selector['EnablePeakRSSI'],
-                'ImpinjEnableRFDopplerParameter':
-                    impinj_tag_content_selector['EnableRFDopplerFrequency']
-            }
+            self['ROSpec']['ROReportSpec']\
+                ['ImpinjTagReportContentSelectorParameter'] = {
+                    'ImpinjEnableRFPhaseAngleParameter':
+                        impinj_tag_content_selector['EnableRFPhaseAngle'],
+                    'ImpinjEnablePeakRSSIParameter':
+                        impinj_tag_content_selector['EnablePeakRSSI'],
+                    'ImpinjEnableRFDopplerParameter':
+                        impinj_tag_content_selector['EnableRFDopplerFrequency']
+                }
 
         # patch up per-antenna config
         for antid in antennas:
@@ -3947,8 +3945,8 @@ for msgname, msgstruct in iteritems(Message_struct):
     try:
         ty = msgstruct['type']
     except KeyError:
-        logging.debug('Pseudo-warning: Message_struct type {} '
-                      'lacks "type" field'.format(m))
+        logging.debug('Pseudo-warning: Message_struct type %s lacks "type" '
+                      'field', msgname)
         continue
 
     try:

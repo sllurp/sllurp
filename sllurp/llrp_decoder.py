@@ -1,7 +1,6 @@
 from __future__ import unicode_literals
 import struct
 import logging
-import math
 
 logger = logging.getLogger(__name__)
 
