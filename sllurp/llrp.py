@@ -7,7 +7,7 @@ import select
 
 from binascii import hexlify
 from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
-                    socket, error as SocketError)
+                    IPPROTO_TCP, TCP_NODELAY, socket, error as SocketError)
 from threading import Thread, Event
 
 from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
@@ -1418,6 +1418,7 @@ class LLRPReaderClient(object):
             # Sllurp original timeout is 3s
             self._socket.settimeout(self._socktimeout)
             self._socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
+            self._socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         except:
             self._socket = None
             raise
