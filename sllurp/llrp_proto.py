@@ -699,14 +699,15 @@ Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
 def decode_ROAccessReport(data):
     msg = LLRPMessageDict()
     logger.debug(func())
-
+    tag_report = {}
+    extended_tag = {}
     # Decode parameters
     msg['TagReportData'] = []
     msg['ImpinjExtendedTagInformation'] = []
     try:
         tag_report, _ = decode('TagReportData')(data)
-    except TypeError:  # XXX
-        logger.error('Unable to decode TagReportData')
+    except TypeError as e:  # XXX
+        logger.error('Unable to decode TagReportData becasue %s',e)
     if not tag_report:
         try:
             extended_tag = list(decode('ImpinjExtendedTagInformation')(data))
@@ -2672,6 +2673,7 @@ def encode_ReaderEventNotificationSpec(par):
 
 Message_struct['ReaderEventNotificationSpec'] = {
     'type': 244,
+    'fields': [],
     'encode': encode_ReaderEventNotificationSpec
 }
 
@@ -3202,147 +3204,26 @@ Message_struct['ParameterError'] = {
     'decode': decode_ParameterError
 }
 
-# Custom Impinj Configurations
-def encode_ImpinjLocationConfig(par):
-    msgtype = Message_struct['ImpinjLocationConfig']['type']
-
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-    data += struct.pack('!H',par['ComputeWindowSeconds'])
-    data += struct.pack('!H',par['TagAgeIntervalSeconds'])
-    data += struct.pack('!H',par['UpdateIntervalSeconds'])
-
-  
-
-    
-    header = struct.pack(msg_header, msgtype,len(data) + msg_header_len) 
-
-    return header + data
-
-Message_struct['ImpinjLocationConfig'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'Subtype',
-        'UpdateIntervalSeconds',
-        'ComputeWindowSeconds',
-        'TagAgeIntervalSeconds'
-    ],
-    'encode': encode_ImpinjLocationConfig
-}
-
-def encode_ImpinjPlacementConfiguration(par):
-    msgtype = Message_struct['ImpinjPlacementConfiguration']['type']
-
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-
-    data += struct.pack ('!H',par['HeightCm'])
-    data += struct.pack ('!i',par['FacilityXLocationCm'])
-    data += struct.pack ('!i',par['FacilityYLocationCm'])
-    data += struct.pack ('!h',par['OrientationDegrees'])
-    header = struct.pack(msg_header, msgtype,len(data) + msg_header_len) 
-
-    return header + data
-
-Message_struct['ImpinjPlacementConfiguration'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'Subtype',
-        'HeightCm',
-        'FacilityXLocationCm',
-        'FacilityYLocationCm',
-        'OrientationDegrees'
-    ],
-    'encode': encode_ImpinjPlacementConfiguration
-}
-
-def encode_ImpinjLocationReporting(par):
-    msgtype = Message_struct['ImpinjLocationReporting']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-
-    # binary = boolListToBinString([par['EnableUpdateReport'],par['EnableEntryReport'],par['EnableExitReport'],par['EnableDiagnosticReport']])
-    # binary = int(binary,2) << 12
-    # binary = binary & 0xf0
-    data += struct.pack ('!B', 0xe0) # Hack to make location work. 0b1110000, 4 MSB bit sets the params
-    header = struct.pack(msg_header, msgtype,len(data) + msg_header_len) 
-    return header + data
-
-Message_struct['ImpinjLocationReporting'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'Subtype',
-        'EnableUpdateReport',
-        'EnableEntryReport',
-        'EnableExitReport',
-        'EnableDiagnosticReport'
-    ],
-    'encode': encode_ImpinjLocationReporting
-}
-
-def boolListToBinString(lst):
-    return (''.join(['1' if x else '0' for x in lst]))
-
-def encode_ImpinjTagReportContentSelectorParameter(par):
-    msgtype = Message_struct['ImpinjTagReportContentSelectorParameter']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-
-    data += encode('CustomParameter')(par.get('EnableRFPhaseAngle', False))
-    data += encode('CustomParameter')(par.get('EnablePeakRSSI', False))
-    data += encode('CustomParameter')(
-        par.get('EnableRFDopplerFrequency', False))
-
-    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
-    return header + data
-
-
-Message_struct['ImpinjTagReportContentSelectorParameter'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'Subtype',
-        'EnableRFPhaseAngle',
-        'EnablePeakRSSI',
-        'EnableRFDopplerFrequency'
-    ],
-    'encode': encode_ImpinjTagReportContentSelectorParameter
-}
 
 def encode_ImpinjLISpec(par):
+    msg_struct_param = Message_struct['ImpinjLISpec']
 
-    msgtype = Message_struct['ImpinjLISpec']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-    data += encode('ImpinjLocationConfig')(par['ImpinjLocationConfig'])
+    data = encode('ImpinjLocationConfig')(par['ImpinjLocationConfig'])
     data += encode('ImpinjC1G2LocationConfig')(par['ImpinjC1G2LocationConfig'])
     
-    header = struct.pack(msg_header, msgtype, msg_header_len + len(data)  )
     #logger.info(msg_header_len + len(data))
-    return header + data
+    custom_par = {
+        'VendorID': msg_struct_param['VendorID'],
+        'Subtype': msg_struct_param['Subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
 
 Message_struct['ImpinjLISpec'] = {
-    'type': 1023,
+    'VendorID': 25882,
+    'Subtype': 1541,
     'fields': [
-        'VendorID',
-        'Subtype',
         'ImpinjLocationConfig',
         'ImpinjC1G2LocationConfig',
         'ImpinjTransmitPower'
@@ -3350,25 +3231,24 @@ Message_struct['ImpinjLISpec'] = {
     'encode': encode_ImpinjLISpec
 }
 
+
 def encode_ImpinjC1G2LocationConfig(par):
 
-    msgtype = Message_struct['ImpinjC1G2LocationConfig']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
+    msg_struct_param = Message_struct['ImpinjC1G2LocationConfig']
 
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-
-    data += struct.pack('!H',par['ModeIndex'])
+    data = struct.pack('!H',par['ModeIndex'])
     data += struct.pack('!B',par['Session'] << 6) #Session is a 2 bit number 
-
-    header = struct.pack(msg_header, msgtype, msg_header_len + len(data)  )
-    return header + data
+    custom_par = {
+        'VendorID': msg_struct_param['VendorID'],
+        'Subtype': msg_struct_param['Subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
 
 Message_struct['ImpinjC1G2LocationConfig'] = {
-    'type': 1023,
+    'VendorID': 25882,
+    'Subtype': 1543,
     'fields': [
-        'VendorID',
         'ModeIndex',
         'Session',
     ],
@@ -3398,6 +3278,152 @@ Message_struct['ImpinjTransmitPower'] = {
     ],
     'encode': encode_ImpinjTransmitPower
 }
+
+
+def encode_CustomMessage(msg):
+    vendor_id = msg['VendorID']
+    subtype = msg['Subtype']
+    payload = msg.get('Payload', struct.pack('!I', 0))
+    data = struct.pack('!IB', vendor_id, subtype) + payload
+    logger.info('data: %s', hexlify(data))
+    return data
+
+
+def decode_CustomMessageResponse(data):
+    msg = LLRPMessageDict()
+    logger.debug(func())
+
+    skip_len = struct.calcsize('!IB')  # skip vendor ID + subtype
+    ret, body = decode('LLRPStatus')(data[skip_len:])
+    msg['LLRPStatus'] = ret
+
+    return msg
+
+Message_struct['CUSTOM_MESSAGE'] = {
+    'type': 1023,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'VendorID',
+        'Subtype',
+        'Payload',
+    ],
+    'encode': encode_CustomMessage,
+    'decode': decode_CustomMessageResponse
+}
+
+
+def encode_CustomParameter(par):
+    msgtype = Message_struct['CustomParameter']['type']
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!I', par['VendorID'])
+    data += struct.pack('!I', par['Subtype'])
+    data += par['Payload']
+
+    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
+    return header + data
+
+
+Message_struct['CustomParameter'] = {
+    'type': 1023,
+    'fields': [
+        'VendorID',
+        'Subtype',
+        'Payload'
+    ],
+    'encode': encode_CustomParameter
+}
+
+#
+# Vendor custom parameters and messages
+#
+
+def encode_ImpinjLocationConfig(par):
+    msg_struct_param = Message_struct['ImpinjLocationConfig']
+
+    data = struct.pack('!H',par['ComputeWindowSeconds'])
+    data += struct.pack('!H',par['TagAgeIntervalSeconds'])
+    data += struct.pack('!H',par['UpdateIntervalSeconds'])
+
+    custom_par = {
+        'VendorID': msg_struct_param['VendorID'],
+        'Subtype': msg_struct_param['Subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjLocationConfig'] = {
+    'VendorID': 25882,
+    'Subtype': 1542,
+    'fields':[
+        'UpdateIntervalSeconds',
+        'ComputeWindowSeconds',
+        'TagAgeIntervalSeconds',
+    ],
+    'encode': encode_ImpinjLocationConfig
+}
+
+
+def encode_ImpinjPlacementConfiguration(par):
+    msg_struct_param = Message_struct['ImpinjPlacementConfiguration']
+
+    data = struct.pack ('!H',par['HeightCm'])
+    data += struct.pack ('!i',par['FacilityXLocationCm'])
+    data += struct.pack ('!i',par['FacilityYLocationCm'])
+    data += struct.pack ('!h',par['OrientationDegrees'])
+
+    custom_par = {
+        'VendorID': msg_struct_param['VendorID'],
+        'Subtype': msg_struct_param['Subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjPlacementConfiguration'] = {
+    'VendorID': 25882,
+    'Subtype': 1540,
+    'fields': [
+        'HeightCm',
+        'FacilityXLocationCm',
+        'FacilityYLocationCm',
+        'OrientationDegrees'
+    ],
+    'encode': encode_ImpinjPlacementConfiguration
+}
+
+
+def encode_ImpinjLocationReporting(par):
+    msg_struct_param = Message_struct['ImpinjLocationReporting']
+
+    # binary = boolListToBinString([par['EnableUpdateReport'],par['EnableEntryReport'],par['EnableExitReport'],par['EnableDiagnosticReport']])
+    # binary = int(binary,2) << 12
+    # binary = binary & 0xf0
+    data = struct.pack ('!B', 0x80) # Hack to make location work. 0b10000000, 4 MSB bit sets the params
+
+    custom_par = {
+        'VendorID': msg_struct_param['VendorID'],
+        'Subtype': msg_struct_param['Subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjLocationReporting'] = {
+    'VendorID': 25882,
+    'Subtype': 1544,
+    'fields': [
+        'EnableUpdateReport',
+        'EnableEntryReport',
+        'EnableExitReport',
+        'EnableDiagnosticReport'
+    ],
+    'encode': encode_ImpinjLocationReporting
+}
+
+
+def boolListToBinString(lst):
+    return (''.join(['1' if x else '0' for x in lst]))
+
 
 def decode_ImpinjExtendedTagInformation(data):
     par = {}
@@ -3463,7 +3489,6 @@ def decode_ImpinjExtendedTagInformation(data):
     #         logger.debug("found ImpinjconfidenceReport: %s",loc_confidence_body )
     return par, ""
 
-
 Message_struct['ImpinjExtendedTagInformation'] = {
     'type': 1552,
     'fields': [
@@ -3474,6 +3499,7 @@ Message_struct['ImpinjExtendedTagInformation'] = {
     ],
     'decode': decode_ImpinjExtendedTagInformation
 }   
+
 
 def ImpinjExtendedTagInformationExtractor(data):
     unused_data = []
@@ -3517,8 +3543,8 @@ Message_struct['ImpinjLocationReportData'] = {
     'decode': decode_ImpinjLocationReportData
 }   
 
-def decode_ImpinjDirectionReportData(data):
 
+def decode_ImpinjDirectionReportData(data):
     return data
 
 Message_struct['ImpinjDirectionReportData'] = {
@@ -3537,7 +3563,6 @@ Message_struct['ImpinjDirectionReportData'] = {
 
 
 def decode_ImpinjLocationConfidence(data):
-
     return data
 
 Message_struct['ImpinjLocationConfidence'] ={
@@ -3547,68 +3572,9 @@ Message_struct['ImpinjLocationConfidence'] ={
         'ConfidenceData Word Count'
         'ConfidenceData'
     ],
-    'decode': decode_ImpinjLocationConfidence
+    'decode': decode_ImpinjLocationConfidence,
 }
 
-def encode_CustomMessage(msg):
-    vendor_id = msg['VendorID']
-    subtype = msg['Subtype']
-    payload = msg.get('Payload', struct.pack('!I', 0))
-    data = struct.pack('!IB', vendor_id, subtype) + payload
-    logger.info('data: %s', hexlify(data))
-    return data
-
-
-def decode_CustomMessageResponse(data):
-    msg = LLRPMessageDict()
-    logger.debug(func())
-
-    skip_len = struct.calcsize('!IB')  # skip vendor ID + subtype
-    ret, body = decode('LLRPStatus')(data[skip_len:])
-    msg['LLRPStatus'] = ret
-
-    return msg
-
-
-Message_struct['CUSTOM_MESSAGE'] = {
-    'type': 1023,
-    'fields': [
-        'Ver', 'Type', 'ID',
-        'VendorID',
-        'Subtype',
-        'Payload',
-    ],
-    'encode': encode_CustomMessage,
-    'decode': decode_CustomMessageResponse
-}
-
-
-def encode_CustomParameter(par):
-    msgtype = Message_struct['CustomParameter']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-    data += par['Payload']
-
-    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
-    return header + data
-
-
-Message_struct['CustomParameter'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'Subtype',
-        'Payload'
-    ],
-    'encode': encode_CustomParameter
-}
-
-#
-# Vendor custom parameters and messages
-#
 
 def encode_ImpinjInventorySearchModeParameter(par):
     msg_struct_param = Message_struct['ImpinjInventorySearchModeParameter']
@@ -3655,6 +3621,7 @@ Message_struct['ImpinjTagReportContentSelectorParameter'] = {
     'encode': encode_ImpinjTagReportContentSelectorParameter
 }
 
+
 def encode_ImpinjEnableRFPhaseAngleParameter(par):
     msg_struct_param = Message_struct['ImpinjEnableRFPhaseAngleParameter']
     custom_par = {
@@ -3671,6 +3638,7 @@ Message_struct['ImpinjEnableRFPhaseAngleParameter'] = {
     'encode': encode_ImpinjEnableRFPhaseAngleParameter
 }
 
+
 def encode_ImpinjEnablePeakRSSIParameter(par):
     msg_struct_param = Message_struct['ImpinjEnablePeakRSSIParameter']
     custom_par = {
@@ -3686,6 +3654,7 @@ Message_struct['ImpinjEnablePeakRSSIParameter'] = {
     'fields': [],
     'encode': encode_ImpinjEnablePeakRSSIParameter
 }
+
 
 def encode_ImpinjEnableRFDopplerParameter(par):
     msg_struct_param = Message_struct['ImpinjEnableRFDopplerParameter']
@@ -3736,13 +3705,13 @@ def llrp_data2xml(msg):
 
 
 class LLRPROSpec(dict):
-    def __init__(self, reader_mode, rospecid,update_interval,compute_window,tag_age_interval,priority=0, state='Disabled',
+    def __init__(self, reader_mode, rospecid,priority=0, state='Disabled',
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
                  impinj_search_mode=None, impinj_tag_content_selector=None,
-                 location_mode=False):
+                 location_mode=False,update_interval=20,compute_window=5,tag_age_interval=2):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(

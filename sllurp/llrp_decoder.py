@@ -60,7 +60,6 @@ def decode_tve_parameter(data):
         # not a TV-encoded param
         return None, 0
     msgtype = msgtype & 0x7f
-    logger.log('tve msgtype %s', msgtype)
     try:
         param_name, param_fmt = tve_param_formats[msgtype]
         logger.debug('found %s (type=%s)', param_name, msgtype)

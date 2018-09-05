@@ -102,7 +102,7 @@ def update_graph_live(n):
     lock.acquire()
     for index,t in enumerate(timestamps):
         print(millis - int(timestamps[index]))
-        if abs(millis - int(timestamps[index])) < 300000000: #30 seconds
+        if abs(millis - int(timestamps[index])) < 250000000: #30 seconds
 
             print(millis)
             print("deleting stuff")

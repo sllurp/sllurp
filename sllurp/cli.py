@@ -167,7 +167,7 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
                help="Port of MQTT broker")
 @click.option('--mqtt-topic',type=str,
                help="MQTT topic to publish")
-@click.option('--tag_age_interval',type=int,default=25,
+@click.option('--tag_age_interval',type=int,default=2,
                help="Time in seconds for which the tag must \
                not be read (seen) before it is considered to \
                have exited from the field of view.")
