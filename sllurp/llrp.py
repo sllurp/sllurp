@@ -25,9 +25,12 @@ logger = logging.getLogger(__name__)
 
 class LLRPMessage(object):
     hdr_fmt = '!HI'
-    hdr_len = struct.calcsize(hdr_fmt)  # == 6 bytes
+    hdr_struct = struct.Struct(hdr_fmt)
+    hdr_len = hdr_struct.size  # == 6 bytes
+
     full_hdr_fmt = hdr_fmt + 'I'
-    full_hdr_len = struct.calcsize(full_hdr_fmt)  # == 10 bytes
+    full_hdr_struct = struct.Struct(full_hdr_fmt)
+    full_hdr_len = full_hdr_struct.size  # == 10 bytes
 
     def __init__(self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
@@ -62,10 +65,8 @@ class LLRPMessage(object):
             raise LLRPError('Cannot find encoder for message type '
                             '{}'.format(name))
         data = encoder(self.msgdict[name])
-        self.msgbytes = struct.pack(self.full_hdr_fmt,
-                                    (ver << 10) | msgtype,
-                                    len(data) + self.full_hdr_len,
-                                    msgid) + data
+        self.msgbytes = self.full_hdr_struct.pack((ver << 10) | msgtype,
+            len(data) + self.full_hdr_len, msgid) + data
         logger.debug('serialized bytes: %s', hexlify(self.msgbytes))
         logger.debug('done serializing %s command', name)
 
@@ -74,8 +75,8 @@ class LLRPMessage(object):
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
         data = self.msgbytes
-        msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
-                                               data[:self.full_hdr_len])
+        msgtype, length, msgid = self.full_hdr_struct.unpack(
+            data[:self.full_hdr_len])
         ver = (msgtype >> 10) & BITMASK(3)
         msgtype = msgtype & BITMASK(10)
         try:
@@ -1596,8 +1597,8 @@ class LLRPReaderClient(object):
             # parse the message header to grab its length
             if len(data) >= LLRPMessage.full_hdr_len:
                 msg_type, msg_len, message_id = \
-                    struct.unpack(LLRPMessage.full_hdr_fmt,
-                                  data[:LLRPMessage.full_hdr_len])
+                    LLRPMessage.full_hdr_struct.unpack(
+                        data[:LLRPMessage.full_hdr_len])
             else:
                 logger.warning('Too few bytes (%d) to unpack message header',
                                len(data))
