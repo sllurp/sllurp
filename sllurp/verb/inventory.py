@@ -7,7 +7,7 @@ import pprint
 import time
 
 from sllurp.util import monotonic
-from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient
+from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
 from sllurp.llrp_proto import Modulation_DefaultTari
 
 start_time = None
@@ -20,6 +20,10 @@ def finish_cb(reader):
     runtime = monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
                 numtags/runtime)
+
+def inventory_start_cb(reader, state):
+    global start_time
+    start_time = monotonic()
 
 
 def tag_report_cb(reader, tags):
@@ -106,6 +110,7 @@ def main(args):
         reader = LLRPReaderClient(host, port, config)
         reader.add_disconnected_callback(finish_cb)
         reader.add_tag_report_callback(tag_report_cb)
+        reader.add_state_callback(LLRPReaderState.STATE_INVENTORYING, inventory_start_cb)
         reader_clients.append(reader)
 
 
