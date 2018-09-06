@@ -1,8 +1,9 @@
 from __future__ import unicode_literals
 from struct import Struct, error as StructError
-import logging
 
-logger = logging.getLogger(__name__)
+from .log import get_logger
+
+logger = get_logger(__name__)
 
 tve_header_struct = Struct('!B')
 tve_header_len = tve_header_struct.size
@@ -69,7 +70,7 @@ def decode_tve_parameter(data):
         tve_msgtype = tve_msgtype & 0x7f
         try:
             param_name, param_struct = tve_param_formats[tve_msgtype]
-            #logger.debug('found %s (type=%s)', param_name, tve_msgtype)
+            #logger.debugfast('found %s (type=%s)', param_name, tve_msgtype)
         except KeyError:
             return None, 0
 

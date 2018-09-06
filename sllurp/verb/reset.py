@@ -4,8 +4,9 @@
 import logging
 
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
+from sllurp.log import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def shutdown(reader, state):

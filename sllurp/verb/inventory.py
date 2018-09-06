@@ -9,12 +9,12 @@ import time
 from sllurp.util import monotonic
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
 from sllurp.llrp_proto import Modulation_DefaultTari
+from sllurp.log import get_logger
 
 start_time = None
 
 numtags = 0
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 def finish_cb(reader):
     runtime = monotonic() - start_time
