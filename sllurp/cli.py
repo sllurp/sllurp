@@ -16,7 +16,7 @@ from .llrp_proto import Modulation_Name2Type
 # Disable Click unicode warning since we use unicode string exclusively
 click.disable_unicode_literals_warning = True
 
-logger = logging.getLogger(__name__)
+logger = loggie.get_logger(__name__)
 mods = sorted(Modulation_Name2Type.keys())
 
 

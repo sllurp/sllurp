@@ -1,6 +1,5 @@
 from __future__ import print_function, unicode_literals
 from collections import defaultdict
-import logging
 import pprint
 import struct
 import select
@@ -15,12 +14,13 @@ from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION
 from .llrp_errors import ReaderConfigurationError
-
+from .log import get_logger
 from .util import BITMASK, natural_keys, iterkeys
 
 LLRP_DEFAULT_PORT = 5084
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
 
 
 class LLRPMessage(object):
@@ -55,7 +55,7 @@ class LLRPMessage(object):
             raise LLRPError('No message dict to serialize.')
         msgdict_iter = iterkeys(self.msgdict)
         name = next(msgdict_iter)
-        logger.debug('serializing %s command', name)
+        logger.debugfast('serializing %s command', name)
         ver = self.msgdict[name]['Ver'] & BITMASK(3)
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
         msgid = self.msgdict[name]['ID']
@@ -67,8 +67,8 @@ class LLRPMessage(object):
         data = encoder(self.msgdict[name])
         self.msgbytes = self.full_hdr_struct.pack((ver << 10) | msgtype,
             len(data) + self.full_hdr_len, msgid) + data
-        logger.debug('serialized bytes: %s', hexlify(self.msgbytes))
-        logger.debug('done serializing %s command', name)
+        logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
+        logger.debugfast('done serializing %s command', name)
 
     def deserialize(self):
         """Turns a sequence of bytes into a message dictionary."""
@@ -81,7 +81,7 @@ class LLRPMessage(object):
         msgtype = msgtype & BITMASK(10)
         try:
             name = Message_Type2Name[msgtype]
-            logger.debug('deserializing %s command', name)
+            logger.debugfast('deserializing %s command', name)
             decoder = Message_struct[name]['decode']
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
@@ -94,7 +94,7 @@ class LLRPMessage(object):
             self.msgdict[name]['Ver'] = ver
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
-            logger.debug('done deserializing %s command', name)
+            logger.debugfast('done deserializing %s command', name)
         except LLRPError:
             logger.exception('Problem with %s message format', name)
             return ''
@@ -325,9 +325,9 @@ class LLRPClient(object):
 
     def setState(self, newstate, onCompletion=None):
         assert newstate is not None
-        logger.debug('state change: %s -> %s',
-                     LLRPReaderState.getStateName(self.state),
-                     LLRPReaderState.getStateName(newstate))
+        logger.debugfast('state change: %s -> %s',
+                         LLRPReaderState.getStateName(self.state),
+                         LLRPReaderState.getStateName(newstate))
 
         self.state = newstate
 
@@ -355,12 +355,12 @@ class LLRPClient(object):
                       ' available={}; ignoring invalid antennas'.format(
                           reqd, avail))
             raise ReaderConfigurationError(errmsg)
-        logger.debug('set antennas: %s', self.config.antennas)
+        logger.debugfast('set antennas: %s', self.config.antennas)
 
         # parse available transmit power entries, set self.tx_power
         bandcap = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
         self.tx_power_table = self.parsePowerTable(bandcap)
-        logger.debug('tx_power_table: %s', self.tx_power_table)
+        logger.debugfast('tx_power_table: %s', self.tx_power_table)
         self.setTxPower(self.config.tx_power)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
@@ -371,8 +371,8 @@ class LLRPClient(object):
         # select a mode by matching available modes to requested parameters:
         # favor mode_identifier over modulation
         if self.config.mode_identifier is not None:
-            logger.debug('Setting mode from mode_identifier=%s',
-                         self.config.mode_identifier)
+            logger.debugfast('Setting mode from mode_identifier=%s',
+                             self.config.mode_identifier)
             try:
                 mode = [mo for mo in mode_list
                         if mo['ModeIdentifier'] == self.config.mode_identifier][0]
@@ -384,8 +384,8 @@ class LLRPClient(object):
                 raise ReaderConfigurationError(errstr)
 
         elif self.config.modulation is not None:
-            logger.debug('Setting mode from modulation=%s',
-                         self.config.modulation)
+            logger.debugfast('Setting mode from modulation=%s',
+                             self.config.modulation)
             try:
                 mo = [mo for mo in mode_list
                       if mo['Mod'] == Modulation_Name2Type[self.config.modulation]][0]
@@ -408,15 +408,15 @@ class LLRPClient(object):
         deferreds = self._deferreds[msgName]
         if not deferreds:
             return
-        logger.debug('running %d Deferreds for %s; '
-                     'isSuccess=%s', len(deferreds), msgName, isSuccess)
+        logger.debugfast('running %d Deferreds for %s; '
+                         'isSuccess=%s', len(deferreds), msgName, isSuccess)
         for deferred_cb in deferreds:
             deferred_cb(self.state, isSuccess)
         del self._deferreds[msgName]
 
     def handleMessage(self, lmsg):
         """Implements the LLRP client state machine."""
-        logger.debug('LLRPMessage received in state %s: %s', self.state, lmsg)
+        logger.debugfast('LLRPMessage received in state %s: %s', self.state, lmsg)
         msgName = lmsg.getName()
 
         # keepalives can occur at any time
@@ -426,16 +426,16 @@ class LLRPClient(object):
 
         if msgName == 'RO_ACCESS_REPORT' and \
                 self.state != LLRPReaderState.STATE_INVENTORYING:
-            logger.debug('ignoring RO_ACCESS_REPORT because not inventorying')
+            logger.debugfast('ignoring RO_ACCESS_REPORT because not inventorying')
             return
 
         if msgName == 'READER_EVENT_NOTIFICATION' and \
                 self.state >= LLRPReaderState.STATE_CONNECTED:
-            logger.debug('Got reader event notification')
+            logger.debugfast('Got reader event notification')
             return
 
-        logger.debug('in handleMessage(%s), there are %d Deferreds',
-                     msgName, len(self._deferreds[msgName]))
+        logger.debugfast('in handleMessage(%s), there are %d Deferreds',
+                         msgName, len(self._deferreds[msgName]))
 
         #######
         # LLRP client state machine follows.  Beware: gets thorny.  Note the
@@ -488,7 +488,7 @@ class LLRPClient(object):
                     self, onCompletion=get_reader_capabilities_cb)
 
         elif self.state == LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS:
-            logger.debug(lmsg)
+            logger.debugfast(lmsg)
             if msgName != 'CUSTOM_MESSAGE':
                 logger.error('unexpected response %s while enabling Impinj'
                              'extensions', msgName)
@@ -500,7 +500,7 @@ class LLRPClient(object):
                 logger.fatal('Error %s enabling Impinj extensions: %s',
                              status, err)
                 return
-            logger.debug('Successfully enabled Impinj extensions')
+            logger.debugfast('Successfully enabled Impinj extensions')
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -520,7 +520,7 @@ class LLRPClient(object):
 
             self.capabilities = \
                 lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-            logger.debug('Capabilities: %s', pprint.pformat(self.capabilities))
+            logger.debugfast('Capabilities: %s', pprint.pformat(self.capabilities))
             try:
                 self.parseCapabilities(self.capabilities)
             except LLRPError as err:
@@ -801,7 +801,7 @@ class LLRPClient(object):
             onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
-        logger.debug('about to send_ADD_ROSPEC')
+        logger.debugfast('about to send_ADD_ROSPEC')
         self.sendMessage({
             'ADD_ROSPEC': {
                 'Ver':  1,
@@ -811,7 +811,7 @@ class LLRPClient(object):
                 'ROSpec': rospec,
             }
         })
-        logger.debug('sent ADD_ROSPEC')
+        logger.debugfast('sent ADD_ROSPEC')
         self.setState(LLRPReaderState.STATE_SENT_ADD_ROSPEC)
         self._deferreds['ADD_ROSPEC_RESPONSE'].append(onCompletion)
 
@@ -962,7 +962,7 @@ class LLRPClient(object):
                 'AccessReportTrigger': 1  # report at end of access
             }
         }
-        logger.debug('AccessSpec: %s', accessSpec)
+        logger.debugfast('AccessSpec: %s', accessSpec)
 
         def add_accessspec_cb(state, is_success, *args):
             if is_success:
@@ -1005,7 +1005,7 @@ class LLRPClient(object):
         # started_rospec.addCallback(self._setState_wrapper,
         #                            LLRPReaderState.STATE_INVENTORYING)
         # started_rospec.addErrback(self.panic, 'START_ROSPEC failed')
-        # logger.debug('made started_rospec')
+        # logger.debugfast('made started_rospec')
 
         def enabled_rospec_cb(state, is_success, *args):
             if is_success:
@@ -1013,7 +1013,7 @@ class LLRPClient(object):
             else:
                 self.panic(None, 'ENABLE_ROSPEC failed')
 
-        logger.debug('made enabled_rospec')
+        logger.debugfast('made enabled_rospec')
 
         def send_added_rospec_cb(state, is_success, *args):
             if is_success:
@@ -1022,7 +1022,7 @@ class LLRPClient(object):
             else:
                 self.panic(None, 'ADD_ROSPEC failed')
 
-        logger.debug('made added_rospec')
+        logger.debugfast('made added_rospec')
 
         self.send_ADD_ROSPEC(rospec, onCompletion=send_added_rospec_cb)
 
@@ -1051,7 +1051,7 @@ class LLRPClient(object):
                 config.impinj_tag_content_selector
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
-        logger.debug('ROSpec: %s', self.rospec)
+        logger.debugfast('ROSpec: %s', self.rospec)
         return self.rospec
 
     def stopPolitely(self, onCompletion=None, disconnect=False):
@@ -1135,7 +1135,7 @@ class LLRPClient(object):
             logger.warn('get_tx_power(): tx_power_table is empty!')
             return {}
 
-        logger.debug('requested tx_power: %s', tx_power)
+        logger.debugfast('requested tx_power: %s', tx_power)
         min_power = self.tx_power_table.index(min(self.tx_power_table))
         max_power = self.tx_power_table.index(max(self.tx_power_table))
 
@@ -1164,18 +1164,18 @@ class LLRPClient(object):
         @param tx_power: index into self.tx_power_table
         """
         tx_pow_validated = self.get_tx_power(tx_power)
-        logger.debug('tx_pow_validated: %s', tx_pow_validated)
+        logger.debugfast('tx_pow_validated: %s', tx_pow_validated)
         needs_update = False
         for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
             if self.config.tx_power[ant] != tx_pow_idx:
                 self.config.tx_power[ant] = tx_pow_idx
                 needs_update = True
 
-            logger.debug('tx_power for antenna %s: %s (%s dBm)', ant,
+            logger.debugfast('tx_power for antenna %s: %s (%s dBm)', ant,
                          tx_pow_idx, tx_pow_dbm)
 
         if needs_update and self.state == LLRPReaderState.STATE_INVENTORYING:
-            logger.debug('changing tx power; will stop politely, then resume')
+            logger.debugfast('changing tx power; will stop politely, then resume')
             def on_politely_stopped_cb(state, is_success, *args):
                 if is_success:
                     self.setState(LLRPReaderState.STATE_CONNECTED)
@@ -1184,7 +1184,7 @@ class LLRPClient(object):
 
     def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
         """Pause an inventory operation for a set amount of time."""
-        logger.debug('pause(%s)', duration_seconds)
+        logger.debugfast('pause(%s)', duration_seconds)
         # Temporary error until fixed.
         if duration_seconds > 0:
             raise ReaderConfigurationError('"duration_seconds > 0" is not yet'
@@ -1229,19 +1229,19 @@ class LLRPClient(object):
         return disable_rospec_pause_cb
 
     def resume(self, force_regen_rospec=False):
-        logger.debug('resuming, force_regen_rospec=%s', force_regen_rospec)
+        logger.debugfast('resuming, force_regen_rospec=%s', force_regen_rospec)
 
         if force_regen_rospec:
             self.rospec = self.getROSpec(force_new=True)
 
         if self.state in (LLRPReaderState.STATE_CONNECTED,
                           LLRPReaderState.STATE_DISCONNECTED):
-            logger.debug('will startInventory()')
+            logger.debugfast('will startInventory()')
             self.startInventory()
             return
 
         if self.state != LLRPReaderState.STATE_PAUSED:
-            logger.debug('cannot resume() if not paused (state=%s); ignoring',
+            logger.debugfast('cannot resume() if not paused (state=%s); ignoring',
                          LLRPReaderState.getStateName(self.state))
             return None
 
@@ -1579,8 +1579,8 @@ class LLRPReaderClient(object):
         self._socket.sendall(data)
 
     def rawDataReceived(self, data):
-        logger.debug('got %d bytes from reader: %s', len(data),
-                     hexlify(data))
+        logger.debugfast('got %d bytes from reader: %s', len(data),
+                         hexlify(data))
 
         if self.expectingRemainingBytes:
             if len(data) >= self.expectingRemainingBytes:
@@ -1607,7 +1607,7 @@ class LLRPReaderClient(object):
                     LLRPMessage.full_hdr_len - len(data)
                 break
 
-            logger.debug('expect %d bytes (have %d)', msg_len, len(data))
+            logger.debugfast('expect %d bytes (have %d)', msg_len, len(data))
 
             if len(data) < msg_len:
                 # got too few bytes
@@ -1672,14 +1672,14 @@ class LLRPReaderClient(object):
         """Call user callbacks if needed"""
         msgName = lmsg.getName()
         # call per-message callbacks
-        logger.debug('starting message callbacks for %s', msgName)
+        logger.debugfast('starting message callbacks for %s', msgName)
         for fn in self._llrp_message_callbacks[msgName]:
             try:
                 fn(self, lmsg)
             except:
                 logger.exception("Error during message callback execution. "
                                  "Continuing anyway...")
-        logger.debug('done with message callbacks for %s', msgName)
+        logger.debugfast('done with message callbacks for %s', msgName)
 
     def _on_llrp_tag_report(self, _, lmsg):
         tags_report_dict = lmsg.msgdict['RO_ACCESS_REPORT']['TagReportData']

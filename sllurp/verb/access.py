@@ -8,11 +8,12 @@ from sllurp.util import monotonic
 from sllurp.llrp import (LLRPReaderConfig, LLRPReaderClient, LLRPReaderState,
                          C1G2Read, C1G2Write)
 from sllurp.llrp_proto import Modulation_DefaultTari
+from sllurp.log import get_logger
 
 start_time = None
 
 tagReport = 0
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 args = None
 

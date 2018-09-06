@@ -10,10 +10,11 @@ import datetime
 import logging
 
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient
+from sllurp.log import get_logger
 
 
 numTags = 0
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 csvlogger = None
 
 
