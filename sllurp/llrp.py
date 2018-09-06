@@ -168,6 +168,7 @@ class LLRPClient(LineReceiver):
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
+                 impinj_extended_configuration=False,
                  impinj_search_mode=None,
                  impinj_tag_content_selector=None):
         self.factory = factory
@@ -205,6 +206,7 @@ class LLRPClient(LineReceiver):
         if (impinj_search_mode is not None or
                 impinj_tag_content_selector is not None):
             logger.info('Enabling Impinj extensions')
+        self.impinj_extended_configuration = impinj_extended_configuration
         self.impinj_search_mode = impinj_search_mode
         self.impinj_tag_content_selector = impinj_tag_content_selector
 
@@ -740,13 +742,24 @@ class LLRPClient(LineReceiver):
             onCompletion)
 
     def send_GET_READER_CONFIG(self, onCompletion):
-        self.sendMessage({
-            'GET_READER_CONFIG': {
-                'Ver':  1,
-                'Type': 2,
-                'ID':   0,
-                'RequestedData': Capability_Name2Type['All']
-            }})
+        cfg = {
+            'Ver':  1,
+            'Type': 2,
+            'ID':   0,
+            'RequestedData': Capability_Name2Type['All']
+        }
+        if self.impinj_extended_configuration:
+            cfg['CustomParameters'] = [
+                {
+                    'VendorID': 25882,
+                    # per Octane LLRP guide:
+                    # 21 = ImpinjRequestedData
+                    # 2000 = All configuration params
+                    'Subtype': 21,
+                    'Payload': struct.pack('!H', 2000)
+                }
+            ]
+        self.sendMessage({'GET_READER_CONFIG': cfg})
         self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)

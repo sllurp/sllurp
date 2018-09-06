@@ -49,6 +49,8 @@ def cli(debug, logfile):
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
+@click.option('--impinj-extended-configuration', is_flag=True, default=False,
+              help=('Get Impinj extended configuration values'))
 @click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
               help=('Impinj extension: inventory search mode '
                     ' (1=single, 2=dual)'))
@@ -58,18 +60,23 @@ def cli(debug, logfile):
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               modulation, tari, session, mode_identifier,
               tag_population, reconnect,
+              impinj_extended_configuration,
               impinj_search_mode, impinj_reports):
+    """Conduct inventory (searching the area around the antennas)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'modulation', 'tari', 'session',
                                'population', 'mode_identifier',
-                               'reconnect', 'impinj_search_mode',
+                               'reconnect',
+                               'impinj_extended_configuration',
+                               'impinj_search_mode',
                                'impinj_reports'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
                 reconnect=reconnect,
+                impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
                 impinj_reports=impinj_reports)
     logger.debug('inventory args: %s', args)

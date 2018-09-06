@@ -100,6 +100,7 @@ def main(args):
             'EnableTagSeenCount': True,
             'EnableAccessSpecID': False
         },
+        impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
     )

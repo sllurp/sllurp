@@ -295,7 +295,11 @@ def encode_GetReaderConfig(msg):
     ant = msg.get('AntennaID', 0)
     gpipn = msg.get('GPIPortNum', 0)
     gpopn = msg.get('GPOPortNum', 0)
-    return struct.pack('!BHHH', req, ant, gpipn, gpopn)
+    params = msg.get('CustomParameters', [])
+    data = struct.pack('!BHHH', req, ant, gpipn, gpopn)
+    for param in params:
+        data += encode('CustomParameter')(param)
+    return data
 
 
 Message_struct['GET_READER_CONFIG'] = {
@@ -3586,14 +3590,19 @@ Message_struct['CustomParameter'] = {
 # Vendor custom parameters and messages
 #
 
-def encode_ImpinjInventorySearchModeParameter(par):
-    msg_struct_param = Message_struct['ImpinjInventorySearchModeParameter']
+
+def encode_ImpinjCustomParameter(subtype, value):
     custom_par = {
-        'VendorID': msg_struct_param['vendorid'],
-        'Subtype': msg_struct_param['subtype'],
-        'Payload': struct.pack('!H', par)
+        'VendorID': 25882,
+        'Subtype': subtype,
+        'Payload': struct.pack('!H', value)
     }
     return encode('CustomParameter')(custom_par)
+
+
+def encode_ImpinjInventorySearchModeParameter(par):
+    return encode_ImpinjCustomParameter(23, par)
+
 
 Message_struct['ImpinjInventorySearchModeParameter'] = {
     'vendorid': 25882,
