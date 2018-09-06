@@ -14,7 +14,7 @@ from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
     DEFAULT_MODULATION
 from .llrp_errors import ReaderConfigurationError
-from .log import get_logger
+from .log import get_logger, general_debug_enabled
 from .util import BITMASK, natural_keys, iterkeys
 
 LLRP_DEFAULT_PORT = 5084
@@ -67,8 +67,9 @@ class LLRPMessage(object):
         data = encoder(self.msgdict[name])
         self.msgbytes = self.full_hdr_struct.pack((ver << 10) | msgtype,
             len(data) + self.full_hdr_len, msgid) + data
-        logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
-        logger.debugfast('done serializing %s command', name)
+        if general_debug_enabled:
+            logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
+            logger.debugfast('done serializing %s command', name)
 
     def deserialize(self):
         """Turns a sequence of bytes into a message dictionary."""
@@ -325,9 +326,10 @@ class LLRPClient(object):
 
     def setState(self, newstate, onCompletion=None):
         assert newstate is not None
-        logger.debugfast('state change: %s -> %s',
-                         LLRPReaderState.getStateName(self.state),
-                         LLRPReaderState.getStateName(newstate))
+        if general_debug_enabled:
+            logger.debugfast('state change: %s -> %s',
+                            LLRPReaderState.getStateName(self.state),
+                            LLRPReaderState.getStateName(newstate))
 
         self.state = newstate
 
@@ -408,15 +410,17 @@ class LLRPClient(object):
         deferreds = self._deferreds[msgName]
         if not deferreds:
             return
-        logger.debugfast('running %d Deferreds for %s; '
-                         'isSuccess=%s', len(deferreds), msgName, isSuccess)
+        if general_debug_enabled:
+            logger.debugfast('running %d Deferreds for %s; '
+                            'isSuccess=%s', len(deferreds), msgName, isSuccess)
         for deferred_cb in deferreds:
             deferred_cb(self.state, isSuccess)
         del self._deferreds[msgName]
 
     def handleMessage(self, lmsg):
         """Implements the LLRP client state machine."""
-        logger.debugfast('LLRPMessage received in state %s: %s', self.state, lmsg)
+        logger.debugfast('LLRPMessage received in state %s: %s', self.state,
+                         lmsg)
         msgName = lmsg.getName()
 
         # keepalives can occur at any time
@@ -434,8 +438,9 @@ class LLRPClient(object):
             logger.debugfast('Got reader event notification')
             return
 
-        logger.debugfast('in handleMessage(%s), there are %d Deferreds',
-                         msgName, len(self._deferreds[msgName]))
+        if general_debug_enabled:
+            logger.debugfast('in handleMessage(%s), there are %d Deferreds',
+                             msgName, len(self._deferreds[msgName]))
 
         #######
         # LLRP client state machine follows.  Beware: gets thorny.  Note the
@@ -488,7 +493,8 @@ class LLRPClient(object):
                     self, onCompletion=get_reader_capabilities_cb)
 
         elif self.state == LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS:
-            logger.debugfast(lmsg)
+            if general_debug_enabled:
+                logger.debugfast(lmsg)
             if msgName != 'CUSTOM_MESSAGE':
                 logger.error('unexpected response %s while enabling Impinj'
                              'extensions', msgName)
@@ -520,7 +526,9 @@ class LLRPClient(object):
 
             self.capabilities = \
                 lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-            logger.debugfast('Capabilities: %s', pprint.pformat(self.capabilities))
+            if general_debug_enabled:
+                logger.debugfast('Capabilities: %s',
+                                 pprint.pformat(self.capabilities))
             try:
                 self.parseCapabilities(self.capabilities)
             except LLRPError as err:
@@ -1579,40 +1587,43 @@ class LLRPReaderClient(object):
         self._socket.sendall(data)
 
     def rawDataReceived(self, data):
-        logger.debugfast('got %d bytes from reader: %s', len(data),
-                         hexlify(data))
+        data_len = len(data)
+        if general_debug_enabled:
+            logger.debugfast('got %d bytes from reader: %s', data_len,
+                             hexlify(data))
 
         if self.expectingRemainingBytes:
-            if len(data) >= self.expectingRemainingBytes:
+            if data_len >= self.expectingRemainingBytes:
                 data = self.partialData + data
+                data_len = len(data)
                 self.partialData = ''
-                self.expectingRemainingBytes -= len(data)
+                self.expectingRemainingBytes -= data_len
             else:
                 # still not enough; wait until next time
                 self.partialData += data
-                self.expectingRemainingBytes -= len(data)
+                self.expectingRemainingBytes -= data_len
                 return
 
         while data:
             # parse the message header to grab its length
-            if len(data) >= LLRPMessage.full_hdr_len:
+            if data_len >= LLRPMessage.full_hdr_len:
                 msg_type, msg_len, message_id = \
                     LLRPMessage.full_hdr_struct.unpack(
                         data[:LLRPMessage.full_hdr_len])
             else:
                 logger.warning('Too few bytes (%d) to unpack message header',
-                               len(data))
+                               data_len)
                 self.partialData = data
                 self.expectingRemainingBytes = \
-                    LLRPMessage.full_hdr_len - len(data)
+                    LLRPMessage.full_hdr_len - data_len
                 break
 
-            logger.debugfast('expect %d bytes (have %d)', msg_len, len(data))
+            logger.debugfast('expect %d bytes (have %d)', msg_len, data_len)
 
-            if len(data) < msg_len:
+            if data_len < msg_len:
                 # got too few bytes
                 self.partialData = data
-                self.expectingRemainingBytes = msg_len - len(data)
+                self.expectingRemainingBytes = msg_len - data_len
                 break
             else:
                 # got at least the right number of bytes
@@ -1622,10 +1633,11 @@ class LLRPReaderClient(object):
                     self._on_llrp_message_received(lmsg)
                     self.llrp.handleMessage(lmsg)
                     data = data[msg_len:]
+                    data_len = data_len - msg_len
                 except LLRPError:
                     logger.exception('Failed to decode LLRPMessage; '
                                      'will not decode %d remaining bytes',
-                                     len(data))
+                                     data_len)
                     break
 
     def start_access_spec(self, op_spec, target_spec=None, stop_after_count=0,
