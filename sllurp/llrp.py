@@ -13,7 +13,7 @@ from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type
 from .llrp_errors import ReaderConfigurationError
-from .log import get_logger, general_debug_enabled
+from .log import get_logger, is_general_debug_enabled
 from .util import BITMASK, natural_keys, iterkeys
 
 LLRP_DEFAULT_PORT = 5084
@@ -66,7 +66,7 @@ class LLRPMessage(object):
         data = encoder(self.msgdict[name])
         self.msgbytes = self.full_hdr_struct.pack((ver << 10) | msgtype,
             len(data) + self.full_hdr_len, msgid) + data
-        if general_debug_enabled:
+        if is_general_debug_enabled():
             logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
             logger.debugfast('done serializing %s command', name)
 
@@ -326,7 +326,7 @@ class LLRPClient(object):
 
     def setState(self, newstate, onCompletion=None):
         assert newstate is not None
-        if general_debug_enabled:
+        if is_general_debug_enabled():
             logger.debugfast('state change: %s -> %s',
                             LLRPReaderState.getStateName(self.state),
                             LLRPReaderState.getStateName(newstate))
@@ -454,7 +454,7 @@ class LLRPClient(object):
         deferreds = self._deferreds[msgName]
         if not deferreds:
             return
-        if general_debug_enabled:
+        if is_general_debug_enabled():
             logger.debugfast('running %d Deferreds for %s; '
                             'isSuccess=%s', len(deferreds), msgName, isSuccess)
         for deferred_cb in deferreds:
@@ -482,7 +482,7 @@ class LLRPClient(object):
             logger.debugfast('Got reader event notification')
             return
 
-        if general_debug_enabled:
+        if is_general_debug_enabled():
             logger.debugfast('in handleMessage(%s), there are %d Deferreds',
                              msgName, len(self._deferreds[msgName]))
 
@@ -537,7 +537,7 @@ class LLRPClient(object):
                     self, onCompletion=get_reader_capabilities_cb)
 
         elif self.state == LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS:
-            if general_debug_enabled:
+            if is_general_debug_enabled():
                 logger.debugfast(lmsg)
             if msgName != 'CUSTOM_MESSAGE':
                 logger.error('unexpected response %s while enabling Impinj'
@@ -570,7 +570,7 @@ class LLRPClient(object):
 
             self.capabilities = \
                 lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-            if general_debug_enabled:
+            if is_general_debug_enabled():
                 logger.debugfast('Capabilities: %s',
                                  pprint.pformat(self.capabilities))
             try:
@@ -1637,7 +1637,7 @@ class LLRPReaderClient(object):
 
     def rawDataReceived(self, data):
         data_len = len(data)
-        if general_debug_enabled:
+        if is_general_debug_enabled():
             logger.debugfast('got %d bytes from reader: %s', data_len,
                              hexlify(data))
 

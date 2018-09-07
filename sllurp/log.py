@@ -12,6 +12,9 @@ def set_general_debug(debug=False):
     global general_debug_enabled
     general_debug_enabled = debug
 
+def is_general_debug_enabled():
+    return general_debug_enabled
+
 def init_logging(debug=False, logfile=None):
     """Initialize logging."""
     set_general_debug(debug)
