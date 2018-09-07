@@ -32,7 +32,7 @@ from binascii import hexlify
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
 from .llrp_errors import LLRPError
-from .log import get_logger, general_debug_enabled
+from .log import get_logger, is_general_debug_enabled
 
 #
 # Define exported symbols
@@ -3462,7 +3462,7 @@ for field_name in Message_struct['ReaderEventNotificationData']['fields']:
 
 # 16.2.8.1 LLRPStatus Parameter
 def decode_LLRPStatus(data):
-    if general_debug_enabled:
+    if is_general_debug_enabled():
         logger.debugfast('decode_LLRPStatus: %s', hexlify(data))
     par = {}
 
@@ -3536,7 +3536,7 @@ def decode_FieldError(data):
     if msgtype != Message_struct['FieldError']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    if general_debug_enabled:
+    if is_general_debug_enabled():
         logger.debugfast('decode_FieldError (len=%d data=%s)', length,
                          repr(body))
 
@@ -3572,7 +3572,7 @@ def decode_ParameterError(data):
     if msgtype != Message_struct['ParameterError']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    if general_debug_enabled:
+    if is_general_debug_enabled():
         logger.debugfast('decode_ParameterError (len=%d data=%s)', length,
                          repr(body))
 
@@ -3614,7 +3614,7 @@ def encode_CustomMessage(msg):
     subtype = msg['Subtype']
     payload = msg.get('Payload', struct.pack('!I', 0))
     data = struct.pack('!IB', vendor_id, subtype) + payload
-    if general_debug_enabled:
+    if is_general_debug_enabled():
         logger.debugfast('Encoding custom message data: %s', hexlify(data))
     return data
 
