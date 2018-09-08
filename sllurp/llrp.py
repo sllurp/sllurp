@@ -756,7 +756,7 @@ class LLRPClient(LineReceiver):
                     # 21 = ImpinjRequestedData
                     # 2000 = All configuration params
                     'Subtype': 21,
-                    'Payload': struct.pack('!H', 2000)
+                    'Payload': struct.pack('!I', 2000)
                 }
             ]
         self.sendMessage({'GET_READER_CONFIG': cfg})

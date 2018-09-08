@@ -235,28 +235,45 @@ class TestMessageStruct(unittest.TestCase):
 def test_get_reader_config():
     msg = {
         'Ver':  1,
-        'Type': 1,
+        'Type': 2,
         'ID':   0,
         'RequestedData': 0,
     }
     conf = sllurp.llrp_proto.encode_GetReaderConfig(msg)
     assert len(conf) == 7
+    assert conf[:2] == b'\x00\x00' # antenna ID=0
+    assert conf[2] == 0 # requested data = 0
+    assert conf[3:5] == b'\x00\x00' # GPIPortNum=0
+    assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
 
     msg['CustomParameters'] = [
         {
+            # ImpinjRequestedData parameter
             'VendorID': 25882,
             # per Octane LLRP guide:
             # 21 = ImpinjRequestedData
             # 2000 = All configuration params
             'Subtype': 21,
-            'Payload': struct.pack('!H', 2000)
+            'Payload': (2000).to_bytes(4, byteorder='big'),
         }
     ]
+
+    # CustomParameter gets tacked on properly
     conf = sllurp.llrp_proto.encode_GetReaderConfig(msg)
-    assert len(conf) == 21
-    assert conf[11:15] == b'\x00\x00\x65\x1a'
-    assert conf[15:19] == b'\x00\x00\x00\x15'
-    assert conf[19:21] == struct.pack('!H', 2000)
+    parm = sllurp.llrp_proto.encode_CustomParameter(msg['CustomParameters'][0])
+    assert conf[7:] == parm
+
+    assert parm[:2] == b'\x03\xff' # type=1023
+    assert parm[2:4] == b'\x00\x10' # length = 23 - 7 = 16
+    assert parm[4:8] == (25882).to_bytes(4, byteorder='big') # VendorID=25882
+    assert parm[8:12] == (21).to_bytes(4, byteorder='big') # Subtype=21
+    assert parm[12:16] == (2000).to_bytes(4, byteorder='big') # Payload=2000
+
+    assert len(conf) == 23
+    assert conf[:2] == b'\x00\x00' # antenna ID=0
+    assert conf[2] == 0 # requested data = 0
+    assert conf[3:5] == b'\x00\x00' # GPIPortNum=0
+    assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
 
 
 if __name__ == '__main__':
