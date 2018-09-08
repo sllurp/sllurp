@@ -254,7 +254,7 @@ def test_get_reader_config():
             # 21 = ImpinjRequestedData
             # 2000 = All configuration params
             'Subtype': 21,
-            'Payload': (2000).to_bytes(4, byteorder='big'),
+            'Payload': b'\x00\x00\x07\xd0' # 2000
         }
     ]
 
@@ -265,13 +265,13 @@ def test_get_reader_config():
 
     assert parm[:2] == b'\x03\xff' # type=1023
     assert parm[2:4] == b'\x00\x10' # length = 23 - 7 = 16
-    assert parm[4:8] == (25882).to_bytes(4, byteorder='big') # VendorID=25882
-    assert parm[8:12] == (21).to_bytes(4, byteorder='big') # Subtype=21
-    assert parm[12:16] == (2000).to_bytes(4, byteorder='big') # Payload=2000
+    assert parm[4:8] == b'\x00\x00e\x1a' # VendorID=25882
+    assert parm[8:12] == b'\x00\x00\x00\x15' # Subtype=21
+    assert parm[12:16] == b'\x00\x00\x07\xd0' # Payload=2000
 
     assert len(conf) == 23
     assert conf[:2] == b'\x00\x00' # antenna ID=0
-    assert conf[2] == 0 # requested data = 0
+    assert conf[2:3] == b'\x00' # requested data = 0
     assert conf[3:5] == b'\x00\x00' # GPIPortNum=0
     assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
 
