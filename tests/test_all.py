@@ -242,7 +242,7 @@ def test_get_reader_config():
     conf = sllurp.llrp_proto.encode_GetReaderConfig(msg)
     assert len(conf) == 7
     assert conf[:2] == b'\x00\x00' # antenna ID=0
-    assert conf[2] == 0 # requested data = 0
+    assert conf[2:3] == b'\x00' # requested data = 0
     assert conf[3:5] == b'\x00\x00' # GPIPortNum=0
     assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
 
