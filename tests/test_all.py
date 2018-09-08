@@ -4,6 +4,9 @@ import random
 import binascii
 import logging
 import struct
+import sys
+
+import pytest
 import sllurp
 import sllurp.llrp
 import sllurp.llrp_proto
@@ -276,6 +279,8 @@ def test_get_reader_config():
     assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
 
 
+@pytest.mark.skipif(sys.version_info < (3, 0),
+                    reason='Broken decoding on Python 2')
 def test_llrp_data2xml():
     assert sllurp.llrp_proto.llrp_data2xml(
         {
