@@ -295,10 +295,12 @@ def encode_GetReaderConfig(msg):
     ant = msg.get('AntennaID', 0)
     gpipn = msg.get('GPIPortNum', 0)
     gpopn = msg.get('GPOPortNum', 0)
-    params = msg.get('CustomParameters', [])
     data = struct.pack('!BHHH', req, ant, gpipn, gpopn)
+
+    params = msg.get('CustomParameters', [])
     for param in params:
         data += encode('CustomParameter')(param)
+
     return data
 
 

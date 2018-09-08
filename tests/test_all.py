@@ -3,6 +3,7 @@ import unittest
 import random
 import binascii
 import logging
+import struct
 import sllurp
 import sllurp.llrp
 import sllurp.llrp_proto
@@ -229,6 +230,33 @@ class TestMessageStruct(unittest.TestCase):
             self.assertIsInstance(msg_struct['type'], int)
             self.assertNotIn(msg_struct['type'], d)
             d[msg_struct['type']] = True
+
+
+def test_get_reader_config():
+    msg = {
+        'Ver':  1,
+        'Type': 1,
+        'ID':   0,
+        'RequestedData': 0,
+    }
+    conf = sllurp.llrp_proto.encode_GetReaderConfig(msg)
+    assert len(conf) == 7
+
+    msg['CustomParameters'] = [
+        {
+            'VendorID': 25882,
+            # per Octane LLRP guide:
+            # 21 = ImpinjRequestedData
+            # 2000 = All configuration params
+            'Subtype': 21,
+            'Payload': struct.pack('!H', 2000)
+        }
+    ]
+    conf = sllurp.llrp_proto.encode_GetReaderConfig(msg)
+    assert len(conf) == 21
+    assert conf[11:15] == b'\x00\x00\x65\x1a'
+    assert conf[15:19] == b'\x00\x00\x00\x15'
+    assert conf[19:21] == struct.pack('!H', 2000)
 
 
 if __name__ == '__main__':
