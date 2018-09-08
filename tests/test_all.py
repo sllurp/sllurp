@@ -276,5 +276,15 @@ def test_get_reader_config():
     assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
 
 
+def test_llrp_data2xml():
+    assert sllurp.llrp_proto.llrp_data2xml(
+        {
+            'Parameter 1': {
+                'Type': 123,
+                'Data': b'\x01\x02\x03',
+            },
+        }) == '<Parameter><Type>123</Type><Data>b\'\\x01\\x02\\x03\'</Data></Parameter>'
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -317,6 +317,52 @@ Message_struct['GET_READER_CONFIG'] = {
 }
 
 
+def decode_Identification(data):
+    """Identification parameter (LLRP 1.1 Section 13.2.2)"""
+    header_len = struct.calcsize('!HHBH')
+    msgtype, msglen, idtype, bytecount = struct.unpack(
+        '!HHBH', data[:header_len])
+    ret = {}
+
+    idtypes = ['MAC Address', 'EPC']
+    try:
+        ret['IDType'] = idtypes[idtype]
+    except IndexError:
+        return {'IDType': b''}
+
+    # the remainder is ID value
+    ret['ReaderID'] = data[header_len:(header_len+bytecount)]
+
+    return ret, data[msglen:]
+
+
+Message_struct['Identification'] = {
+    'type': 218,
+    'fields': ['IDType', 'ByteCount', 'ReaderID'],
+    'decode': decode_Identification,
+}
+
+
+def decode_param(data):
+    """Decode any parameter to a byte sequence.
+
+    :param data: byte sequence representing an LLRP parameter.
+    :returns dict, bytes: where dict is {'Type': <decoded type>, 'Data':
+        <decoded data>} and bytes is the remaining bytes trailing the bytes we
+        could decode.
+    """
+    header_len = struct.calcsize('!HH')
+    partype, parlen = struct.unpack('!HH', data[:header_len])
+
+    ret = {
+        'Type': partype,
+        'Data': data[header_len:parlen],
+    }
+
+    return ret, data[parlen:]
+
+
+
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debug(func())
@@ -324,7 +370,17 @@ def decode_GetReaderConfigResponse(data):
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
 
-    logger.debug('TODO: decode rest of GET_READER_CONFIG_RESPONSE')
+    ret, body = decode('Identification')(body)
+    msg['Identification'] = ret
+
+    paridx = 1
+    while body:
+        ret, body = decode_param(body)
+        msg['Parameter {}'.format(paridx)] = ret
+        paridx += 1
+    logger.debug('decode_param ran %d times', paridx - 1)
+
+    logger.debug('GET_READER_CONFIG_RESPONSE: %s', msg)
     return msg
 
 
@@ -3695,7 +3751,11 @@ def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
 
-        str = tabs + '<%s>\n' % name
+        ret = tabs + '<%s>\n' % name
+
+        if name.startswith('Parameter '):
+            return ('{tabs}<Parameter><Type>{Type}</Type>'
+                    '<Data>{Data}</Data></Parameter>\n'.format(tabs=tabs, **msg))
 
         fields = Message_struct[name]['fields']
         for p in fields:
@@ -3705,16 +3765,16 @@ def llrp_data2xml(msg):
                 continue
 
             if type(sub) is dict:
-                str += __llrp_data2xml(sub, p, level + 1)
+                ret += __llrp_data2xml(sub, p, level + 1)
             elif type(sub) is list and sub and type(sub[0]) is dict:
                 for e in sub:
-                    str += __llrp_data2xml(e, p, level + 1)
+                    ret += __llrp_data2xml(e, p, level + 1)
             else:
-                str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
+                ret += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
-        str += tabs + '</%s>\n' % name
+        ret += tabs + '</%s>\n' % name
 
-        return str
+        return ret
 
     ans = ''
     for p in msg:
