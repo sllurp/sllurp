@@ -373,15 +373,14 @@ def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debug(func())
 
-    logger.warning('len(data) before decode(LLRPStatus): %d', len(data))
+    # strip off the header (10 bytes)
+    data = data[msg_header_len:]
+
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
-    logger.warning('len(body) after decode(LLRPStatus): %d', len(body))
 
-    logger.warning('len(body) before decode(Identification): %d', len(body))
     ret, body = decode('Identification')(body)
     msg['Identification'] = ret
-    logger.warning('len(body) after decode(Identification): %d', len(body))
 
     paridx = 1
     prev_bodylen = len(body)
