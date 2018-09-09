@@ -353,7 +353,6 @@ def decode_param(data):
     """
     header_len = struct.calcsize('!HH')
     partype, parlen = struct.unpack('!HH', data[:header_len])
-    logger.warning('partype %s, parlen %s', partype, parlen)
 
     pardata = data[header_len:parlen]
 
