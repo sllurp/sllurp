@@ -328,7 +328,7 @@ def decode_Identification(data):
     try:
         ret['IDType'] = idtypes[idtype]
     except IndexError:
-        return {'IDType': b''}
+        return {'IDType': b''}, data[msglen:]
 
     # the remainder is ID value
     ret['ReaderID'] = data[header_len:(header_len+bytecount)]
@@ -353,30 +353,46 @@ def decode_param(data):
     """
     header_len = struct.calcsize('!HH')
     partype, parlen = struct.unpack('!HH', data[:header_len])
+    logger.warning('partype %s, parlen %s', partype, parlen)
+
+    pardata = data[header_len:parlen]
+
+    if partype == 1023:
+        # pardata, _ = decode_param(pardata)
+        pass
 
     ret = {
         'Type': partype,
-        'Data': data[header_len:parlen],
+        'Data': pardata,
     }
 
     return ret, data[parlen:]
-
 
 
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debug(func())
 
+    logger.warning('len(data) before decode(LLRPStatus): %d', len(data))
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
+    logger.warning('len(body) after decode(LLRPStatus): %d', len(body))
 
+    logger.warning('len(body) before decode(Identification): %d', len(body))
     ret, body = decode('Identification')(body)
     msg['Identification'] = ret
+    logger.warning('len(body) after decode(Identification): %d', len(body))
 
     paridx = 1
+    prev_bodylen = len(body)
     while body:
         ret, body = decode_param(body)
+        bodylen = len(body)
         msg['Parameter {}'.format(paridx)] = ret
+        if bodylen >= prev_bodylen:
+            logger.error('Loop in parameter body decoding (%d bytes left)',
+                         bodylen)
+            break
         paridx += 1
     logger.debug('decode_param ran %d times', paridx - 1)
 

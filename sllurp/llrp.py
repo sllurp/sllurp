@@ -89,6 +89,9 @@ class LLRPMessage(object):
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
             logger.debug('done deserializing %s command', name)
+        except ValueError:
+            logger.exception('Unable to decode body %s, %s', body,
+                    decoder(body))
         except LLRPError:
             logger.exception('Problem with %s message format', name)
             return ''
