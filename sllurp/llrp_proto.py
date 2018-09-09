@@ -373,9 +373,7 @@ def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debug(func())
 
-    # strip off the header (10 bytes)
-    data = data[msg_header_len:]
-
+    logger.warning('first two bytes of LLRP_STATUS are %r', data[:2])
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
 

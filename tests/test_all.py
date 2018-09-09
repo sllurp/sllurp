@@ -308,7 +308,7 @@ def test_parse_get_reader_config():
         b'0300000000000003ff00140000651a000000400004000000000000'
     )
     assert len(msgb) == 843
-    m = sllurp.llrp_proto.decode_GetReaderConfigResponse(msgb)
+    m = sllurp.llrp_proto.decode_GetReaderConfigResponse(msgb[10:])
     assert isinstance(m, sllurp.llrp_proto.LLRPMessageDict)
     keys = list(m.keys())
     assert len(keys) == 34
