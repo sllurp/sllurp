@@ -180,6 +180,7 @@ class LLRPClient(LineReceiver):
         self.report_every_n_tags = report_every_n_tags
         self.report_timeout_ms = report_timeout_ms
         self.capabilities = {}
+        self.config = {}
         self.reader_mode = None
         if isinstance(tx_power, int):
             self.tx_power = {ant: tx_power for ant in antennas}
@@ -500,6 +501,10 @@ class LLRPClient(LineReceiver):
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s getting reader config: %s', status, err)
                 return
+
+            if msgName == 'GET_READER_CONFIG_RESPONSE':
+                self.config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
+                logger.debug('Reader configuration: %s', self.config)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
