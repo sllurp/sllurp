@@ -310,10 +310,12 @@ def test_parse_get_reader_config():
     assert len(msgb) == 843
     m = sllurp.llrp_proto.decode_GetReaderConfigResponse(msgb[10:])
     assert isinstance(m, sllurp.llrp_proto.LLRPMessageDict)
-    keys = list(m.keys())
+    keys = set(m.keys())
     assert len(keys) == 34
-    assert keys[:3] == ['LLRPStatus', 'Identification', 'Parameter 1']
-    assert keys[-1] == 'Parameter 32'
+    assert 'LLRPStatus' in keys
+    assert 'Identification' in keys
+    for k in range(32):
+        assert 'Parameter {}'.format(k + 1) in keys
 
 @pytest.mark.skipif(sys.version_info < (3, 0),
                     reason='Broken decoding on Python 2')
