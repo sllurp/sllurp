@@ -328,7 +328,7 @@ def decode_Identification(data):
     try:
         ret['IDType'] = idtypes[idtype]
     except IndexError:
-        return {'IDType': b''}
+        return {'IDType': b''}, data[msglen:]
 
     # the remainder is ID value
     ret['ReaderID'] = data[header_len:(header_len+bytecount)]
@@ -351,22 +351,34 @@ def decode_param(data):
         <decoded data>} and bytes is the remaining bytes trailing the bytes we
         could decode.
     """
+    logger.info('decode_param data: %r', data)
     header_len = struct.calcsize('!HH')
     partype, parlen = struct.unpack('!HH', data[:header_len])
 
+    pardata = data[header_len:parlen]
+    logger.info('decode_param pardata: %r', pardata)
+
     ret = {
         'Type': partype,
-        'Data': data[header_len:parlen],
     }
 
-    return ret, data[parlen:]
+    if partype == 1023:
+        vsfmt = '!II'
+        vendor, subtype = struct.unpack(vsfmt, pardata[:struct.calcsize(vsfmt)])
+        ret['Vendor'] = vendor
+        ret['Subtype'] = subtype
+        ret['Data'] = pardata[struct.calcsize(vsfmt):]
+    else:
+        ret['Data'] = pardata,
 
+    return ret, data[parlen:]
 
 
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debug(func())
 
+    logger.warning('first two bytes of LLRP_STATUS are %r', data[:2])
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
 
@@ -374,9 +386,15 @@ def decode_GetReaderConfigResponse(data):
     msg['Identification'] = ret
 
     paridx = 1
+    prev_bodylen = len(body)
     while body:
         ret, body = decode_param(body)
+        bodylen = len(body)
         msg['Parameter {}'.format(paridx)] = ret
+        if bodylen >= prev_bodylen:
+            logger.error('Loop in parameter body decoding (%d bytes left)',
+                         bodylen)
+            break
         paridx += 1
     logger.debug('decode_param ran %d times', paridx - 1)
 
@@ -3754,8 +3772,13 @@ def llrp_data2xml(msg):
         ret = tabs + '<%s>\n' % name
 
         if name.startswith('Parameter '):
-            return ('{tabs}<Parameter><Type>{Type}</Type>'
-                    '<Data>{Data}</Data></Parameter>\n'.format(tabs=tabs, **msg))
+            ret = '{tabs}<Parameter>\n'.format(tabs=tabs)
+            for k in ('Type', 'Data', 'Vendor', 'Subtype'):
+                if k not in msg: continue
+                ret += '{tabs1}<{k}>{data}</{k}>\n'.format(
+                    k=k, tabs1=tabs + '\t', data=msg[k])
+            ret += '{tabs}</Parameter>\n'.format(tabs=tabs, **msg)
+            return ret
 
         fields = Message_struct[name]['fields']
         for p in fields:

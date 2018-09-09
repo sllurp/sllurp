@@ -89,6 +89,9 @@ class LLRPMessage(object):
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
             logger.debug('done deserializing %s command', name)
+        except ValueError:
+            logger.exception('Unable to decode body %s, %s', body,
+                    decoder(body))
         except LLRPError:
             logger.exception('Problem with %s message format', name)
             return ''
@@ -177,6 +180,7 @@ class LLRPClient(LineReceiver):
         self.report_every_n_tags = report_every_n_tags
         self.report_timeout_ms = report_timeout_ms
         self.capabilities = {}
+        self.configuration = {}
         self.reader_mode = None
         if isinstance(tx_power, int):
             self.tx_power = {ant: tx_power for ant in antennas}
@@ -280,6 +284,43 @@ class LLRPClient(LineReceiver):
 
     def connectionLost(self, reason):
         self.factory.protocols.remove(self)
+
+    def parseReaderConfig(self, confdict):
+        """Parse a reader configuration dictionary.
+
+        Examples:
+        {
+            Type: 23,
+            Data: b'\x00'
+        }
+        {
+            Type: 1023,
+            Vendor: 25882,
+            Subtype: 21,
+            Data: b'\x00'
+        }
+        """
+        logger.debug('parseReaderConfig input: %s', confdict)
+        conf = {}
+        for k, v in confdict.items():
+            if not k.startswith('Parameter'):
+                continue
+            ty = v['Type']
+            data = v['Data']
+            vendor = None
+            subtype = None
+            try:
+                vendor, subtype = v['Vendor'], v['Subtype']
+            except KeyError:
+                pass
+
+            if ty == 1023:
+                if vendor == 25882 and subtype == 37:
+                    tempc = struct.unpack('!H', data)[0]
+                    conf.update(temperature=tempc)
+            else:
+                conf[ty] = data
+        return conf
 
     def parseCapabilities(self, capdict):
         """Parse a capabilities dictionary and adjust instance settings
@@ -497,6 +538,11 @@ class LLRPClient(LineReceiver):
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s getting reader config: %s', status, err)
                 return
+
+            if msgName == 'GET_READER_CONFIG_RESPONSE':
+                config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
+                self.configuration = self.parseReaderConfig(config)
+                logger.debug('Reader configuration: %s', self.configuration)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
