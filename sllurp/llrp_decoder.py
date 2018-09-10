@@ -46,7 +46,6 @@ def decode_tve_parameter(data):
     if nontve == 1023:  # customparameter
         (size,) = struct.unpack('!H',
                                 data[nontve_header_len:nontve_header_len+2])
-        logger.debug('tve size %s',size)
         (subtype,) = struct.unpack('!H', data[size-4:size-2])
         logger.debug('tve msgtype %s', subtype)
         param_name, param_fmt = ext_param_formats[subtype]

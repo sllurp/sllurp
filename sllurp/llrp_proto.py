@@ -218,6 +218,30 @@ DEFAULT_MODULATION = 'M4'
 
 Message_struct = {}
 
+#13.2.4 KeepaliveSpec
+
+def encode_KeepaliveSpec(msg):
+    msgtype = Message_struct['KeepaliveSpec']['type']
+
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+
+    data = struct.pack('!B',msg['KeepaliveTriggerType'])
+    data += struct.pack('!I',msg['TimeInterval'])
+
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + msg_header_len) + data
+
+    return data
+
+Message_struct['KeepaliveSpec'] = {
+    'type': 220,
+    'fields': [
+        'KeepaliveTriggerType',
+        'TimeInterval'
+    ],
+    'encode': encode_KeepaliveSpec
+}
 
 # 16.1.1 GET_READER_CAPABILITIES
 def encode_GetReaderCapabilities(msg):
@@ -343,10 +367,16 @@ def encode_SetReaderConfig(msg):
         data += encode('ReaderEventNotificationSpec')(msg['ReaderEventNotificationSpec'])
     if 'ROReportSpec' in msg:
         data += encode('ROReportSpec')(msg['ROReportSpec'])
+    if 'KeepaliveSpec' in msg:
+        data += encode('KeepaliveSpec')(msg['KeepaliveSpec'])
     if 'EventsAndReports' in msg:
         data += encode('EventsAndReports')(msg['EventsAndReports'])
+    if 'ImpinjLinkMonitorConfiguration' in msg:
+        data += encode('ImpinjLinkMonitorConfiguration')(msg['ImpinjLinkMonitorConfiguration'])
     if 'ImpinjPlacementConfiguration' in msg:
         data += encode('ImpinjPlacementConfiguration')(msg['ImpinjPlacementConfiguration'])
+    if 'ImpinjDirectionReporting' in msg:
+        data += encode('ImpinjDirectionReporting')(msg['ImpinjDirectionReporting'])
     if 'ImpinjLocationReporting' in msg:
         data += encode('ImpinjLocationReporting')(msg['ImpinjLocationReporting'])
 
@@ -363,14 +393,17 @@ Message_struct['SET_READER_CONFIG'] = {
         'AntennaProperties',
         'AntennaConfiguration',
         'ROReportSpec',
+        'ImpinjLinkMonitorConfiguration',
         'AccessReportSpec',
         'KeepaliveSpec',
         'GPOWriteData',
         'GPIPortCurrentState',
         'EventsAndReports',
+        'ImpinjDirectionReporting',
         'ImpinjLocationConfig',
         'ImpinjPlacementConfiguration',
         'ImpinjLocationReporting',
+        'ImpinjLinkMonitorConfiguration'
     ],
     'encode': encode_SetReaderConfig,
 }
@@ -410,7 +443,7 @@ Message_struct['ENABLE_EVENTS_AND_REPORTS'] = {
 
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
-    return encode('ROSpec')(msg['ROSpec'],False)
+    return encode('ROSpec')(msg['ROSpec'],"inventory")
 
 
 Message_struct['ADD_ROSPEC'] = {
@@ -424,7 +457,7 @@ Message_struct['ADD_ROSPEC'] = {
 
 
 def encode_AddROSpec_Location(msg):
-    return encode('ROSpec')(msg['ROSpec'],True)
+    return encode('ROSpec')(msg['ROSpec'],"location")
 
 Message_struct['ADD_ROSPEC_LOCATION'] = {
     'type': 20,
@@ -433,6 +466,19 @@ Message_struct['ADD_ROSPEC_LOCATION'] = {
         'ROSpec'
     ],
     'encode': encode_AddROSpec_Location
+}
+
+
+def encode_AddROSpec_Direction(msg):
+    return encode('ROSpec')(msg['ROSpec'],"direction")
+
+Message_struct['ADD_ROSPEC_DIRECTION'] = {
+    'type': 20,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'ROSpec'
+    ],
+    'encode': encode_AddROSpec_Direction
 }
 
 
@@ -1565,7 +1611,7 @@ Message_struct['ErrorMessage'] = {
 
 
 # 16.2.4.1 ROSpec Parameter
-def encode_ROSpec(par,location_mode):
+def encode_ROSpec(par, start_mode):
     msgtype = Message_struct['ROSpec']['type']
     msgid = par['ROSpecID'] & BITMASK(10)
     priority = par['Priority'] & BITMASK(7)
@@ -1574,12 +1620,13 @@ def encode_ROSpec(par,location_mode):
     msg_header = '!HHIBB'
     msg_header_len = struct.calcsize(msg_header)
     data = encode('ROBoundarySpec')(par['ROBoundarySpec'])
-    if  location_mode:
+    if start_mode == "location":
         data += encode('ImpinjLISpec')(par['ImpinjLISpec'])
-        data += encode('ROReportSpec')(par['ROReportSpec'])
+    elif start_mode == "direction":
+        data += encode('ImpinjDISpec')(par['ImpinjDISpec'])
     else:
         data += encode('AISpec')(par['AISpec'])
-        data += encode('ROReportSpec')(par['ROReportSpec'])
+    data += encode('ROReportSpec')(par['ROReportSpec'])
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
                        msgid, priority, state) + data
@@ -1596,6 +1643,7 @@ Message_struct['ROSpec'] = {
         'CurrentState',
         'ROBoundarySpec',
         'ImpinjLISpec',
+        'ImpinjDISpec',
         'AISpec',
         'RFSurveySpec',
         'ROReportSpec'
@@ -3191,7 +3239,6 @@ def decode_ParameterError(data):
 
     return par, data[length:]
 
-
 Message_struct['ParameterError'] = {
     'type':   289,
     'fields': [
@@ -3202,81 +3249,6 @@ Message_struct['ParameterError'] = {
         'ParameterError'
     ],
     'decode': decode_ParameterError
-}
-
-
-def encode_ImpinjLISpec(par):
-    msg_struct_param = Message_struct['ImpinjLISpec']
-
-    data = encode('ImpinjLocationConfig')(par['ImpinjLocationConfig'])
-    data += encode('ImpinjC1G2LocationConfig')(par['ImpinjC1G2LocationConfig'])
-    
-    #logger.info(msg_header_len + len(data))
-    custom_par = {
-        'VendorID': msg_struct_param['VendorID'],
-        'Subtype': msg_struct_param['Subtype'],
-        'Payload' : data
-    }
-    return encode('CustomParameter')(custom_par)
-
-
-Message_struct['ImpinjLISpec'] = {
-    'VendorID': 25882,
-    'Subtype': 1541,
-    'fields': [
-        'ImpinjLocationConfig',
-        'ImpinjC1G2LocationConfig',
-        'ImpinjTransmitPower'
-    ],
-    'encode': encode_ImpinjLISpec
-}
-
-
-def encode_ImpinjC1G2LocationConfig(par):
-
-    msg_struct_param = Message_struct['ImpinjC1G2LocationConfig']
-
-    data = struct.pack('!H',par['ModeIndex'])
-    data += struct.pack('!B',par['Session'] << 6) #Session is a 2 bit number 
-    custom_par = {
-        'VendorID': msg_struct_param['VendorID'],
-        'Subtype': msg_struct_param['Subtype'],
-        'Payload' : data
-    }
-    return encode('CustomParameter')(custom_par)
-
-Message_struct['ImpinjC1G2LocationConfig'] = {
-    'VendorID': 25882,
-    'Subtype': 1543,
-    'fields': [
-        'ModeIndex',
-        'Session',
-    ],
-    'encode': encode_ImpinjC1G2LocationConfig
-}
-
-
-def encode_ImpinjTransmitPower(par):
-    msgtype = Message_struct['ImpinjTransmitPower']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)  
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-
-    data += struct.pack('!H',par['TransmitPower'])
-    header = struct.pack(msg_header, msgtype, msg_header_len + len(data)  )
-    print(header+data)
-    return header + data
-
-Message_struct['ImpinjTransmitPower'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'ModeIndex',
-        'TransmitPower',
-    ],
-    'encode': encode_ImpinjTransmitPower
 }
 
 
@@ -3339,23 +3311,94 @@ Message_struct['CustomParameter'] = {
 # Vendor custom parameters and messages
 #
 
+def encode_ImpinjTransmitPower(par):
+    msg_struct_param = Message_struct['ImpinjTransmitPower']
+
+    data = struct.pack('!H', par['TransmitPower'])
+
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjTransmitPower'] = {
+    'vendorid': 25882,
+    'subtype': 1561,
+    'fields': [
+        'ModeIndex',
+        'TransmitPower'
+    ],
+    'encode': encode_ImpinjTransmitPower
+}
+
+# Impinj Location Parameters
+def encode_ImpinjLISpec(par):
+    msg_struct_param = Message_struct['ImpinjLISpec']
+
+    data = encode('ImpinjLocationConfig')(par['ImpinjLocationConfig'])
+    data += encode('ImpinjC1G2LocationConfig')(par['ImpinjC1G2LocationConfig'])
+    
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+
+Message_struct['ImpinjLISpec'] = {
+    'vendorid': 25882,
+    'subtype': 1541,
+    'fields': [
+        'ImpinjLocationConfig',
+        'ImpinjC1G2LocationConfig',
+        'ImpinjTransmitPower'
+    ],
+    'encode': encode_ImpinjLISpec
+}
+
+
+def encode_ImpinjC1G2LocationConfig(par):
+    msg_struct_param = Message_struct['ImpinjC1G2LocationConfig']
+
+    data = struct.pack('!H', par['ModeIndex'])
+    data += struct.pack('!B', par['Session'] << 6) #Session is a 2 bit number 
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjC1G2LocationConfig'] = {
+    'vendorid': 25882,
+    'subtype': 1543,
+    'fields': [
+        'ModeIndex',
+        'Session',
+    ],
+    'encode': encode_ImpinjC1G2LocationConfig
+}
+
 def encode_ImpinjLocationConfig(par):
     msg_struct_param = Message_struct['ImpinjLocationConfig']
 
-    data = struct.pack('!H',par['ComputeWindowSeconds'])
-    data += struct.pack('!H',par['TagAgeIntervalSeconds'])
-    data += struct.pack('!H',par['UpdateIntervalSeconds'])
+    data = struct.pack('!H', par['ComputeWindowSeconds'])
+    data += struct.pack('!H', par['TagAgeIntervalSeconds'])
+    data += struct.pack('!H', par['UpdateIntervalSeconds'])
 
     custom_par = {
-        'VendorID': msg_struct_param['VendorID'],
-        'Subtype': msg_struct_param['Subtype'],
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
         'Payload' : data
     }
     return encode('CustomParameter')(custom_par)
 
 Message_struct['ImpinjLocationConfig'] = {
-    'VendorID': 25882,
-    'Subtype': 1542,
+    'vendorid': 25882,
+    'subtype': 1542,
     'fields':[
         'UpdateIntervalSeconds',
         'ComputeWindowSeconds',
@@ -3368,21 +3411,21 @@ Message_struct['ImpinjLocationConfig'] = {
 def encode_ImpinjPlacementConfiguration(par):
     msg_struct_param = Message_struct['ImpinjPlacementConfiguration']
 
-    data = struct.pack ('!H',par['HeightCm'])
-    data += struct.pack ('!i',par['FacilityXLocationCm'])
-    data += struct.pack ('!i',par['FacilityYLocationCm'])
-    data += struct.pack ('!h',par['OrientationDegrees'])
+    data = struct.pack ('!H', par['HeightCm'])
+    data += struct.pack ('!i', par['FacilityXLocationCm'])
+    data += struct.pack ('!i', par['FacilityYLocationCm'])
+    data += struct.pack ('!h', par['OrientationDegrees'])
 
     custom_par = {
-        'VendorID': msg_struct_param['VendorID'],
-        'Subtype': msg_struct_param['Subtype'],
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
         'Payload' : data
     }
     return encode('CustomParameter')(custom_par)
 
 Message_struct['ImpinjPlacementConfiguration'] = {
-    'VendorID': 25882,
-    'Subtype': 1540,
+    'vendorid': 25882,
+    'subtype': 1540,
     'fields': [
         'HeightCm',
         'FacilityXLocationCm',
@@ -3402,15 +3445,15 @@ def encode_ImpinjLocationReporting(par):
     data = struct.pack ('!B', 0x80) # Hack to make location work. 0b10000000, 4 MSB bit sets the params
 
     custom_par = {
-        'VendorID': msg_struct_param['VendorID'],
-        'Subtype': msg_struct_param['Subtype'],
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
         'Payload' : data
     }
     return encode('CustomParameter')(custom_par)
 
 Message_struct['ImpinjLocationReporting'] = {
-    'VendorID': 25882,
-    'Subtype': 1544,
+    'vendorid': 25882,
+    'subtype': 1544,
     'fields': [
         'EnableUpdateReport',
         'EnableEntryReport',
@@ -3425,6 +3468,235 @@ def boolListToBinString(lst):
     return (''.join(['1' if x else '0' for x in lst]))
 
 
+def decode_ImpinjLocationReportData(data):
+    par = {}
+    data = data[0:28] #hack because the extractor returns too much data
+    logger.debug('ImpinjLocationReportData input data %s', data)
+    logger.debug('ImpinjLocationReportData input data length %s', len(data))
+    body = data[vendor_subtype_len:]
+    logger.debug('ImpinjLocationReportData input data %s', body)
+    logger.debug('ImpinjLocationReportData input data length %s', len(body))
+    par['LastSeenTimestampUTC'],\
+    par['LocXCentimeters'],\
+    par['LocYCentimeters'],\
+    _ = struct.unpack('!QiiI',body)
+    return par
+
+Message_struct['ImpinjLocationReportData'] = {
+    'type': 1545,
+    'fields': [
+        'LastSeenTimestampUTC',
+        'LocXCentimeters',
+        'LocYCentimeters'
+        #'Type',
+        #'ImpinjLocationConfidence'
+    ],
+    'decode': decode_ImpinjLocationReportData
+}   
+
+
+def decode_ImpinjLocationConfidence(data):
+    return data
+
+Message_struct['ImpinjLocationConfidence'] ={
+    'type': 1553,
+    'fields':[
+        'ReadCount',
+        'ConfidenceData Word Count'
+        'ConfidenceData'
+    ],
+    'decode': decode_ImpinjLocationConfidence,
+}
+
+
+# Impinj Direction Parameters
+def encode_ImpinjDISpec(par):
+    msg_struct_param = Message_struct['ImpinjDISpec']
+
+    data = encode('ImpinjDirectionSectors')(par['ImpinjDirectionSectors'])
+    data += encode('ImpinjDirectionConfig')(par['ImpinjDirectionConfig'])
+    # data += encode('ImpinjDirectionReporting')(par['ImpinjDirectionReporting'])
+    #data += encode('ImpinjDirectionUserTagPopulationLimit')(par['ImpinjDirectionUserTagPopulationLimit'])
+    data += encode('ImpinjC1G2DirectionConfig')(par['ImpinjC1G2DirectionConfig'])
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)    
+
+Message_struct['ImpinjDISpec'] = {
+    'vendorid': 25882,
+    'subtype': 1567,
+    'fields': [
+        'ImpinjDirectionSectors',
+        'ImpinjDirectionConfig',
+        'ImpinjC1G2DirectionConfig',
+        'ImpinjDirectionUserTagPopulationLimit',
+        'ImpinjDirectionReporting'
+    ],
+    'encode': encode_ImpinjDISpec
+}
+
+def encode_ImpinjDirectionSectors(par):
+    data = b''
+    msg_struct_param = Message_struct['ImpinjDirectionSectors']
+    if len(par['EnabledSectorIDs']) > 4:
+        logger.error("Maximum 4 sectors can be enabled in direction mode")
+    for sector in par['EnabledSectorIDs']:
+        data += struct.pack('!H', sector)
+
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjDirectionSectors'] = {
+    'vendorid': 25882,
+    'subtype': 1568,
+    'fields': [
+        'EnabledSectorIDs'
+    ],
+    'encode': encode_ImpinjDirectionSectors
+}
+
+def encode_ImpinjDirectionConfig(par):
+    msg_struct_param = Message_struct['ImpinjDirectionConfig']
+
+    data = struct.pack('!H', par['TagAgeIntervalSeconds'])
+    data += struct.pack('!H', par['UpdateIntervalSeconds'])
+    data += struct.pack('!B', par['FieldOfView'])
+    if 'ImpinjDirectionUserTagPopulationLimit' in par:
+        data += encode('ImpinjDirectionUserTagPopulationLimit')(par['ImpinjDirectionUserTagPopulationLimit'])
+
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjDirectionConfig'] = {
+    'vendorid': 25882,
+    'subtype': 1569,
+    'fields': [
+        'TagAgeIntervalSeconds',
+        'UpdateIntervalSeconds',
+        'FieldOfView',
+        'ImpinjDirectionUserTagPopulationLimit'
+    ],
+    'encode': encode_ImpinjDirectionConfig    
+}
+
+def encode_ImpinjDirectionUserTagPopulationLimit(par):
+    msg_struct_param = Message_struct['ImpinjDirectionUserTagPopulationLimit']
+    data = struct.pack('!H', par['UserTagPopulationLimit'])
+
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+       
+Message_struct['ImpinjDirectionUserTagPopulationLimit'] = {
+    'vendorid': 25882,
+    'subtype': 1570,
+    'fields': [
+            'UserTagPopulationLimit'
+    ],
+    'encode': encode_ImpinjDirectionUserTagPopulationLimit    
+}
+def encode_ImpinjC1G2DirectionConfig(par):
+    msg_struct_param = Message_struct['ImpinjC1G2DirectionConfig']
+
+    data = struct.pack('!B', par['RFMode'])
+    data += encode('ImpinjTransmitPower')(par['ImpinjTransmitPower'])
+    #data += struct.pack('!H', par['ImpinjTransmitPower'])
+    #data += struct.pack('!B',par['G1G2Filter'])
+    #data += struct.pack('!I',par['G1G2FilterParameter'])
+
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjC1G2DirectionConfig'] = {
+    'vendorid': 25882,
+    'subtype': 1571,
+    'fields': [
+        'RFMode',
+        'ImpinjTransmitPower',
+        'G1G2Filter'
+    ],
+    'encode': encode_ImpinjC1G2DirectionConfig    
+}
+
+
+def encode_ImpinjDirectionReporting(par):
+    msg_struct_param = Message_struct['ImpinjDirectionReporting']
+
+    data = struct.pack ('!B', 0xe0)  # Hack to make direction work. 0b11110000, 4 MSB bit sets the params
+    data += struct.pack('!B', 0x00)
+
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload' : data
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjDirectionReporting'] = {
+    'vendorid': 25882,
+    'subtype': 1572,
+    'fields': [
+        'EnableUpdateReport',
+        'EnableEntryReport',
+        'EnableExitReport',
+        'EnableDiagnosticReport',
+        'DiagnosticReportLevel'
+    ],
+    'encode': encode_ImpinjDirectionReporting   
+}
+
+
+def decode_ImpinjDirectionReportData(data):
+    logger.info("decode direction report")
+    par = {}
+    data = data[0:160] #hack because the extractor returns too much data
+    logger.debug('ImpinjDirectionReportData input data %s', data)
+    logger.debug('ImpinjDirectionReportData input data length %s', len(data))
+    body = data[vendor_subtype_len:]
+    logger.debug('ImpinjDirectionReportData input data %s', body)
+    logger.debug('ImpinjDirectionReportData input data length %s', len(body))
+    par['Type'], \
+    par['TagPopulationStatus'],\
+    par['FirstSeenSector'],\
+    par['FirstSeenTimeStampUTC'],\
+    par['LastSeenSectorID'],\
+    par['LastSeenTimestampUTC'],\
+    _ = struct.unpack('!BBBQBQ',body)
+    return par
+
+Message_struct['ImpinjDirectionReportData'] = {
+    'type': 1573,
+    'fields': [
+        'Type',
+        'TagpopulationStatus'
+        'FirstSeenSectorID',
+        'FirstSeenTimeStampUTC',
+        'LastSeenSectorID',
+        'LastSeenTimeStampUTC',
+        'ImpinjDirectionDiagnosticData'
+    ],
+    'decode': decode_ImpinjDirectionReportData,
+}
+
+#Impinj ExtendedTag Parameters, for decoding location and direction
 def decode_ImpinjExtendedTagInformation(data):
     par = {}
     logger.debug(func())
@@ -3464,7 +3736,7 @@ def decode_ImpinjExtendedTagInformation(data):
     
 
     logger.debug("ImpinjExtendedTagInformation body %s", body)
-    loc_report_body, subtype,loc_confidence_data = ImpinjExtendedTagInformationExtractor(body)
+    loc_report_body, subtype, loc_confidence_data = ImpinjExtendedTagInformationExtractor(body)
     logger.debug('subtype is %s', subtype)
     #Decode ImpinjLocationReportData
     if subtype == Message_struct['ImpinjLocationReportData']['type']:
@@ -3476,10 +3748,10 @@ def decode_ImpinjExtendedTagInformation(data):
         logger.debug('Loc X: %s', loc_report['LocXCentimeters'])
         logger.debug('Loc Y: %s', loc_report['LocYCentimeters'])
     #Decode ImpinjDirectionLocationReportData
-    # elif subtype == Message_struct['ImpinjDirectionReportData']['type']:
-    #     logger.debug("Received Direction data")
-    #     loc_direction_report = decode_ImpinjDirectionReportData(loc_report_body)
-    #     par['Direction'] = loc_direction_report
+    elif subtype == Message_struct['ImpinjDirectionReportData']['type']:
+        logger.debug("Received Direction data")
+        loc_direction_report = decode_ImpinjDirectionReportData(loc_report_body)
+        par['Direction'] = loc_direction_report
     else:
         raise Exception('No ImpinjLocationReport or ImpinjDirectoinLocationReport received')
     #Decode ImpinjLocationConfidence
@@ -3516,64 +3788,6 @@ def ImpinjExtendedTagInformationExtractor(data):
     if data[par_header_len + length:]:
         unused_data = data[par_header_len + length:]
     return body,subtype,unused_data
-
-
-def decode_ImpinjLocationReportData(data):
-    par = {}
-    data = data[0:28] #hack because the extractor returns too much data
-    logger.debug('ImpinjLocationReportData input data %s', data)
-    logger.debug('ImpinjLocationReportData input data length %s', len(data))
-    body = data[vendor_subtype_len:]
-    logger.debug('ImpinjLocationReportData input data %s', body)
-    logger.debug('ImpinjLocationReportData input data length %s', len(body))
-    par['LastSeenTimestampUTC'],\
-    par['LocXCentimeters'],\
-    par['LocYCentimeters'],\
-    _ = struct.unpack('!QiiI',body)
-    return par
-Message_struct['ImpinjLocationReportData'] = {
-    'type': 1545,
-    'fields': [
-        'LastSeenTimestampUTC',
-        'LocXCentimeters',
-        'LocYCentimeters'
-        #'Type',
-        #'ImpinjLocationConfidence'
-    ],
-    'decode': decode_ImpinjLocationReportData
-}   
-
-
-def decode_ImpinjDirectionReportData(data):
-    return data
-
-Message_struct['ImpinjDirectionReportData'] = {
-    'type': 1573,
-    'fields': [
-        'Type',
-        'TagpopulationStatus'
-        'FirstSeenSectorID',
-        'FirstSeenTimeStampUTC',
-        'LastSeenSectorID',
-        'LastSeenTimeStampUTC',
-        'ImpinjDirectionDiagnosticData'
-    ],
-    'decode': decode_ImpinjDirectionReportData,
-}
-
-
-def decode_ImpinjLocationConfidence(data):
-    return data
-
-Message_struct['ImpinjLocationConfidence'] ={
-    'type': 1553,
-    'fields':[
-        'ReadCount',
-        'ConfidenceData Word Count'
-        'ConfidenceData'
-    ],
-    'decode': decode_ImpinjLocationConfidence,
-}
 
 
 def encode_ImpinjInventorySearchModeParameter(par):
@@ -3624,6 +3838,7 @@ Message_struct['ImpinjTagReportContentSelectorParameter'] = {
 
 def encode_ImpinjEnableRFPhaseAngleParameter(par):
     msg_struct_param = Message_struct['ImpinjEnableRFPhaseAngleParameter']
+
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
@@ -3672,13 +3887,32 @@ Message_struct['ImpinjEnableRFDopplerParameter'] = {
     'encode': encode_ImpinjEnableRFDopplerParameter
 }
 
+def encode_ImpinjLinkMonitorConfiguration(par):
+    msg_struct_param = Message_struct['ImpinjLinkMonitorConfiguration']
+    data = struct.pack ('!H',par['LinkMonitorMode'])
+    data += struct.pack ('!H',par['LinkDownThreshold'])
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': data
+    }    
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjLinkMonitorConfiguration'] = {
+    'vendorid': 25882,
+    'subtype': 38,
+    'fields': [
+        'LinkMonitorMode',
+        'LinkDownThreshold'
+    ],
+    'encode': encode_ImpinjLinkMonitorConfiguration
+}
 
 def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
 
         str = tabs + '<%s>\n' % name
-
         fields = Message_struct[name]['fields']
         for p in fields:
             try:
@@ -3705,13 +3939,13 @@ def llrp_data2xml(msg):
 
 
 class LLRPROSpec(dict):
-    def __init__(self, reader_mode, rospecid,priority=0, state='Disabled',
+    def __init__(self, reader_mode, rospecid,start_mode, priority=0, state='Disabled',
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
                  impinj_search_mode=None, impinj_tag_content_selector=None,
-                 location_mode=False,update_interval=20,compute_window=5,tag_age_interval=2):
+                update_interval=20, compute_window=5, tag_age_interval=2):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3758,8 +3992,7 @@ class LLRPROSpec(dict):
         }
         if tag_content_selector:
             tagReportContentSelector.update(tag_content_selector)
-
-        if location_mode:
+        if start_mode == "location":
             logger.info("sending ROSpec for location")
             self['ROSpec'] = {
                 'ROSpecID': rospecid,
@@ -3774,26 +4007,18 @@ class LLRPROSpec(dict):
                         'DurationTriggerValue': 0,
                     }
                 },
-                'ImpinjLISpec': {
-                    'VendorID': 25882,
-                    'Subtype': 1541,                    
+                'ImpinjLISpec': {                  
                     'ImpinjLocationConfig': {
-                        'VendorID': 25882,
-                        'Subtype': 1542,
                         'UpdateIntervalSeconds' : update_interval, 
                         'ComputeWindowSeconds': compute_window,
                         'TagAgeIntervalSeconds': tag_age_interval
                     },
                     'ImpinjC1G2LocationConfig': {
-                        'VendorID': 25882,
-                        'Subtype': 1543,
                         'ModeIndex' : mode_index,
                         'Session' : 2,            #b'10
                     },
                     'ImpinjTransmitPower':{
-                        'VendorID': 25882,
-                        'Subtype': 1561,
-                        'TransmitPower': 81                        
+                        'TransmitPower': tx_power                   
                     }
                 },
                 'ROReportSpec': {
@@ -3803,7 +4028,49 @@ class LLRPROSpec(dict):
                 }
 
             }
-
+            
+        elif start_mode == "direction":
+            logger.info("sending ROSpec for direction")
+            self['ROSpec'] = {
+                'ROSpecID': rospecid,
+                'Priority': priority,
+                'CurrentState': state,
+                'ROBoundarySpec': {
+                    'ROSpecStartTrigger': {
+                        'ROSpecStartTriggerType': 'Null',
+                    },
+                    'ROSpecStopTrigger': { 
+                        'ROSpecStopTriggerType': 'Null',
+                        'DurationTriggerValue': 0,
+                    }
+                },
+                'ImpinjDISpec': {
+                    'ImpinjDirectionSectors': {
+                        'EnabledSectorIDs' : [2,2,6]
+                    },
+                    'ImpinjDirectionConfig' : {
+                        'TagAgeIntervalSeconds' : 4,
+                        'UpdateIntervalSeconds' : 2,
+                        'FieldOfView' : 2,
+                        'ImpinjDirectionUserTagPopulationLimit': {
+                            'UserTagPopulationLimit' : 0x14
+                        }
+                    },
+                    'ImpinjC1G2DirectionConfig' : {
+                        'RFMode': 1,
+                        'ImpinjTransmitPower':{
+                            'TransmitPower': 81                   
+                        }
+                        # 'C1G2Filter': 0
+                        # 'G1G2FilterParameter' : 0x0d020001
+                    }
+                },
+                'ROReportSpec': {
+                    'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
+                    'TagReportContentSelector': tagReportContentSelector,
+                    'N': 1,
+                }
+            }
         else:
             logger.info("sending ROSpec for inventory")
             self['ROSpec'] = {
@@ -3841,8 +4108,6 @@ class LLRPROSpec(dict):
             if impinj_tag_content_selector:
                 self['ROSpec']['ROReportSpec'][
                     'ImpinjTagReportContentSelectorParameter'] = {
-                    'VendorID': 25882,
-                    'Subtype': 50,
                     'ImpinjEnableRFPhaseAngleParameter':
                         impinj_tag_content_selector['EnableRFPhaseAngle'],
                     'ImpinjEnablePeakRSSIParameter':
@@ -3881,8 +4146,8 @@ class LLRPROSpec(dict):
                 if impinj_search_mode is not None:
                     logger.info('impinj_search_mode: %s', impinj_search_mode)
                     antconf['C1G2InventoryCommand']['CustomParameter'] = {
-                        'VendorID': 25882,  # impinj
-                        'Subtype': 23,  # inventory search mode
+                        'vendorID': 25882,  # impinj
+                        'subtype': 23,  # inventory search mode
                         'Payload': struct.pack('!H', int(impinj_search_mode)),
                     }
 

@@ -13,9 +13,10 @@ from .util import BITMASK, natural_keys, iterkeys
 from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineReceiver
-
+from twisted.internet.defer import setDebugging
 LLRP_PORT = 5084
 
+setDebugging(True)
 logger = logging.getLogger(__name__)
 
 
@@ -144,7 +145,8 @@ class LLRPClient(LineReceiver):
     STATE_PAUSING = 22
     STATE_PAUSED = 23
     STATE_SENT_ENABLE_IMPINJ_EXTENSIONS = 24
-    STATE_LOCATION = 25
+    STATE_LOCALIZING = 25
+    STATE_DIRECTIONING = 26
 
     @classmethod
     def getStates(_):
@@ -163,7 +165,7 @@ class LLRPClient(LineReceiver):
 
     def __init__(self, factory, duration=None, report_every_n_tags=None,
                  antennas=(1,), tx_power=0, modulation=DEFAULT_MODULATION,
-                 tari=0, start_inventory=False,start_location=False,reset_on_connect=True,
+                 tari=0, start_mode="inventory",reset_on_connect=False,
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
@@ -202,17 +204,18 @@ class LLRPClient(LineReceiver):
         self.duration = duration
         self.peername = None
         self.tx_power_table = []
-        self.start_inventory = start_inventory
-        self.start_location = start_location
+        self.start_mode = start_mode
         self.reset_on_connect = reset_on_connect
         if self.reset_on_connect:
             logger.info('will reset reader state on connect')
         self.disconnect_when_done = disconnect_when_done
         self.tag_content_selector = tag_content_selector
-        if self.start_inventory:
+        if self.start_mode == "inventory":
             logger.info('will start inventory on connect')
-        if self.start_location:
+        if self.start_mode == "location":
             logger.info('will start location on connect')
+        if self.start_mode == "direction":
+            logger.info('will start direction on connect')
         if (impinj_search_mode is not None or
                 impinj_tag_content_selector is not None):
             logger.info('Enabling Impinj extensions')
@@ -221,9 +224,9 @@ class LLRPClient(LineReceiver):
         self.compute_window = compute_window
         self.tag_age_interval = tag_age_interval
         self.update_interval = update_interval
-        self.height=height
-        self.facility_x_loc=facility_x_loc
-        self.facility_y_loc=facility_y_loc
+        self.height = height
+        self.facility_x_loc = facility_x_loc
+        self.facility_y_loc = facility_y_loc
         self.orientation=orientation
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -319,7 +322,7 @@ class LLRPClient(LineReceiver):
             raise ReaderConfigurationError(errmsg)
         logger.debug('set antennas: %s', self.antennas)
 
-        # parse available transmit power entries, set self.tx_power
+        # parse available unex entries, set self.tx_power
         bandcap = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
         self.tx_power_table = self.parsePowerTable(bandcap)
         logger.debug('tx_power_table: %s', self.tx_power_table)
@@ -398,8 +401,8 @@ class LLRPClient(LineReceiver):
             return
 
         if msgName == 'RO_ACCESS_REPORT':
-            if self.state != LLRPClient.STATE_INVENTORYING: 
-                if self.state != LLRPClient.STATE_LOCATION:
+            if self.state != (LLRPClient.STATE_INVENTORYING or 
+                LLRPClient.STATE_LOCALIZING or LLRPClient.STATE_DIRECTIONING):
                     logger.debug('ignoring RO_ACCESS_REPORT because not inventorying or localizing')
                     logger.debug(self.state)            
             return
@@ -443,7 +446,8 @@ class LLRPClient(LineReceiver):
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
             if (self.impinj_search_mode is not None or
-                    self.impinj_tag_content_selector is not None or self.start_location):
+                    self.impinj_tag_content_selector is not None or 
+                    self.start_mode != "inventory"):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -522,7 +526,7 @@ class LLRPClient(LineReceiver):
             d.addErrback(self.panic, 'SET_READER_CONFIG failed')
             self.send_ENABLE_EVENTS_AND_REPORTS()
 
-            self.send_SET_READER_CONFIG(self.start_location,self.height,self.facility_x_loc,
+            self.send_SET_READER_CONFIG(self.start_mode,self.height,self.facility_x_loc,
                 self.facility_y_loc,self.orientation,onCompletion=d)
 
         elif self.state == LLRPClient.STATE_SENT_SET_CONFIG:
@@ -543,14 +547,18 @@ class LLRPClient(LineReceiver):
 
             if self.reset_on_connect:
                 d = self.stopPolitely(disconnect=False)
-                if self.start_inventory:
+                if self.start_mode == "inventory":
                     d.addCallback(self.startInventory)
-                elif self.start_location:
+                elif self.start_mode == "location":
                     d.addCallback(self.startLocation)
-            elif self.start_inventory:
+                else:
+                    d.addCallback(self.startDirection)
+            elif self.start_mode == "inventory":
                 self.startInventory()
-            elif self.start_location:
+            elif self.start_mode == "location":
                 self.startLocation()
+            else:
+                self.startDirection()
 
         # in state SENT_ADD_ROSPEC, expect only ADD_ROSPEC_RESPONSE; respond to
         # favorable ADD_ROSPEC_RESPONSE by enabling the added ROSpec and
@@ -624,7 +632,7 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-        elif self.state == LLRPClient.STATE_INVENTORYING or self.state == LLRPClient.STATE_LOCATION:
+        elif self.state == LLRPClient.STATE_INVENTORYING or self.state == LLRPClient.STATE_LOCALIZING:
             if msgName not in ('RO_ACCESS_REPORT',
                                'READER_EVENT_NOTIFICATION',
                                'ADD_ACCESSSPEC_RESPONSE',
@@ -784,7 +792,7 @@ class LLRPClient(LineReceiver):
                 'ID': 0,
             }})
 
-    def send_SET_READER_CONFIG(self,location_mode,height,facility_x_loc,facility_y_loc,orientation,onCompletion):
+    def send_SET_READER_CONFIG(self,start_mode,height,facility_x_loc,facility_y_loc,orientation,onCompletion):
         tagReportContentSelector = {
             'EnableROSpecID': False,
             'EnableSpecIndex': False,
@@ -796,16 +804,8 @@ class LLRPClient(LineReceiver):
             'EnableLastSeenTimestamp': False,
             'EnableTagSeenCount': False,
             'EnableAccessSpecID': False,
-        }
-        if not location_mode:
-            self.sendMessage({
-                'SET_READER_CONFIG': {
-                    'Ver':  1,
-                    'Type': 3,
-                    'ID':   0,
-                    'ResetToFactoryDefaults': False,
-                }})            
-        else:
+        }       
+        if start_mode == "location":
             logger.info("setting reader config to location")
             self.sendMessage({
                 'SET_READER_CONFIG': {
@@ -834,35 +834,103 @@ class LLRPClient(LineReceiver):
                         'TagReportContentSelector': tagReportContentSelector,
                         'N': 1,
                     },
+                    'KeepaliveSpec': {
+                        'KeepaliveTriggerType' : 1,
+                        'TimeInterval' : 120000
+                    },                    
                     'EventsAndReports': {
                         'Type':226,
                         'HoldEventsAndReportsUponReconnect': False
                     },
-                    'ImpinjPlacementConfiguration':{
-                        'VendorID': 25882,
-                        'Subtype': 1540,                        
+                    'ImpinjLinkMonitorConfiguration':{
+                        'LinkMonitorMode' : 1,
+                        'LinkDownThreshold' : 10
+                    },                    
+                    'ImpinjPlacementConfiguration':{                       
                         'HeightCm' : height,
-                        'FacilityYLocationCm': facility_x_loc, # TODO change to variable
+                        'FacilityYLocationCm': facility_x_loc, 
                         'FacilityXLocationCm': facility_y_loc,
                         'OrientationDegrees': orientation
                     },
-                    'ImpinjLocationReporting':{
-                        'VendorID': 25882,
-                        'Subtype': 1544,            
+                    'ImpinjLocationReporting':{         
                         'EnableUpdateReport': True,
                         'EnableEntryReport' : False,
                         'EnableExitReport': False,
                         'EnableDiagnosticReport': False
                     }
                 }})
+        elif start_mode == 'direction':
+            logger.info("setting reader config to direction")
+            self.sendMessage({
+                'SET_READER_CONFIG': {
+                    'Ver':  1,
+                    'Type': 3,
+                    'ID':   0,
+                    'ResetToFactoryDefaults': False,
+                    'ReaderEventNotificationSpec':[{
+                            'EventType':1,
+                            'NotificationState':True
+                        },
+                        {
+                            'EventType':2,
+                            'NotificationState':True
+                        },
+                        {
+                            'EventType':3,
+                            'NotificationState':True
+                        },
+                        {
+                            'EventType':8,
+                            'NotificationState':True
+                        }],
+                    'ROReportSpec': {
+                        'ROReportTrigger': "Upon_N_Tags_Or_End_Of_ROSpec",
+                        'TagReportContentSelector': tagReportContentSelector,
+                        'N': 1
+                    },
+                    'KeepaliveSpec': {
+                        'KeepaliveTriggerType' : 1,
+                        'TimeInterval' : 10000
+                    },
+                    'EventsAndReports': {
+                        'Type':226,
+                        'HoldEventsAndReportsUponReconnect': False
+                    },
+                    'ImpinjLinkMonitorConfiguration':{
+                        'LinkMonitorMode' : 1,
+                        'LinkDownThreshold' : 10
+                    },
+                    # 'ImpinjPlacementConfiguration':{
+                    #     'VendorID': 25882,
+                    #     'Subtype': 1540,                        
+                    #     'HeightCm' : 0,
+                    #     'FacilityYLocationCm': 0,
+                    #     'FacilityXLocationCm': 0,
+                    #     'OrientationDegrees': 0
+                    # },
+                    'ImpinjDirectionReporting':{          
+                        'EnableUpdateReport': True,
+                        'EnableEntryReport' : False,
+                        'EnableExitReport': False,
+                        'EnableDiagnosticReport': False,
+                    }
+                }})
+        else:
+            self.sendMessage({
+                'SET_READER_CONFIG': {
+                    'Ver':  1,
+                    'Type': 3,
+                    'ID':   0,
+                    'ResetToFactoryDefaults': False,
+                }})     
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(onCompletion)
 
-    def send_ADD_ROSPEC(self, rospec, onCompletion,location_mode):
+    def send_ADD_ROSPEC(self, rospec, onCompletion, start_mode):
         logger.debug('about to send_ADD_ROSPEC')
         try:
-            if location_mode:
-                logger.debug("send_ADD_ROSPEC_LOCATION")
+            if start_mode == "location":
+                logger.debug("send_ADD_ROSPEC_LOCATING")
                 self.sendMessage({
                     'ADD_ROSPEC_LOCATION': {
                         'Ver':  1,
@@ -871,6 +939,16 @@ class LLRPClient(LineReceiver):
                         'ROSpecID': rospec['ROSpecID'],
                         'ROSpec': rospec,
                     }})
+            elif start_mode == "direction":
+                logger.debug("send_ADD_ROSPEC_DIRECTIONING")
+                self.sendMessage({
+                    'ADD_ROSPEC_DIRECTION': {
+                        'Ver':  1,
+                        'Type': 20,
+                        'ID':   0,
+                        'ROSpecID': rospec['ROSpecID'],
+                        'ROSpec': rospec,
+                    }})                
             else:
                 logger.debug("send_ADD_ROSPEC_INVENTORY")
                 self.sendMessage({
@@ -1063,7 +1141,7 @@ class LLRPClient(LineReceiver):
             logger.warn('ignoring startInventory() while already inventorying')
             return None
 
-        rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
+        rospec = self.getROSpec(start_mode="inventory", force_new=force_regen_rospec)['ROSpec']
 
         logger.info('starting inventory')
 
@@ -1088,32 +1166,32 @@ class LLRPClient(LineReceiver):
         added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
         logger.debug('made added_rospec')
 
-        self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec,location_mode=False)
-
+        self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec, start_mode="inventory")
 
     def startLocation(self, proto=None, force_regen_rospec=False):
-        """Add a ROSpec to the reader and enable it."""
-        if self.state == LLRPClient.STATE_LOCATION:
+        """Add the Location ROSpec to the reader and enable it. Will locate tags and return a x,y poistion
+        This feature is only avaialble on the Impinj xArray and Impinj xPortal devices"""
+        if self.state == LLRPClient.STATE_LOCALIZING:
             logger.warn('ignoring startLocation() while already localizing')
             return None
 
-        rospec = self.getROSpec(force_new=force_regen_rospec,location_mode=True)['ROSpec']
+        rospec = self.getROSpec(start_mode="location", force_new=force_regen_rospec)['ROSpec']
 
         logger.info('starting location')
 
         start_rospec= defer.Deferred()
         start_rospec.addCallback(self._setState_wrapper,
-                                   LLRPClient.STATE_LOCATION)
+                                   LLRPClient.STATE_LOCALIZING)
         start_rospec.addErrback(self.panic, 'START_ROSPEC failed')
-
+        logger.debug('made set_state')
 
         enabled_rospec = defer.Deferred()
         enabled_rospec.addCallback(self._setState_wrapper,
-                                   LLRPClient.STATE_LOCATION)
+                                   LLRPClient.STATE_LOCALIZING)
         enabled_rospec.addCallback(self.send_START_ROSPEC, rospec,
                                    onCompletion=start_rospec)
         enabled_rospec.addErrback(self.panic, 'ENABLE_ROSPEC failed')
-        logger.debug('made enabled_rospec')
+       
 
         added_rospec = defer.Deferred()
         added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
@@ -1121,10 +1199,41 @@ class LLRPClient(LineReceiver):
         added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
         logger.debug('made added_rospec')
 
-        self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec,location_mode=True)
+        self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec, start_mode="location")
+
+    def startDirection(self, proto=None, force_regen_rospec=False):
+        """Add the Direction ROSpec to the reader and enable it.
+        This feature is only available on the impinj xPortal and xArray devices"""
+        if self.state == LLRPClient.STATE_DIRECTIONING:
+            logger.warn('ignoring startDirection() while already finding directions')
+            return None
+
+        rospec = self.getROSpec(start_mode="direction", force_new=force_regen_rospec)['ROSpec']
+
+        logger.info('starting direction')
+        start_rospec= defer.Deferred()
+        start_rospec.addCallback(self._setState_wrapper,
+                                LLRPClient.STATE_DIRECTIONING)
+        start_rospec.addErrback(self.panic, 'START_ROSPEC failed')
+
+        enabled_rospec = defer.Deferred()
+        enabled_rospec.addCallback(self._setState_wrapper,
+                                LLRPClient.STATE_DIRECTIONING)
+        enabled_rospec.addCallback(self.send_START_ROSPEC, rospec,
+                                onCompletion=start_rospec)
+        enabled_rospec.addErrback(self.panic, 'ENABLE_ROSPEC failed')
+        logger.debug('made enabled_rospec')
+
+        added_rospec = defer.Deferred()
+        added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
+                                onCompletion=enabled_rospec)
+        added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
+        logger.debug('made added_rospec')
+
+        self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec, start_mode="direction")
 
 
-    def getROSpec(self, force_new=False,location_mode=False):
+    def getROSpec(self, start_mode, force_new=False,):
         if self.rospec and not force_new:
             return self.rospec
 
@@ -1143,10 +1252,9 @@ class LLRPClient(LineReceiver):
             compute_window=self.compute_window,
             tag_age_interval=self.tag_age_interval
         )
-        logger.info(location_mode)
+        logger.info(start_mode)
         logger.info('Impinj search mode? %s', self.impinj_search_mode)
-        if location_mode is not None:
-            rospec_kwargs['location_mode'] = location_mode
+        rospec_kwargs['start_mode'] = start_mode
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
         if self.impinj_tag_content_selector is not None:
@@ -1276,7 +1384,7 @@ class LLRPClient(LineReceiver):
             logger.debug('changing tx power; will stop politely, then resume')
             d = self.stopPolitely()
             d.addCallback(self.startInventory, force_regen_rospec=True)
-        elif needs_update and self.state == LLRPClient.STATE_LOCATION:
+        elif needs_update and self.state == LLRPClient.STATE_LOCALIZING:
             logger.debug('changing tx power; will stop politely, then resume')
             d = self.stopPolitely()
             d.addCallback(self.startLocation, force_regen_rospec=True)            
@@ -1284,7 +1392,7 @@ class LLRPClient(LineReceiver):
     def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
         """Pause an inventory operation for a set amount of time."""
         logger.debug('pause(%s)', duration_seconds)
-        if self.state != LLRPClient.STATE_INVENTORYING and self.state != LLRPClient.STATE_LOCATION:
+        if self.state != LLRPClient.STATE_INVENTORYING and self.state != LLRPClient.STATE_LOCALIZING:
             if not force:
                 logger.info('ignoring pause(); not inventorying (state==%s)',
                             self.getStateName(self.state))
@@ -1295,7 +1403,7 @@ class LLRPClient(LineReceiver):
         if duration_seconds:
             logger.info('pausing for %s seconds', duration_seconds)
 
-        rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
+        rospec = self.getROSpec(start_mode=self.start_mode, force_new=force_regen_rospec)['ROSpec']
 
         self.sendMessage({
             'DISABLE_ROSPEC': {
@@ -1322,15 +1430,17 @@ class LLRPClient(LineReceiver):
         logger.debug('resuming, force_regen_rospec=%s', force_regen_rospec)
 
         if force_regen_rospec:
-            self.rospec = self.getROSpec(force_new=True)
+            self.rospec = self.getROSpec(start_mode=self.start_mode, force_new=True)
 
         if self.state in (LLRPClient.STATE_CONNECTED,
                           LLRPClient.STATE_DISCONNECTED):
             logger.debug('will startInventory()')
-            if self.start_location:
+            if self.start_mode == "inventory":
+                self.startInventory()
+            elif self.start_mode == "location":
                 self.startLocation()
             else:
-                self.startInventory()
+                self.startDirection()
             return
 
         if self.state != LLRPClient.STATE_PAUSED:
@@ -1421,11 +1531,11 @@ class LLRPClientFactory(ReconnectingClientFactory):
                 int(x) for x in self.antenna_dict[addr.host].keys()]
         logger.debug('Antennas in buildProtocol: %s', clargs.get('antennas'))
 
-        logger.debug('%s start_inventory: %s', hostport,
-                     clargs.get('start_inventory'))
+        logger.debug('%s mode: %s', hostport,
+                     clargs.get('mode'))
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
-            clargs['start_inventory'] = True
+            clargs['mode'] = "inventory"
         proto = LLRPClient(factory=self, **clargs)
 
         # register state-change callbacks with new client

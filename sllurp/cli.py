@@ -12,6 +12,7 @@ from .verb import inventory as _inventory
 from .verb import log as _log
 from .verb import access as _access
 from .verb import location as _location
+from .verb import direction as _direction
 from .llrp_proto import Modulation_Name2Type
 
 # Disable Click unicode warning since we use unicode string exclusively
@@ -65,13 +66,13 @@ def cli(debug, logfile):
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               modulation, tari, session, mode_identifier,
               tag_population, reconnect,
-              impinj_search_mode, impinj_reports,mqtt_broker,mqtt_port,mqtt_topic):
+              impinj_search_mode, impinj_reports, mqtt_broker, mqtt_port, mqtt_topic):
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'modulation', 'tari', 'session',
                                'population', 'mode_identifier',
                                'reconnect', 'impinj_search_mode',
-                               'impinj_reports','mqtt_broker','mqtt_port','mqtt_topic'])
+                               'impinj_reports', 'mqtt_broker', 'mqtt_port', 'mqtt_topic'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
@@ -79,7 +80,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 reconnect=reconnect,
                 impinj_search_mode=impinj_search_mode,
                 impinj_reports=impinj_reports,
-								mqtt_broker=mqtt_broker,
+			    mqtt_broker=mqtt_broker,
                 mqtt_port=mqtt_port,
                 mqtt_topic=mqtt_topic)
     logger.debug('inventory args: %s', args)
@@ -189,14 +190,14 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
 @click.option('--orientation',type=int,default=0,
                 help="The relative orientation of the antennas X-Y coordinates \
                 relative to the Store X-Y coordinates in degrees")
-def location(host, port, antennas, tx_power,modulation,tari,
-              reconnect,mode_identifier,mqtt_broker,mqtt_port,mqtt_topic,
-              tag_age_interval,time,compute_window,height,facility_x_loc,facility_y_loc,orientation):
+def location(host, port, antennas, tx_power,modulation, tari,
+              reconnect, mode_identifier, mqtt_broker, mqtt_port, mqtt_topic,
+              tag_age_interval, time, compute_window,height, facility_x_loc, facility_y_loc, orientation):
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
-                               'tx_power','modulation','tari','mode_identifier','reconnect', 
-                               'mqtt_broker','mqtt_port','mqtt_topic',
-                               'time','compute_window','tag_age_interval','height','facility_x_loc','facility_y_loc',
+                               'tx_power', 'modulation', 'tari', 'mode_identifier','reconnect', 
+                               'mqtt_broker', 'mqtt_port', 'mqtt_topic',
+                               'time', 'compute_window','tag_age_interval','height','facility_x_loc','facility_y_loc',
                                'orientation'])
     args = Args(host=host, port=port,
                 antennas=antennas, 
@@ -219,14 +220,55 @@ def location(host, port, antennas, tx_power,modulation,tari,
     _location.main(args)
 
 
-
-
-
-
-
-
-
-
+@cli.command()
+@click.argument('host', type=str, nargs=-1)
+@click.option('-p', '--port', type=int, default=5084)
+@click.option('-a', '--antennas', type=str, default='1',
+              help='comma-separated list of antennas to use (0=all;'
+                   ' default 1)')
+@click.option('-X', '--tx-power', type=int, default=81,
+              help='transmit power (default 0=max power)')
+@click.option('-M', '--modulation', type=click.Choice(mods),
+              help='Reader-to-Tag Modulation')
+@click.option('-T', '--tari', type=int, default=0,
+              help='Tari value (default 0=auto)')
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value',default=1000)
+@click.option('-r', '--reconnect', is_flag=True, default=False,
+              help='reconnect on connection failure or loss')
+@click.option('--mqtt-broker', type=str,
+               help="Address of MQTT broker")
+@click.option('--mqtt-port', type=int,default=1883,
+               help="Port of MQTT broker")
+@click.option('--mqtt-topic',type=str,
+               help="MQTT topic to publish")
+@click.option('--tag_age_interval',type=int,default=2,
+               help="Time in seconds for which the tag must \
+               not be read (seen) before it is considered to \
+               have exited from the field of view.")
+@click.option('-t','--time',type=int,default=20,
+                help="How fast in seconds do we want an update")
+def direction(host, port, antennas, tx_power, modulation, tari,
+              reconnect, mode_identifier, mqtt_broker, mqtt_port, mqtt_topic,
+              tag_age_interval, time):
+    # XXX band-aid hack to provide many args to _inventory.main
+    Args = namedtuple('Args', ['host', 'port', 'antennas',
+                               'tx_power','modulation','tari','mode_identifier','reconnect', 
+                               'mqtt_broker', 'mqtt_port', 'mqtt_topic',
+                               'time', 'tag_age_interval'])
+    args = Args(host=host, port=port,
+                antennas=antennas, 
+                tx_power=tx_power,
+                modulation=modulation,
+                tari=tari,
+                mode_identifier=mode_identifier,
+                reconnect=reconnect,
+				mqtt_broker=mqtt_broker,
+                mqtt_port=mqtt_port,
+                mqtt_topic=mqtt_topic,
+                tag_age_interval=tag_age_interval,
+                time=time)
+    logger.debug('direction args: %s', args)
+    _direction.main(args)
 
 
 @cli.command()

@@ -1,4 +1,4 @@
-"""location command.
+"""direction command.
 """
 
 from __future__ import print_function, division
@@ -95,8 +95,7 @@ def main(args):
         modulation=args.modulation,
         tari=tari,
         mode_identifier=args.mode_identifier,
-        start_mode = "location",
-        reset_on_connect = True,
+        start_mode="direction",
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
         tag_content_selector={
@@ -113,12 +112,7 @@ def main(args):
         },
         impinj_tag_content_selector=None,
         tag_age_interval=args.tag_age_interval,
-        compute_window=args.compute_window,
-        update_interval=args.time,
-        height=args.height,
-        facility_x_loc=args.facility_x_loc,
-        facility_y_loc=args.facility_y_loc,
-        orientation=args.orientation,
+        update_interval=args.time
     )
 
     if(args.mqtt_broker):
