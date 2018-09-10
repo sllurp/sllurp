@@ -2491,9 +2491,9 @@ def encode_C1G2InventoryCommand(par):
     if 'ImpinjInventorySearchModeParameter' in par:
         data += encode('ImpinjInventorySearchModeParameter')(
             par['ImpinjInventorySearchModeParameter'])
-    if 'ImpinjFixedFrequencyListParameter' in par:
-        data += encode('ImpinjFixedFrequencyListParameter')(
-            par['ImpinjFixedFrequencyListParameter'])
+    if 'ImpinjIntelligentAntennaManagementParameter' in par:
+        data += encode('ImpinjIntelligentAntennaManagementParameter')(
+            par['ImpinjIntelligentAntennaManagementParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -2509,9 +2509,30 @@ Message_struct['C1G2InventoryCommand'] = {
         'C1G2SingulationControl',
         # XXX custom parameters
         'ImpinjInventorySearchModeParameter',
-        'ImpinjFixedFrequencyListParameter'
+        'ImpinjIntelligentAntennaManagementParameter'
     ],
     'encode': encode_C1G2InventoryCommand
+}
+
+
+def encode_ImpinjIntelligentAntennaManagementParameter(par):
+    msg_struct_param = Message_struct['ImpinjIntelligentAntennaManagementParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+    enabled_flags = (int(bool(par)) << 7) & 0xff
+    data = struct.pack('!B', enabled_flags)
+    custom_par['Payload'] = data
+
+    return encode('CustomParameter')(custom_par)
+
+
+Message_struct['ImpinjIntelligentAntennaManagementParameter'] = {
+    'vendorid': 25882,
+    'subtype': 1554,
+    'fields': [],
+    'encode': encode_ImpinjIntelligentAntennaManagementParameter
 }
 
 
