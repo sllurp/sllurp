@@ -403,7 +403,7 @@ class LLRPClient(LineReceiver):
         if msgName == 'RO_ACCESS_REPORT':
             if self.state != (LLRPClient.STATE_INVENTORYING or 
                 LLRPClient.STATE_LOCALIZING or LLRPClient.STATE_DIRECTIONING):
-                    logger.debug('ignoring RO_ACCESS_REPORT because not inventorying or localizing')
+                    logger.debug('ignoring RO_ACCESS_REPORT because not inventorying or localizing or directioning')
                     logger.debug(self.state)            
             return
 

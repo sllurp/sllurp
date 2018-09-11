@@ -3667,9 +3667,9 @@ Message_struct['ImpinjDirectionReporting'] = {
 def decode_ImpinjDirectionReportData(data):
     logger.info("decode direction report")
     par = {}
-    data = data[0:160] #hack because the extractor returns too much data
-    logger.debug('ImpinjDirectionReportData input data %s', data)
-    logger.debug('ImpinjDirectionReportData input data length %s', len(data))
+    #hack because the extractor returns too much data
+    # logger.debug('ImpinjDirectionReportData input data %s', data)
+    # logger.debug('ImpinjDirectionReportData input data length %s', len(data))
     body = data[vendor_subtype_len:]
     logger.debug('ImpinjDirectionReportData input data %s', body)
     logger.debug('ImpinjDirectionReportData input data length %s', len(body))
@@ -3679,7 +3679,7 @@ def decode_ImpinjDirectionReportData(data):
     par['FirstSeenTimeStampUTC'],\
     par['LastSeenSectorID'],\
     par['LastSeenTimestampUTC'],\
-    _ = struct.unpack('!BBBQBQ',body)
+    = struct.unpack('!BBBQBQ',body)
     return par
 
 Message_struct['ImpinjDirectionReportData'] = {
@@ -3740,7 +3740,7 @@ def decode_ImpinjExtendedTagInformation(data):
     logger.debug('subtype is %s', subtype)
     #Decode ImpinjLocationReportData
     if subtype == Message_struct['ImpinjLocationReportData']['type']:
-        loc_report = decode_ImpinjLocationReportData(loc_report_body)
+        loc_report = decode('ImpinjLocationReportData')(loc_report_body)
         par['LastSeenTimestampUTC'] = loc_report['LastSeenTimestampUTC']
         par['LocXCentimeters'] = loc_report['LocXCentimeters']
         par['LocYCentimeters'] = loc_report['LocYCentimeters']
@@ -3750,7 +3750,7 @@ def decode_ImpinjExtendedTagInformation(data):
     #Decode ImpinjDirectionLocationReportData
     elif subtype == Message_struct['ImpinjDirectionReportData']['type']:
         logger.debug("Received Direction data")
-        loc_direction_report = decode_ImpinjDirectionReportData(loc_report_body)
+        loc_direction_report = decode('ImpinjDirectionReportData')(loc_report_body)
         par['Direction'] = loc_direction_report
     else:
         raise Exception('No ImpinjLocationReport or ImpinjDirectoinLocationReport received')
@@ -4049,8 +4049,8 @@ class LLRPROSpec(dict):
                         'EnabledSectorIDs' : [2,2,6]
                     },
                     'ImpinjDirectionConfig' : {
-                        'TagAgeIntervalSeconds' : 4,
-                        'UpdateIntervalSeconds' : 2,
+                        'TagAgeIntervalSeconds' : tag_age_interval,
+                        'UpdateIntervalSeconds' : update_interval,
                         'FieldOfView' : 2,
                         'ImpinjDirectionUserTagPopulationLimit': {
                             'UserTagPopulationLimit' : 0x14
