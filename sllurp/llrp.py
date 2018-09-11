@@ -933,7 +933,7 @@ class LLRPClient(LineReceiver):
                             'GPIEvent': True,
                             'ROSpecEvent': True,
                             'ReportBufferFillWarning': True,
-                            'ReaderExceptionEvent': False,
+                            'ReaderExceptionEvent': True,
                             'RFSurveyEvent': False,
                             'AISpecEvent': False,
                             'AISpecEventWithSingulation': False,
@@ -950,7 +950,7 @@ class LLRPClient(LineReceiver):
                     },
                     'KeepaliveSpec': {
                         'KeepaliveTriggerType' : 1,
-                        'TimeInterval' : 10000
+                        'TimeInterval' : 20000
                     },
                     'EventsAndReports': {
                         'Type':226,

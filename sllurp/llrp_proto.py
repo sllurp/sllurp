@@ -4158,6 +4158,7 @@ def decode_ImpinjDirectionReportData(data):
     # logger.debug('ImpinjDirectionReportData input data %s', data)
     # logger.debug('ImpinjDirectionReportData input data length %s', len(data))
     body = data[vendor_subtype_len:]
+    body = body[0:20]
     logger.debug('ImpinjDirectionReportData input data %s', body)
     logger.debug('ImpinjDirectionReportData input data length %s', len(body))
     par['Type'], \
@@ -4427,7 +4428,7 @@ class LLRPROSpec(dict):
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
                  impinj_search_mode=None, impinj_tag_content_selector=None,
-                update_interval=20, compute_window=5, tag_age_interval=2):
+                update_interval=20, compute_window=5, tag_age_interval=2, enable_sector_id=[2,2,6]):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -4528,7 +4529,7 @@ class LLRPROSpec(dict):
                 },
                 'ImpinjDISpec': {
                     'ImpinjDirectionSectors': {
-                        'EnabledSectorIDs' : [2,2,6]
+                        'EnabledSectorIDs' : enable_sector_id
                     },
                     'ImpinjDirectionConfig' : {
                         'TagAgeIntervalSeconds' : tag_age_interval,
