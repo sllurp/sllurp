@@ -90,6 +90,9 @@ class LLRPMessage(object):
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
             logger.debug('done deserializing %s command', name)
+        except ValueError:
+            logger.exception('Unable to decode body %s, %s', body,
+                    decoder(body))
         except LLRPError:
             logger.exception('Problem with %s message format', name)
             return ''
@@ -171,6 +174,7 @@ class LLRPClient(LineReceiver):
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
+                 impinj_extended_configuration=False,
                  impinj_search_mode=None,
                  impinj_tag_content_selector=None,
                  update_interval=20,
@@ -186,6 +190,7 @@ class LLRPClient(LineReceiver):
         self.report_every_n_tags = report_every_n_tags
         self.report_timeout_ms = report_timeout_ms
         self.capabilities = {}
+        self.configuration = {}
         self.reader_mode = None
         if isinstance(tx_power, int):
             self.tx_power = {ant: tx_power for ant in antennas}
@@ -219,6 +224,7 @@ class LLRPClient(LineReceiver):
         if (impinj_search_mode is not None or
                 impinj_tag_content_selector is not None):
             logger.info('Enabling Impinj extensions')
+        self.impinj_extended_configuration = impinj_extended_configuration
         self.impinj_search_mode = impinj_search_mode
         self.impinj_tag_content_selector = impinj_tag_content_selector
         self.compute_window = compute_window
@@ -298,6 +304,43 @@ class LLRPClient(LineReceiver):
 
     def connectionLost(self, reason):
         self.factory.protocols.remove(self)
+
+    def parseReaderConfig(self, confdict):
+        """Parse a reader configuration dictionary.
+
+        Examples:
+        {
+            Type: 23,
+            Data: b'\x00'
+        }
+        {
+            Type: 1023,
+            Vendor: 25882,
+            Subtype: 21,
+            Data: b'\x00'
+        }
+        """
+        logger.debug('parseReaderConfig input: %s', confdict)
+        conf = {}
+        for k, v in confdict.items():
+            if not k.startswith('Parameter'):
+                continue
+            ty = v['Type']
+            data = v['Data']
+            vendor = None
+            subtype = None
+            try:
+                vendor, subtype = v['Vendor'], v['Subtype']
+            except KeyError:
+                pass
+
+            if ty == 1023:
+                if vendor == 25882 and subtype == 37:
+                    tempc = struct.unpack('!H', data)[0]
+                    conf.update(temperature=tempc)
+            else:
+                conf[ty] = data
+        return conf
 
     def parseCapabilities(self, capdict):
         """Parse a capabilities dictionary and adjust instance settings
@@ -446,7 +489,8 @@ class LLRPClient(LineReceiver):
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
             if (self.impinj_search_mode is not None or
-                    self.impinj_tag_content_selector is not None or 
+                    self.impinj_tag_content_selector is not None or
+                    self.impinj_extended_configuration is not None or 
                     self.start_mode != "inventory"):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
@@ -517,6 +561,11 @@ class LLRPClient(LineReceiver):
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s getting reader config: %s', status, err)
                 return
+
+            if msgName == 'GET_READER_CONFIG_RESPONSE':
+                config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
+                self.configuration = self.parseReaderConfig(config)
+                logger.debug('Reader configuration: %s', self.configuration)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -773,13 +822,24 @@ class LLRPClient(LineReceiver):
             onCompletion)
 
     def send_GET_READER_CONFIG(self, onCompletion):
-        self.sendMessage({
-            'GET_READER_CONFIG': {
-                'Ver':  1,
-                'Type': 2,
-                'ID':   0,
-                'RequestedData': Capability_Name2Type['All']
-            }})
+        cfg = {
+            'Ver':  1,
+            'Type': 2,
+            'ID':   0,
+            'RequestedData': Capability_Name2Type['All']
+        }
+        if self.impinj_extended_configuration:
+            cfg['CustomParameters'] = [
+                {
+                    'VendorID': 25882,
+                    # per Octane LLRP guide:
+                    # 21 = ImpinjRequestedData
+                    # 2000 = All configuration params
+                    'Subtype': 21,
+                    'Payload': struct.pack('!I', 2000)
+                }
+            ]
+        self.sendMessage({'GET_READER_CONFIG': cfg})
         self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
@@ -813,22 +873,22 @@ class LLRPClient(LineReceiver):
                     'Type': 3,
                     'ID':   0,
                     'ResetToFactoryDefaults': False,
-                    'ReaderEventNotificationSpec':[{
-                            'EventType':1,
-                            'NotificationState':True
-                        },
-                        {
-                            'EventType':2,
-                            'NotificationState':True
-                        },
-                        {
-                            'EventType':3,
-                            'NotificationState':True
-                        },
-                        {
-                            'EventType':8,
-                            'NotificationState':True
-                        }],
+                    'ReaderEventNotificationSpec': {
+                        'EventNotificationState': {
+                            'HoppingEvent': False,
+                            'GPIEvent': True,
+                            'ROSpecEvent': True,
+                            'ReportBufferFillWarning': True,
+                            'ReaderExceptionEvent': False,
+                            'RFSurveyEvent': False,
+                            'AISpecEvent': False,
+                            'AISpecEventWithSingulation': False,
+                            'AntennaEvent': True,
+                        }
+                            ## Next one will only be available
+                            ## with llrp v2 (spec 1_1)
+                            #'SpecLoopEvent': True,
+                    },
                     'ROReportSpec': {
                         'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
                         'TagReportContentSelector': tagReportContentSelector,
@@ -854,8 +914,8 @@ class LLRPClient(LineReceiver):
                     },
                     'ImpinjLocationReporting':{         
                         'EnableUpdateReport': True,
-                        'EnableEntryReport' : False,
-                        'EnableExitReport': False,
+                        'EnableEntryReport' : True,
+                        'EnableExitReport': True,
                         'EnableDiagnosticReport': False
                     }
                 }})
@@ -867,22 +927,22 @@ class LLRPClient(LineReceiver):
                     'Type': 3,
                     'ID':   0,
                     'ResetToFactoryDefaults': False,
-                    'ReaderEventNotificationSpec':[{
-                            'EventType':1,
-                            'NotificationState':True
-                        },
-                        {
-                            'EventType':2,
-                            'NotificationState':True
-                        },
-                        {
-                            'EventType':3,
-                            'NotificationState':True
-                        },
-                        {
-                            'EventType':8,
-                            'NotificationState':True
-                        }],
+                    'ReaderEventNotificationSpec': {
+                        'EventNotificationState': {
+                            'HoppingEvent': False,
+                            'GPIEvent': True,
+                            'ROSpecEvent': True,
+                            'ReportBufferFillWarning': True,
+                            'ReaderExceptionEvent': False,
+                            'RFSurveyEvent': False,
+                            'AISpecEvent': False,
+                            'AISpecEventWithSingulation': False,
+                            'AntennaEvent': True,
+                            ## Next one will only be available
+                            ## with llrp v2 (spec 1_1)
+                            #'SpecLoopEvent': True,
+                        }
+                    },
                     'ROReportSpec': {
                         'ROReportTrigger': "Upon_N_Tags_Or_End_Of_ROSpec",
                         'TagReportContentSelector': tagReportContentSelector,
@@ -917,12 +977,28 @@ class LLRPClient(LineReceiver):
                 }})
         else:
             self.sendMessage({
-                'SET_READER_CONFIG': {
-                    'Ver':  1,
-                    'Type': 3,
-                    'ID':   0,
-                    'ResetToFactoryDefaults': False,
-                }})     
+            'SET_READER_CONFIG': {
+                'Ver':  1,
+                'Type': 3,
+                'ID':   0,
+                'ResetToFactoryDefaults': False,
+                'ReaderEventNotificationSpec': {
+                    'EventNotificationState': {
+                            'HoppingEvent': False,
+                            'GPIEvent': False,
+                            'ROSpecEvent': False,
+                            'ReportBufferFillWarning': False,
+                            'ReaderExceptionEvent': False,
+                            'RFSurveyEvent': False,
+                            'AISpecEvent': False,
+                            'AISpecEventWithSingulation': False,
+                            'AntennaEvent': False,
+                            ## Next one will only be available
+                            ## with llrp v2 (spec 1_1)
+                            #'SpecLoopEvent': True,
+                    },
+                }
+            }}) 
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(onCompletion)
 
