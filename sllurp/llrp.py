@@ -1249,8 +1249,9 @@ class LLRPClient(object):
             return
 
         if self.state != LLRPReaderState.STATE_PAUSED:
-            logger.debugfast('cannot resume() if not paused (state=%s); ignoring',
-                         LLRPReaderState.getStateName(self.state))
+            logger.debugfast('cannot resume() if not paused (state=%s); '
+                             'ignoring',
+                             LLRPReaderState.getStateName(self.state))
             return None
 
         logger.info('resuming')
@@ -1403,20 +1404,60 @@ class LLRPReaderClient(object):
             state: A state from LLRPReaderState.STATE_*.
             cb: A callable that takes an LLRPReaderState argument.
         """
-        self._llrp_state_callbacks[state].append(cb)
+        if cb not in self._llrp_state_callbacks[state]:
+            self._llrp_state_callbacks[state].append(cb)
+
+    def remove_state_callback(self, state, cb):
+        if cb in self._llrp_state_callbacks[state]:
+            self._llrp_state_callbacks[state].remove(cb)
+
+    def clear_state_callback(self, state):
+        if state in self._llrp_state_callbacks:
+            self._llrp_state_callbacks[state] = []
+        else:
+            self._llrp_message_callbacks = defaultdict(list)
+
 
     def add_message_callback(self, msg_type, cb):
-        self._llrp_message_callbacks[msg_type].append(cb)
+        if cb not in self._llrp_message_callbacks[msg_type]:
+            self._llrp_message_callbacks[msg_type].append(cb)
+
+    def remove_message_callback(self, msg_type, cb):
+        if cb in self._llrp_message_callbacks[msg_type]:
+            self._llrp_message_callbacks[msg_type].remove(cb)
+
+    def clear_message_callback(self, msg_type=None):
+        if msg_type:
+            self._llrp_message_callbacks[msg_type] = []
+        else:
+            self._llrp_message_callbacks = defaultdict(list)
+
 
     def add_tag_report_callback(self, cb):
-        if 'RO_ACCESS_REPORT' not in self._llrp_message_callbacks:
+        if not self._llrp_message_callbacks['RO_ACCESS_REPORT']:
             self._llrp_message_callbacks['RO_ACCESS_REPORT'].append(
                 self._on_llrp_tag_report)
 
-        self._tag_report_callbacks.append(cb)
+        if cb not in self._tag_report_callbacks:
+            self._tag_report_callbacks.append(cb)
+
+    def remove_tag_report_callback(self, cb):
+        if cb in self._tag_report_callbacks:
+            self._tag_report_callbacks.remove(cb)
+
+    def clear_tag_report_callback(self, cb):
+        self._tag_report_callbacks = []
 
     def add_disconnected_callback(self, cb):
-        self._disconnected_callbacks.append(cb)
+        if cb not in self._disconnected_callbacks:
+            self._disconnected_callbacks.append(cb)
+
+    def remove_disconnected_callback(self, cb):
+        if cb in self._disconnected_callbacks:
+            self._disconnected_callbacks.remove(cb)
+
+    def clear_disconnected_callback(self, cb):
+        self._disconnected_callbacks = []
 
     def _connect_socket(self):
         if self._socket:
