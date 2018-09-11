@@ -829,7 +829,7 @@ class LLRPClient(object):
             }})
 
     def send_SET_READER_CONFIG(self, onCompletion):
-        self.sendMessage({
+        msg = {
             'SET_READER_CONFIG': {
                 'Ver':  1,
                 'Type': 3,
@@ -848,11 +848,15 @@ class LLRPClient(object):
                         'AntennaEvent': False,
                         ## Next one will only be available
                         ## with llrp v2 (spec 1_1)
-                        #'SpecLoopEvent': True,
+                        #'SpecLoopEvent': False,
                     },
                 }
             }
-        })
+        }
+        for event, enabled in self.config.event_selector.items():
+            msg['SET_READER_CONFIG']['ReaderEventNotificationSpec']\
+                ['EventNotificationState'][event] = enabled
+        self.sendMessage(msg)
         self.setState(LLRPReaderState.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
@@ -1360,6 +1364,18 @@ class LLRPReaderConfig(object):
             'EnableAccessSpecID': False
         }
 
+        self.event_selector = {
+            'HoppingEvent': False,
+            'GPIEvent': False,
+            'ROSpecEvent': False,
+            'ReportBufferFillWarning': False,
+            'ReaderExceptionEvent': False,
+            'RFSurveyEvent': False,
+            'AISpecEvent': False,
+            'AISpecEventWithSingulation': False,
+            'AntennaEvent': False,
+        }
+
         self.reconnect = False
         self.start_inventory = True
         self.reset_on_connect = True
@@ -1439,6 +1455,7 @@ class LLRPReaderClient(object):
         self._llrp_message_callbacks = defaultdict(list)
 
         self._tag_report_callbacks = []
+        self._event_notification_callbacks = []
         self._disconnected_callbacks = []
 
     def get_peername(self):
@@ -1496,6 +1513,23 @@ class LLRPReaderClient(object):
 
     def clear_tag_report_callback(self, cb):
         self._tag_report_callbacks = []
+
+
+    def add_event_callback(self, cb):
+        if not self._llrp_message_callbacks['READER_EVENT_NOTIFICATION']:
+            self._llrp_message_callbacks['READER_EVENT_NOTIFICATION'].append(
+                self._on_llrp_event_notification)
+
+        if cb not in self._event_notification_callbacks:
+            self._event_notification_callbacks.append(cb)
+
+    def remove_event_callback(self, cb):
+        if cb in self._event_notification_callbacks:
+            self._event_notification_callbacks.remove(cb)
+
+    def clear_event_callback(self, cb):
+        self._event_notification_callbacks = []
+
 
     def add_disconnected_callback(self, cb):
         if cb not in self._disconnected_callbacks:
@@ -1789,5 +1823,15 @@ class LLRPReaderClient(object):
             try:
                 fn(self, tags_report_dict)
             except:
-                logger.exception("Error during user on_disconnected callback."
-                                 "Continuing anyway...")
+                logger.exception("Error during user on_llrp_tag_report "
+                                 "callback. Continuing anyway...")
+
+    def _on_llrp_event_notification(self, _, lmsg):
+        event_data_dict = lmsg.msgdict[
+            'READER_EVENT_NOTIFICATION']['ReaderEventNotificationData']
+        for fn in self._event_notification_callbacks:
+            try:
+                fn(self, event_data_dict)
+            except:
+                logger.exception("Error during user _on_llrp_event_notification"
+                                 "callback. Continuing anyway...")
