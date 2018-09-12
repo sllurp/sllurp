@@ -74,7 +74,7 @@ class FauxClient(object):
 class TestROSpec(unittest.TestCase):
     def test_start(self):
         fx = FauxClient()
-        rospec = sllurp.llrp.LLRPROSpec(fx.reader_mode, 1)
+        rospec = sllurp.llrp.LLRPROSpec(fx.reader_mode, 1 , "inventory")
         rospec_str = repr(rospec)
         self.assertNotEqual(rospec_str, '')
 
@@ -83,7 +83,7 @@ class TestReaderEventNotification(unittest.TestCase):
     def test_decode(self):
         data = binascii.unhexlify('043f000000200ab288c900f600160080000c0004f8'
                                   '535baadaff010000060000')
-        client = sllurp.llrp.LLRPClient(self, start_inventory=False)
+        client = sllurp.llrp.LLRPClient(self, start_mode="inventory")
         client.transport = MockConn('')
         client.dataReceived(data)
 
@@ -157,7 +157,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = MockConn(self._binr)
         logger.debug('%d bytes waiting', self._mock_conn.stream.waiting())
-        self._client = sllurp.llrp.LLRPClient(self, start_inventory=False)
+        self._client = sllurp.llrp.LLRPClient(self, start_mode="inventory")
         self._client.transport = MockConn('')
         self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
 
