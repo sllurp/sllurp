@@ -96,6 +96,7 @@ def main(args):
         tari=tari,
         mode_identifier=args.mode_identifier,
         start_mode="direction",
+        reset_on_connect = True,
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
         tag_content_selector={

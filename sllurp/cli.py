@@ -210,6 +210,7 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
 def location(host, port, antennas, tx_power,modulation, tari,
               reconnect, mode_identifier, mqtt_broker, mqtt_port, mqtt_topic,
               tag_age_interval, time, compute_window,height, facility_x_loc, facility_y_loc, orientation):
+    """Conduct tag localization (Impinj xArray)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
                                'tx_power', 'modulation', 'tari', 'mode_identifier','reconnect', 
@@ -269,6 +270,7 @@ def location(host, port, antennas, tx_power,modulation, tari,
 def direction(host, port, antennas, tx_power, modulation, tari,
               reconnect, mode_identifier, mqtt_broker, mqtt_port, mqtt_topic,
               tag_age_interval, time, enable_sector_id):
+    """1D tag tracking (Impinj xArray/xSpan)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
                                'tx_power','modulation','tari','mode_identifier','reconnect', 

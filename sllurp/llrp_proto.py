@@ -3244,7 +3244,7 @@ def decode_ReaderExceptionEvent(data):
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
     offset = struct.calcsize('!H')
-    msg_bytecount = struct.unpack('!H', body[:offset])
+    msg_bytecount = struct.unpack('!H', body[:offset])[0]
     par['Message'] = body[offset:offset + msg_bytecount]
     body = body[offset + msg_bytecount:]
 
@@ -3918,10 +3918,10 @@ Message_struct['ImpinjPlacementConfiguration'] = {
 def encode_ImpinjLocationReporting(par):
     msg_struct_param = Message_struct['ImpinjLocationReporting']
 
-    # binary = boolListToBinString([par['EnableUpdateReport'],par['EnableEntryReport'],par['EnableExitReport'],par['EnableDiagnosticReport']])
-    # binary = int(binary,2) << 12
-    # binary = binary & 0xf0
-    data = struct.pack ('!B', 0x80) # Hack to make location work. 0b10000000, 4 MSB bit sets the params
+    binary = boolListToBinString([par['EnableUpdateReport'],par['EnableEntryReport'],par['EnableExitReport'],par['EnableDiagnosticReport']])
+    binary = int(binary,2) << 4
+    binary = binary & 0xf0
+    data = struct.pack ('!B', binary)#Hack to make location work. 0b10000000, 4 MSB bit sets the params
 
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
@@ -4127,7 +4127,10 @@ Message_struct['ImpinjC1G2DirectionConfig'] = {
 def encode_ImpinjDirectionReporting(par):
     msg_struct_param = Message_struct['ImpinjDirectionReporting']
 
-    data = struct.pack ('!B', 0xe0)  # Hack to make direction work. 0b11110000, 4 MSB bit sets the params
+    binary = boolListToBinString([par['EnableUpdateReport'],par['EnableEntryReport'],par['EnableExitReport'],par['EnableDiagnosticReport']])
+    binary = int(binary,2) << 4
+    binary = binary & 0xf0
+    data = struct.pack ('!B', binary) 
     data += struct.pack('!B', 0x00)
 
     custom_par = {
@@ -4468,7 +4471,7 @@ class LLRPROSpec(dict):
             'EnableInventoryParameterSpecID': False,
             'EnableAntennaID': True,
             'EnableChannelIndex': False,
-            'EnablePeakRSSI': True,
+            'EnablePeakRSSI': False,
             'EnableFirstSeenTimestamp': False,
             'EnableLastSeenTimestamp': True,
             'EnableTagSeenCount': True,
@@ -4538,7 +4541,7 @@ class LLRPROSpec(dict):
                         'UpdateIntervalSeconds' : update_interval,
                         'FieldOfView' : 2,
                         'ImpinjDirectionUserTagPopulationLimit': {
-                            'UserTagPopulationLimit' : 0x14
+                            'UserTagPopulationLimit' : 20
                         }
                     },
                     'ImpinjC1G2DirectionConfig' : {
@@ -4630,27 +4633,17 @@ class LLRPROSpec(dict):
                 # impinj extension: single mode or dual mode (XXX others?)
                 if impinj_search_mode is not None:
                     logger.info('impinj_search_mode: %s', impinj_search_mode)
-                    antconf['C1G2InventoryCommand']['CustomParameter'] = {
-                        'vendorID': 25882,  # impinj
-                        'subtype': 23,  # inventory search mode
-                        'Payload': struct.pack('!H', int(impinj_search_mode)),
+                    antconf['C1G2InventoryCommand']\
+                        ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
+                    self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
+                        'AISpecStopTriggerType': 'Duration',
+                        'DurationTriggerValue': int(duration_sec * 1000)
                     }
-
                 ips['AntennaConfiguration'].append(antconf)
 
             if duration_sec is not None:
                 self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
                     'ROSpecStopTriggerType': 'Duration',
-                    'DurationTriggerValue': int(duration_sec * 1000)
-                }
-
-            # impinj extension: single mode or dual mode (XXX others?)
-            if impinj_search_mode is not None:
-                logger.info('impinj_search_mode: %s', impinj_search_mode)
-                antconf['C1G2InventoryCommand']\
-                    ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
-                self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
-                    'AISpecStopTriggerType': 'Duration',
                     'DurationTriggerValue': int(duration_sec * 1000)
                 }
 

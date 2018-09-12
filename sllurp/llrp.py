@@ -168,7 +168,7 @@ class LLRPClient(LineReceiver):
 
     def __init__(self, factory, duration=None, report_every_n_tags=None,
                  antennas=(1,), tx_power=0, modulation=DEFAULT_MODULATION,
-                 tari=0, start_mode="inventory",reset_on_connect=False,
+                 tari=0, start_mode="inventory",reset_on_connect=True,
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
@@ -417,6 +417,7 @@ class LLRPClient(LineReceiver):
     def processDeferreds(self, msgName, isSuccess):
         deferreds = self._deferreds[msgName]
         if not deferreds:
+            logger.debug("no deferreds found")
             return
         logger.debug('running %d Deferreds for %s; '
                      'isSuccess=%s', len(deferreds), msgName, isSuccess)
@@ -424,7 +425,7 @@ class LLRPClient(LineReceiver):
             if isSuccess:
                 d.callback(self.state)
             else:
-                d.errback(self.state)
+                (d.errback(self.state))
         del self._deferreds[msgName]
 
     def handleMessage(self, lmsg):
@@ -575,7 +576,7 @@ class LLRPClient(LineReceiver):
             d.addCallback(self._setState_wrapper,
                           LLRPClient.STATE_SENT_SET_CONFIG)
             d.addErrback(self.panic, 'SET_READER_CONFIG failed')
-            self.send_ENABLE_EVENTS_AND_REPORTS()
+            #self.send_ENABLE_EVENTS_AND_REPORTS()
 
             self.send_SET_READER_CONFIG(self.start_mode,self.height,self.facility_x_loc,
                 self.facility_y_loc,self.orientation,onCompletion=d)
@@ -595,6 +596,12 @@ class LLRPClient(LineReceiver):
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
+            # logger.info("deelte rospec")
+            # d = defer.Deferred()
+            # d.addCallback(self._setState_wrapper, 
+            #                     LLRPClient.STATE_SENT_DELETE_ROSPEC)
+            # d.addErrback(self.panic,"DELETE_ROSPEC failed")
+            # self.send_DELETE_ROSPEC(onCompletion=d)
 
             if self.reset_on_connect:
                 d = self.stopPolitely(disconnect=False)
@@ -683,7 +690,7 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-        elif self.state == LLRPClient.STATE_INVENTORYING or self.state == LLRPClient.STATE_LOCALIZING:
+        elif self.state == LLRPClient.STATE_INVENTORYING or self.state == LLRPClient.STATE_LOCALIZING or self.state == LLRPClient.STATE_DIRECTIONING:
             if msgName not in ('RO_ACCESS_REPORT',
                                'READER_EVENT_NOTIFICATION',
                                'ADD_ACCESSSPEC_RESPONSE',
@@ -881,7 +888,7 @@ class LLRPClient(LineReceiver):
                             'GPIEvent': True,
                             'ROSpecEvent': True,
                             'ReportBufferFillWarning': True,
-                            'ReaderExceptionEvent': False,
+                            'ReaderExceptionEvent': True,
                             'RFSurveyEvent': False,
                             'AISpecEvent': False,
                             'AISpecEventWithSingulation': False,
@@ -892,6 +899,7 @@ class LLRPClient(LineReceiver):
                             #'SpecLoopEvent': True,
                     },
                     'ROReportSpec': {
+                        'ReaderExceptionEvent': True,
                         'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
                         'TagReportContentSelector': tagReportContentSelector,
                         'N': 1,
@@ -917,7 +925,7 @@ class LLRPClient(LineReceiver):
                     'ImpinjLocationReporting':{         
                         'EnableUpdateReport': True,
                         'EnableEntryReport' : True,
-                        'EnableExitReport': True,
+                        'EnableExitReport': False,
                         'EnableDiagnosticReport': False
                     }
                 }})
@@ -931,15 +939,11 @@ class LLRPClient(LineReceiver):
                     'ResetToFactoryDefaults': False,
                     'ReaderEventNotificationSpec': {
                         'EventNotificationState': {
-                            'HoppingEvent': False,
                             'GPIEvent': True,
                             'ROSpecEvent': True,
-                            'ReportBufferFillWarning': True,
-                            'ReaderExceptionEvent': True,
-                            'RFSurveyEvent': False,
-                            'AISpecEvent': False,
-                            'AISpecEventWithSingulation': False,
+                            'ReportBufferFillWarning': False,
                             'AntennaEvent': True,
+                            'ReaderExceptionEvent': True
                             ## Next one will only be available
                             ## with llrp v2 (spec 1_1)
                             #'SpecLoopEvent': True,
@@ -990,7 +994,7 @@ class LLRPClient(LineReceiver):
                             'GPIEvent': False,
                             'ROSpecEvent': False,
                             'ReportBufferFillWarning': False,
-                            'ReaderExceptionEvent': False,
+                            'ReaderExceptionEvent': True,
                             'RFSurveyEvent': False,
                             'AISpecEvent': False,
                             'AISpecEventWithSingulation': False,
@@ -1240,11 +1244,12 @@ class LLRPClient(LineReceiver):
 
         added_rospec = defer.Deferred()
         added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
-                                 onCompletion=enabled_rospec)
+                                onCompletion=enabled_rospec)
         added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
         logger.debug('made added_rospec')
 
         self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec, start_mode="inventory")
+
 
     def startLocation(self, proto=None, force_regen_rospec=False):
         """Add the Location ROSpec to the reader and enable it. Will locate tags and return a x,y poistion
@@ -1273,7 +1278,7 @@ class LLRPClient(LineReceiver):
 
         added_rospec = defer.Deferred()
         added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
-                                 onCompletion=enabled_rospec)
+                                onCompletion=enabled_rospec)
         added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
         logger.debug('made added_rospec')
 
@@ -1310,7 +1315,6 @@ class LLRPClient(LineReceiver):
 
         self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec, start_mode="direction")
 
-
     def getROSpec(self, start_mode, force_new=False,):
         if self.rospec and not force_new:
             return self.rospec
@@ -1332,7 +1336,6 @@ class LLRPClient(LineReceiver):
             enable_sector_id=self.enable_sector_id
         )
         logger.info(start_mode)
-        logger.info('Impinj search mode? %s', self.impinj_search_mode)
         rospec_kwargs['start_mode'] = start_mode
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
