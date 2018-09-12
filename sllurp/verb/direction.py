@@ -112,7 +112,8 @@ def main(args):
         },
         impinj_tag_content_selector=None,
         tag_age_interval=args.tag_age_interval,
-        update_interval=args.time
+        update_interval=args.time,
+        enable_sector_id=args.enable_sector_id
     )
 
     if(args.mqtt_broker):

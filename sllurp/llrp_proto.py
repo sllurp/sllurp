@@ -4024,6 +4024,7 @@ def encode_ImpinjDirectionSectors(par):
     data = b''
     msg_struct_param = Message_struct['ImpinjDirectionSectors']
     if len(par['EnabledSectorIDs']) > 4:
+        logger.error(par['EnabledSectorIDs'])
         logger.error("Maximum 4 sectors can be enabled in direction mode")
     for sector in par['EnabledSectorIDs']:
         data += struct.pack('!H', sector)
@@ -4514,6 +4515,7 @@ class LLRPROSpec(dict):
             
         elif start_mode == "direction":
             logger.info("sending ROSpec for direction")
+            logger.info(enable_sector_id)
             self['ROSpec'] = {
                 'ROSpecID': rospecid,
                 'Priority': priority,

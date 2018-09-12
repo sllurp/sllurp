@@ -183,7 +183,8 @@ class LLRPClient(LineReceiver):
                  height=100,
                  facility_x_loc=0,
                  facility_y_loc=0,
-                 orientation=0):
+                 orientation=0,
+                 enable_sector_id=[2,2,6]):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -233,7 +234,8 @@ class LLRPClient(LineReceiver):
         self.height = height
         self.facility_x_loc = facility_x_loc
         self.facility_y_loc = facility_y_loc
-        self.orientation=orientation
+        self.orientation = orientation
+        self.enable_sector_id = enable_sector_id
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
 
@@ -1326,7 +1328,8 @@ class LLRPClient(LineReceiver):
             tag_population=self.tag_population,
             update_interval=self.update_interval,
             compute_window=self.compute_window,
-            tag_age_interval=self.tag_age_interval
+            tag_age_interval=self.tag_age_interval,
+            enable_sector_id=self.enable_sector_id
         )
         logger.info(start_mode)
         logger.info('Impinj search mode? %s', self.impinj_search_mode)

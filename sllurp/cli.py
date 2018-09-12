@@ -14,6 +14,7 @@ from .verb import access as _access
 from .verb import location as _location
 from .verb import direction as _direction
 from .llrp_proto import Modulation_Name2Type
+import ast
 
 # Disable Click unicode warning since we use unicode string exclusively
 click.disable_unicode_literals_warning = True
@@ -21,6 +22,14 @@ click.disable_unicode_literals_warning = True
 logger = logging.getLogger(__name__)
 mods = sorted(Modulation_Name2Type.keys())
 
+
+class PythonLiteralOption(click.Option):
+
+    def type_cast_value(self, ctx, value):
+        try:
+            return ast.literal_eval(value)
+        except:
+            raise click.BadParameter(value)
 
 @click.group()
 @click.option('-d', '--debug', is_flag=True, default=False)
@@ -255,14 +264,16 @@ def location(host, port, antennas, tx_power,modulation, tari,
                have exited from the field of view.")
 @click.option('-t','--time',type=int,default=20,
                 help="How fast in seconds do we want an update")
+@click.option('--enable_sector_id',cls=PythonLiteralOption, default=[2,2,6],
+                help="List of sector id to enable to detecting tags (4 max)")
 def direction(host, port, antennas, tx_power, modulation, tari,
               reconnect, mode_identifier, mqtt_broker, mqtt_port, mqtt_topic,
-              tag_age_interval, time):
+              tag_age_interval, time, enable_sector_id):
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
                                'tx_power','modulation','tari','mode_identifier','reconnect', 
                                'mqtt_broker', 'mqtt_port', 'mqtt_topic',
-                               'time', 'tag_age_interval'])
+                               'time', 'tag_age_interval', 'enable_sector_id'])
     args = Args(host=host, port=port,
                 antennas=antennas, 
                 tx_power=tx_power,
@@ -274,7 +285,8 @@ def direction(host, port, antennas, tx_power, modulation, tari,
                 mqtt_port=mqtt_port,
                 mqtt_topic=mqtt_topic,
                 tag_age_interval=tag_age_interval,
-                time=time)
+                time=time,
+                enable_sector_id=enable_sector_id)
     logger.debug('direction args: %s', args)
     _direction.main(args)
 
@@ -289,3 +301,5 @@ def version():
 @click.option('-p', '--port', type=int, default=5084)
 def reset(host, port):
     _reset.main(host, port)
+
+
