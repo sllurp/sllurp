@@ -13,6 +13,7 @@ services:
       - MQTT_TOPIC=llrp/1
       - TX_POWER=81 #max
       - TAG_AGE_INTERVAL=4
+      - ENABLE_SECTOR_ID=[2,2,6]
         #restart: always
     network_mode: host
 
