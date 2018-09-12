@@ -1,0 +1,18 @@
+version: '3'
+services:
+  llrp:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile.direction
+    image: llrp_direction
+    container_name: llrp_direction
+    environment:
+      - ANT_ADDR=10.10.31.170
+      - INTERVAL=10
+      - MQTT_BROKER=localhost
+      - MQTT_TOPIC=llrp/1
+      - TX_POWER=81 #max
+      - TAG_AGE_INTERVAL=4
+        #restart: always
+    network_mode: host
+

@@ -1,9 +1,11 @@
-version: '3.3'
+version: '3'
 services:
   llrp:
-    build: ./
-    image: pom_inventory
-    container_name: pom_inventory
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile.inventory
+    image: llrp_inventory
+    container_name: llrp_inventory
     environment:
       - ANT_ADDR=10.10.31.170
       - INTERVAL=2

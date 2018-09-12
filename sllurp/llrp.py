@@ -950,7 +950,7 @@ class LLRPClient(LineReceiver):
                     },
                     'KeepaliveSpec': {
                         'KeepaliveTriggerType' : 1,
-                        'TimeInterval' : 20000
+                        'TimeInterval' : 120000
                     },
                     'EventsAndReports': {
                         'Type':226,

@@ -1,9 +1,11 @@
-version: '3.3'
+version: '3'
 services:
   llrp:
-    build: ./
-    image: pom_location
-    container_name: pom_location
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile.location
+    image: llrp_location
+    container_name: llrp_location
     environment:
       - ANT_ADDR=10.10.31.170
       - INTERVAL=20
