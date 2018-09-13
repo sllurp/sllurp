@@ -15,7 +15,7 @@ from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     DEFAULT_MODULATION
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger, is_general_debug_enabled
-from .util import BITMASK, natural_keys, iterkeys
+from .util import BITMASK, natural_keys, iterkeys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
 
@@ -363,7 +363,10 @@ class LLRPClient(object):
         bandcap = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
         self.tx_power_table = self.parsePowerTable(bandcap)
         logger.debugfast('tx_power_table: %s', self.tx_power_table)
-        self.setTxPower(self.config.tx_power)
+        if self.config.tx_power_dbm is not None:
+            self.setTxPowerDbm(self.config.tx_power_dbm)
+        else:
+            self.setTxPower(self.config.tx_power)
 
         # fill UHFC1G2RFModeTable & check requested modulation & Tari
         regcap = capdict['RegulatoryCapabilities']
@@ -1170,6 +1173,24 @@ class LLRPClient(object):
                                     max_power))
         return ret
 
+    def setTxPowerDbm(self, tx_pow_dbm=None):
+        if tx_pow_dbm is None:
+            # select max TX power
+            ret_tx_power = {ant: self.tx_power_table[-1]
+                            for ant in self.config.antennas}
+        else:
+            ret_config_dbm = {}
+            ret_tx_power = {}
+            for antid, req_dbm in tx_pow_dbm.items():
+                tx_power, real_dbm = find_closest(self.tx_power_table, req_dbm)
+                ret_config_dbm[antid] = req_dbm
+                ret_tx_power[antid] = tx_power
+                logger.debug("Want %.1f dBm output, select %.1f dBm, idx %d",
+                             req_dbm, real_dbm, tx_power)
+            self.config.tx_power_dbm = ret_config_dbm
+
+        self.setTxPower(ret_tx_power)
+
     def setTxPower(self, tx_power):
         """Set the transmission power for one or more antennas.
 
@@ -1299,7 +1320,10 @@ class LLRPReaderConfig(object):
         self.report_every_n_tags = None
         self.report_timeout_ms = 0
         self.antennas = [1]
+        # Use the power associated with an exact tx power index
         self.tx_power = 0
+        # Use the power level closest to the requested dbm value
+        self.tx_power_dbm = None
         self.modulation = DEFAULT_MODULATION
         self.disconnect_when_done = self.duration and self.duration > 0
         self.tag_content_selector = {
@@ -1363,6 +1387,16 @@ class LLRPReaderConfig(object):
                     raise LLRPError('Must specify tx_power for each antenna')
             else:
                 raise LLRPError('tx_power must be dict or int')
+        if hasattr(self, 'tx_power_dbm') and \
+           self.tx_power_dbm is not None:
+            if isinstance(self.tx_power_dbm, float):
+                self.tx_power_dbm = {ant: self.tx_power_dbm
+                                     for ant in self.antennas}
+            elif isinstance(self.tx_power_dbm, dict):
+                if set(self.antennas) != set(self.tx_power_dbm.keys()):
+                    raise LLRPError('Must specify tx_power for each antenna')
+            else:
+                raise LLRPError('tx_power must be dict or float')
 
 class LLRPReaderClient(object):
     def __init__(self, host, port=None, config=None, timeout=5.0):
