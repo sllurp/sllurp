@@ -1355,12 +1355,9 @@ class LLRPClient(LineReceiver):
                 'AccessSpecID': 0  # all AccessSpecs
             }})
         self.setState(LLRPClient.STATE_SENT_DELETE_ACCESSSPEC)
-        
         d = defer.Deferred()
         d.addCallback(self.stopAllROSpecs)
-        
         d.addErrback(self.panic, 'DELETE_ACCESSSPEC failed')
-
         self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(d)
         return d
 
@@ -1373,12 +1370,10 @@ class LLRPClient(LineReceiver):
                 'ROSpecID': 0
             }})
         self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
-        
         d = defer.Deferred()
         d.addErrback(self.panic, 'DELETE_ROSPEC failed')
-
         self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
-        return d
+        return d 
 
     @staticmethod
     def parsePowerTable(uhfbandcap):
