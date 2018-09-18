@@ -4229,22 +4229,23 @@ def decode_ImpinjExtendedTagInformation(data):
     
 
     logger.debug("ImpinjExtendedTagInformation body %s", body)
-    loc_report_body, subtype, loc_confidence_data = ImpinjExtendedTagInformationExtractor(body)
+    report_body, subtype, loc_confidence_data = ImpinjExtendedTagInformationExtractor(body)
     logger.debug('subtype is %s', subtype)
     #Decode ImpinjLocationReportData
     if subtype == Message_struct['ImpinjLocationReportData']['type']:
-        loc_report = decode('ImpinjLocationReportData')(loc_report_body)
-        par['LastSeenTimestampUTC'] = loc_report['LastSeenTimestampUTC']
-        par['LocXCentimeters'] = loc_report['LocXCentimeters']
-        par['LocYCentimeters'] = loc_report['LocYCentimeters']
-        logger.debug('Last seen: %s',loc_report['LastSeenTimestampUTC'])
-        logger.debug('Loc X: %s', loc_report['LocXCentimeters'])
-        logger.debug('Loc Y: %s', loc_report['LocYCentimeters'])
+        loc_report = decode('ImpinjLocationReportData')(report_body)
+        # par['LastSeenTimestampUTC'] = loc_report['LastSeenTimestampUTC']
+        # par['LocXCentimeters'] = loc_report['LocXCentimeters']
+        # par['LocYCentimeters'] = loc_report['LocYCentimeters']
+        # logger.debug('Last seen: %s',loc_report['LastSeenTimestampUTC'])
+        # logger.debug('Loc X: %s', loc_report['LocXCentimeters'])
+        # logger.debug('Loc Y: %s', loc_report['LocYCentimeters'])
+        par['Location'] = loc_report
     #Decode ImpinjDirectionLocationReportData
     elif subtype == Message_struct['ImpinjDirectionReportData']['type']:
         logger.debug("Received Direction data")
-        loc_direction_report = decode('ImpinjDirectionReportData')(loc_report_body)
-        par['Direction'] = loc_direction_report
+        direction_report = decode('ImpinjDirectionReportData')(report_body)
+        par['Direction'] = direction_report
     else:
         raise Exception('No ImpinjLocationReport or ImpinjDirectoinLocationReport received')
     #Decode ImpinjLocationConfidence

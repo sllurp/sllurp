@@ -924,7 +924,7 @@ class LLRPClient(LineReceiver):
                     },
                     'ImpinjLocationReporting':{         
                         'EnableUpdateReport': True,
-                        'EnableEntryReport' : True,
+                        'EnableEntryReport' : False,
                         'EnableExitReport': False,
                         'EnableDiagnosticReport': False
                     }
@@ -975,9 +975,9 @@ class LLRPClient(LineReceiver):
                     #     'OrientationDegrees': 0
                     # },
                     'ImpinjDirectionReporting':{          
-                        'EnableUpdateReport': True,
+                        'EnableUpdateReport': False,
                         'EnableEntryReport' : False,
-                        'EnableExitReport': False,
+                        'EnableExitReport': True,
                         'EnableDiagnosticReport': False,
                     }
                 }})
