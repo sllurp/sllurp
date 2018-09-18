@@ -596,12 +596,6 @@ class LLRPClient(LineReceiver):
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
-            # logger.info("deelte rospec")
-            # d = defer.Deferred()
-            # d.addCallback(self._setState_wrapper, 
-            #                     LLRPClient.STATE_SENT_DELETE_ROSPEC)
-            # d.addErrback(self.panic,"DELETE_ROSPEC failed")
-            # self.send_DELETE_ROSPEC(onCompletion=d)
 
             if self.reset_on_connect:
                 d = self.stopPolitely(disconnect=False)
@@ -639,7 +633,6 @@ class LLRPClient(LineReceiver):
         # respond to favorable ENABLE_ROSPEC_RESPONSE by starting the enabled
         # ROSpec and advancing to state SENT_START_ROSPEC.
         elif self.state == LLRPClient.STATE_SENT_ENABLE_ROSPEC:
-           
             if msgName != 'ENABLE_ROSPEC_RESPONSE':
                 logger.error('unexpected response %s when enabling ROSpec',
                              msgName)

@@ -51,7 +51,6 @@ def decode_tve_parameter(data):
         logger.debug('tve msgtype %s', subtype)
         param_name, param_fmt = ext_param_formats[subtype]
         (unpacked,) = struct.unpack(param_fmt, data[size-2:size])
-
         return {param_name: unpacked}, size
 
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
