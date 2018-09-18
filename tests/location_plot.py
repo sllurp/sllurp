@@ -28,40 +28,41 @@ def refresh_tag_list(payload):
     lock.acquire()
     payload = json.loads(payload)
     print("received new mqtt" + str(payload))
-    try:
-        index = epc.index(payload["EPCData"])
-    except ValueError:
-        index = -1
-    if index > -1:
-        print("prev tag found" + payload["EPCData"]) 
-        x_locations[index] = payload["LocXCentimeters"]
-        y_locations[index] = payload["LocYCentimeters"]
-        epc[index] = payload["EPCData"]
-        timestamps[index] = payload["LastSeenTimestampUTC"]
-        print("")
-        print(timestamps)
-        print(epc)
-        print(x_locations)
-        print(y_locations)
-        print("")
-        lock.release()
-        return
-    else:
-        print("no prev tag found"+ payload["EPCData"])
-        print(epc)
-        x_locations.append(payload["LocXCentimeters"])
-        y_locations.append(payload["LocYCentimeters"])
-        epc.append(payload["EPCData"])
-        colors.append(np.random.randn())
-        timestamps.append(payload["LastSeenTimestampUTC"])
-        print("")
-        print(timestamps)
-        print(epc)
-        print(x_locations)
-        print(y_locations)
-        print("")
-        lock.release()
-        return
+    if 'Location' in payload:
+        try:
+            index = epc.index(payload["EPCData"])
+        except ValueError:
+            index = -1
+        if index > -1:
+            print("prev tag found" + payload["EPCData"]) 
+            x_locations[index] = payload['Location']["LocXCentimeters"]
+            y_locations[index] = payload['Location']["LocYCentimeters"]
+            epc[index] = payload["EPCData"]
+            timestamps[index] = payload['Location']["LastSeenTimestampUTC"]
+            print("")
+            print(timestamps)
+            print(epc)
+            print(x_locations)
+            print(y_locations)
+            print("")
+            lock.release()
+            return
+        else:
+            print("no prev tag found"+ payload["EPCData"])
+            print(epc)
+            x_locations.append(payload['Location']["LocXCentimeters"])
+            y_locations.append(payload["Location"]["LocYCentimeters"])
+            epc.append(payload["EPCData"])
+            colors.append(np.random.randn())
+            timestamps.append(payload["Location"]["LastSeenTimestampUTC"])
+            print("")
+            print(timestamps)
+            print(epc)
+            print(x_locations)
+            print(y_locations)
+            print("")
+            lock.release()
+            return
 
 app = dash.Dash()
 
