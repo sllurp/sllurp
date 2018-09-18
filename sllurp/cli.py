@@ -97,13 +97,11 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
                 impinj_reports=impinj_reports,
-			    mqtt_broker=mqtt_broker,
+                mqtt_broker=mqtt_broker,
                 mqtt_port=mqtt_port,
                 mqtt_topic=mqtt_topic)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
-
-
 
 
 @cli.command()
@@ -303,5 +301,3 @@ def version():
 @click.option('-p', '--port', type=int, default=5084)
 def reset(host, port):
     _reset.main(host, port)
-
-

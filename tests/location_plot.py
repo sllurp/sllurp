@@ -78,18 +78,6 @@ app.layout = html.Div(
     ])
 )
 
-# @app.callback(Output('live-update-graph-scatter', 'figure'),
-#               events=[Event('interval-component', 'interval')])
-# def update_graph_scatter():
-
-#     traces = plotly.graph_objs.Scatter(
-#         x=x_locations,
-#         y=y_locations,
-#         text=epc,
-#         mode= 'markers'
-#         )
-#     return {'data':traces}
-
 @app.callback(Output('live-update-graph', 'figure'),
               [Input('interval-component', 'n_intervals')])
 def update_graph_live(n):
