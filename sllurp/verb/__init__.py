@@ -1,4 +1,4 @@
 """Verbs for use in sllurp commands.
 """
 
-__all__ = ('inventory', 'reset')
+__all__ = ('inventory', 'reset', 'location', 'direction')

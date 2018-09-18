@@ -1,4 +1,4 @@
-"""Inventory command.
+"""direction command.
 """
 
 from __future__ import print_function, division
@@ -38,7 +38,7 @@ def shutdown(factory):
 def tag_report_cb(llrp_msg):
     """Function to run each time the reader reports seeing tags."""
     global numtags
-    tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
+    tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['ImpinjExtendedTagInformation']
     if len(tags):
         payload = pprint.pformat(tags).replace('\'','\"')
         payload = payload.replace('b\"','\"')
@@ -90,16 +90,13 @@ def main(args):
     factory_args = dict(
         onFinish=d,
         duration=args.time,
-        report_every_n_tags=args.every_n,
         antenna_dict=antmap,
         tx_power=args.tx_power,
         modulation=args.modulation,
         tari=tari,
-        session=args.session,
         mode_identifier=args.mode_identifier,
-        tag_population=args.population,
-        start_mode="inventory",
-        reset_on_connect=True,
+        start_mode="direction",
+        reset_on_connect = True,
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
         tag_content_selector={
@@ -107,23 +104,19 @@ def main(args):
             'EnableSpecIndex': False,
             'EnableInventoryParameterSpecID': False,
             'EnableAntennaID': False,
-            'EnableChannelIndex': True,
+            'EnableChannelIndex': False,
             'EnablePeakRSSI': False,
             'EnableFirstSeenTimestamp': False,
-            'EnableLastSeenTimestamp': True,
-            'EnableTagSeenCount': True,
-            'EnableAccessSpecID': False
+            'EnableLastSeenTimestamp': False,
+            'EnableTagSeenCount': False,
+            'EnableAccessSpecID': True
         },
-        impinj_extended_configuration=args.impinj_extended_configuration,
-        impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
+        tag_age_interval=args.tag_age_interval,
+        update_interval=args.time,
+        enable_sector_id=args.enable_sector_id
     )
-    if args.impinj_reports:
-        factory_args['impinj_tag_content_selector'] = {
-            'EnableRFPhaseAngle': True,
-            'EnablePeakRSSI': False,
-            'EnableRFDopplerFrequency': False
-        }
+
     if(args.mqtt_broker):
         global client
         global topic

@@ -7,17 +7,18 @@ import logging
 
 
 def init_logging(debug=False, logfile=None):
-    logLevel = (debug and logging.DEBUG or logging.INFO)
-    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
-    formatter = logging.Formatter(logFormat)
+    """Initialize logging."""
+    loglevel = logging.DEBUG if debug else logging.INFO
+    logformat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
+    formatter = logging.Formatter(logformat)
     stderr = logging.StreamHandler()
     stderr.setFormatter(formatter)
 
     root = logging.getLogger()
-    root.setLevel(logLevel)
+    root.setLevel(loglevel)
     root.handlers = [stderr]
 
     if logfile:
-        fHandler = logging.FileHandler(logfile)
-        fHandler.setFormatter(formatter)
-        root.addHandler(fHandler)
+        fhandler = logging.FileHandler(logfile)
+        fhandler.setFormatter(formatter)
+        root.addHandler(fhandler)
