@@ -898,16 +898,16 @@ class LLRPClient(LineReceiver):
                         'N': 1,
                     },
                     'KeepaliveSpec': {
-                        'KeepaliveTriggerType' : 1,
-                        'TimeInterval' : 120000
+                        'KeepaliveTriggerType' : 0,
+                        'TimeInterval' : 12000
                     },                    
                     'EventsAndReports': {
                         'Type':226,
                         'HoldEventsAndReportsUponReconnect': False
                     },
                     'ImpinjLinkMonitorConfiguration':{
-                        'LinkMonitorMode' : 1,
-                        'LinkDownThreshold' : 10
+                        'LinkMonitorMode' : 0,
+                        'LinkDownThreshold' : 5
                     },                    
                     'ImpinjPlacementConfiguration':{                       
                         'HeightCm' : height,
@@ -948,15 +948,15 @@ class LLRPClient(LineReceiver):
                         'N': 1
                     },
                     'KeepaliveSpec': {
-                        'KeepaliveTriggerType' : 1,
-                        'TimeInterval' : 120000
+                        'KeepaliveTriggerType' : 0,
+                        'TimeInterval' : 10000
                     },
                     'EventsAndReports': {
                         'Type':226,
                         'HoldEventsAndReportsUponReconnect': False
                     },
                     'ImpinjLinkMonitorConfiguration':{
-                        'LinkMonitorMode' : 1,
+                        'LinkMonitorMode' : 0,
                         'LinkDownThreshold' : 10
                     },
                     # 'ImpinjPlacementConfiguration':{
