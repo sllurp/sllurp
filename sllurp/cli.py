@@ -74,11 +74,19 @@ def cli(debug, logfile):
                help="Port of MQTT broker")
 @click.option('--mqtt-topic',type=str,
                help="MQTT topic to publish")
+@click.option('--http-server',is_flag=True,default=False,
+               help="enable HTTP server with REST endpoint")
+@click.option('--http-port', default=8080)
+@click.option('--tag_age_interval',type=int,default=10,
+               help="Time in seconds for which the tag must \
+               not be read (seen) before it is considered to \
+               have exited from the field of view.")
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               modulation, tari, session, mode_identifier,
               tag_population, reconnect,
               impinj_extended_configuration,
-              impinj_search_mode, impinj_reports, mqtt_broker, mqtt_port, mqtt_topic):
+              impinj_search_mode, impinj_reports, mqtt_broker, mqtt_port, mqtt_topic,
+              http_server, http_port, tag_age_interval):
     """Conduct inventory (searching the area around the antennas)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
@@ -88,7 +96,8 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'impinj_extended_configuration',
                                'impinj_search_mode',
                                'impinj_reports',
-                               'mqtt_broker', 'mqtt_port', 'mqtt_topic'])
+                               'mqtt_broker', 'mqtt_port', 'mqtt_topic',
+                               'http_server', 'http_port', 'tag_age_interval'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
@@ -99,7 +108,10 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 impinj_reports=impinj_reports,
                 mqtt_broker=mqtt_broker,
                 mqtt_port=mqtt_port,
-                mqtt_topic=mqtt_topic)
+                mqtt_topic=mqtt_topic,
+                http_server=http_server,
+                http_port=http_port,
+                tag_age_interval=tag_age_interval)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
 
@@ -211,7 +223,7 @@ def location(host, port, antennas, tx_power,modulation, tari,
     """Conduct tag localization (Impinj xArray)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
-                               'tx_power', 'modulation', 'tari', 'mode_identifier','reconnect', 
+                               'tx_power', 'modulation', 'tari', 'mode_identifier','reconnect',
                                'mqtt_broker', 'mqtt_port', 'mqtt_topic',
                                'time', 'compute_window','tag_age_interval','height','facility_x_loc','facility_y_loc',
                                'orientation'])
@@ -271,7 +283,7 @@ def direction(host, port, antennas, tx_power, modulation, tari,
     """1D tag tracking (Impinj xArray/xSpan)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
-                               'tx_power','modulation','tari','mode_identifier','reconnect', 
+                               'tx_power','modulation','tari','mode_identifier','reconnect',
                                'mqtt_broker', 'mqtt_port', 'mqtt_topic',
                                'time', 'tag_age_interval', 'enable_sector_id'])
     args = Args(host=host, port=port,

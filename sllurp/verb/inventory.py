@@ -12,15 +12,16 @@ import json
 from sllurp.util import monotonic
 from sllurp.llrp import LLRPClientFactory
 from sllurp.llrp_proto import Modulation_DefaultTari
-
+from sllurp.verb.http_server import httpServer
 start_time = None
 
 numtags = 0
 logger = logging.getLogger(__name__)
 client = None
 topic = None
-
-
+http = None
+tagList = []
+tag_age_interval = 10 * 1000000 # 2 secs in micro seconds
 def finish(*args):
     runtime = monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
@@ -28,12 +29,13 @@ def finish(*args):
     if reactor.running:
         reactor.stop()
 
-
-def shutdown(factory):
+def shutdown(factory,http):
+    if http:
+        logger.info("stopping http")
+        http.stopServer()
     if client:
-      client.disconnect()
+        client.disconnect()
     return factory.politeShutdown()
-
 
 def tag_report_cb(llrp_msg):
     """Function to run each time the reader reports seeing tags."""
@@ -42,7 +44,13 @@ def tag_report_cb(llrp_msg):
     if len(tags):
         payload = pprint.pformat(tags).replace('\'','\"')
         payload = payload.replace('b\"','\"')
-        logger.info('saw tag(s): %s', payload)
+        logger.debug('saw tag(s): %s', payload)
+        if http:
+            tag = {
+                'id' : tags['EPC-96'].decode('ascii'),
+                'timestamp': tags['LastSeenTimestampUTC'][0]
+            }
+            processTagList(tag)
         # for tag in tags:
         #     numtags += tag['TagSeenCount'][0]
         if (client and topic ):
@@ -52,12 +60,34 @@ def tag_report_cb(llrp_msg):
         logger.info('no tags seen')
         return
 
+def processTagList(tag):
+    global tagList
+    foundTag,index = listSearch(tag['id'],'id',tagList)
+    logger.info(foundTag)
+    if foundTag:
+        foundTag['timestamp'] = tag['timestamp']
+    else:
+        tagList.append(tag)
+    #remove old tags
+    for index, foundTag in enumerate(tagList):
+        if abs(foundTag['timestamp'] - tag['timestamp'] > tag_age_interval):
+            del tagList[index]
+    logger.info(tagList)
+
+def listSearch(name,key,lst):
+    for index, item in enumerate(lst):
+        if item[key] == name:
+            return item, index
+    return False,False
+
 def on_connect(client, userdata, flags, rc):
     print("Connected to MQTT BROKER with result code "+str(rc))
 
 def main(args):
     global start_time
-
+    global isHTTPEnabled
+    global tag_age_interval
+    global http
     if not args.host:
         logger.info('No readers specified.')
         return 0
@@ -146,10 +176,15 @@ def main(args):
             port = args.port
         reactor.connectTCP(host, port, fac, timeout=3)
 
-    # catch ctrl-C and stop inventory before disconnecting
-    reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
-
     # start runtime measurement to determine rates
     start_time = monotonic()
+
+    # catch ctrl-C and stop inventory before disconnecting
+    reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac, http)
+
+    if(args.http_server):
+        tag_age_interval = args.tag_age_interval
+        http = httpServer(tagList,args.http_port)
+        http.startServer()
 
     reactor.run()
