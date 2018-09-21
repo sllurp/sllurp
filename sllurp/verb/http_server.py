@@ -29,7 +29,8 @@ class httpServer:
 def httpGetTags():
     data = [item['id'] for item in payload]
     return json.dumps(data)
-  
+
 @jsonrpc.method('gettags')
 def jsonRPCGetTags():
-    return json.dumps(payload)
+    data = [item['id'] for item in payload]
+    return json.dumps(data)
