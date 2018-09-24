@@ -447,10 +447,10 @@ class LLRPClient(LineReceiver):
             return
 
         if msgName == 'RO_ACCESS_REPORT':
-            if self.state != (LLRPClient.STATE_INVENTORYING or 
+            if self.state != (LLRPClient.STATE_INVENTORYING or
                 LLRPClient.STATE_LOCALIZING or LLRPClient.STATE_DIRECTIONING):
                     logger.debug('ignoring RO_ACCESS_REPORT because not inventorying or localizing or directioning')
-                    logger.debug(self.state)            
+                    logger.debug(self.state)
             return
 
         if msgName == 'READER_EVENT_NOTIFICATION' and \
@@ -866,7 +866,7 @@ class LLRPClient(LineReceiver):
             'EnableLastSeenTimestamp': False,
             'EnableTagSeenCount': False,
             'EnableAccessSpecID': False,
-        }       
+        }
         if start_mode == "location":
             logger.info("setting reader config to location")
             self.sendMessage({
@@ -900,7 +900,7 @@ class LLRPClient(LineReceiver):
                     'KeepaliveSpec': {
                         'KeepaliveTriggerType' : 0,
                         'TimeInterval' : 12000
-                    },                    
+                    },
                     'EventsAndReports': {
                         'Type':226,
                         'HoldEventsAndReportsUponReconnect': False
@@ -908,14 +908,14 @@ class LLRPClient(LineReceiver):
                     'ImpinjLinkMonitorConfiguration':{
                         'LinkMonitorMode' : 0,
                         'LinkDownThreshold' : 5
-                    },                    
-                    'ImpinjPlacementConfiguration':{                       
+                    },
+                    'ImpinjPlacementConfiguration':{
                         'HeightCm' : height,
-                        'FacilityYLocationCm': facility_x_loc, 
+                        'FacilityYLocationCm': facility_x_loc,
                         'FacilityXLocationCm': facility_y_loc,
                         'OrientationDegrees': orientation
                     },
-                    'ImpinjLocationReporting':{         
+                    'ImpinjLocationReporting':{
                         'EnableUpdateReport': True,
                         'EnableEntryReport' : False,
                         'EnableExitReport': False,
@@ -961,13 +961,13 @@ class LLRPClient(LineReceiver):
                     },
                     # 'ImpinjPlacementConfiguration':{
                     #     'VendorID': 25882,
-                    #     'Subtype': 1540,                        
+                    #     'Subtype': 1540,
                     #     'HeightCm' : 0,
                     #     'FacilityYLocationCm': 0,
                     #     'FacilityXLocationCm': 0,
                     #     'OrientationDegrees': 0
                     # },
-                    'ImpinjDirectionReporting':{          
+                    'ImpinjDirectionReporting':{
                         'EnableUpdateReport': False,
                         'EnableEntryReport' : False,
                         'EnableExitReport': True,
@@ -1023,7 +1023,7 @@ class LLRPClient(LineReceiver):
                         'ID':   0,
                         'ROSpecID': rospec['ROSpecID'],
                         'ROSpec': rospec,
-                    }})                
+                    }})
             else:
                 logger.debug("send_ADD_ROSPEC_INVENTORY")
                 self.sendMessage({
@@ -1033,7 +1033,7 @@ class LLRPClient(LineReceiver):
                         'ID':   0,
                         'ROSpecID': rospec['ROSpecID'],
                         'ROSpec': rospec,
-                    }})                
+                    }})
         except Exception as ex:
             logger.exception(ex)
         logger.debug('sent ADD_ROSPEC')
@@ -1457,7 +1457,7 @@ class LLRPClient(LineReceiver):
         elif needs_update and self.state == LLRPClient.STATE_LOCALIZING:
             logger.debug('changing tx power; will stop politely, then resume')
             d = self.stopPolitely()
-            d.addCallback(self.startLocation, force_regen_rospec=True)            
+            d.addCallback(self.startLocation, force_regen_rospec=True)
 
     def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
         """Pause an inventory operation for a set amount of time."""

@@ -3815,7 +3815,6 @@ def encode_ImpinjLISpec(par):
 
     data = encode('ImpinjLocationConfig')(par['ImpinjLocationConfig'])
     data += encode('ImpinjC1G2LocationConfig')(par['ImpinjC1G2LocationConfig'])
-    
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
@@ -3972,7 +3971,7 @@ Message_struct['ImpinjLocationReportData'] = {
         #'ImpinjLocationConfidence'
     ],
     'decode': decode_ImpinjLocationReportData
-}   
+}
 
 
 def decode_ImpinjLocationConfidence(data):
@@ -4004,7 +4003,7 @@ def encode_ImpinjDISpec(par):
         'Subtype': msg_struct_param['subtype'],
         'Payload' : data
     }
-    return encode('CustomParameter')(custom_par)    
+    return encode('CustomParameter')(custom_par)
 
 
 Message_struct['ImpinjDISpec'] = {

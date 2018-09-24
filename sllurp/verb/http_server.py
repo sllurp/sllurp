@@ -30,7 +30,17 @@ def httpGetTags():
     data = [item['id'] for item in payload]
     return json.dumps(data)
 
+@app.route("/deletetags")
+def httpDeleteTags():
+    del payload[:]
+    return "TagList Deleted"
+
 @jsonrpc.method('gettags')
 def jsonRPCGetTags():
     data = [item['id'] for item in payload]
     return json.dumps(data)
+
+@jsonrpc.method('deletetags')
+def jsonRPCDeleteTags():
+    del payload[:]
+    return u'TagList Deleted'

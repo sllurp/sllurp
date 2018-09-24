@@ -13,10 +13,12 @@ from sllurp.util import monotonic
 from sllurp.llrp import LLRPClientFactory
 from sllurp.llrp_proto import Modulation_DefaultTari
 from sllurp.verb.http_server import httpServer
+from apscheduler.schedulers.background import BackgroundScheduler
 start_time = None
-
+sched = BackgroundScheduler()
 numtags = 0
 logger = logging.getLogger(__name__)
+logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 client = None
 topic = None
 http = None
@@ -50,29 +52,35 @@ def tag_report_cb(llrp_msg):
                 'id' : tags['EPC-96'].decode('ascii'),
                 'timestamp': tags['LastSeenTimestampUTC'][0]
             }
-            processTagList(tag)
+            addToTagList(tag)
         # for tag in tags:
         #     numtags += tag['TagSeenCount'][0]
         if (client and topic ):
             logger.info("sending mqtt")
             client.publish(topic, payload=(payload), qos=0, retain=False)
+        logger.info(tagList)
     else:
         logger.info('no tags seen')
+        logger.info(tagList)
         return
 
-def processTagList(tag):
+def addToTagList(tag):
     global tagList
-    foundTag,index = listSearch(tag['id'],'id',tagList)
+    foundTag,_ = listSearch(tag['id'],'id',tagList)
     logger.info(foundTag)
     if foundTag:
         foundTag['timestamp'] = tag['timestamp']
     else:
         tagList.append(tag)
+    
+def cleanTagList():
+    global tagList
     #remove old tags
+    scale_factor = 1000000 #seconds to microseconds
     for index, foundTag in enumerate(tagList):
-        if abs(foundTag['timestamp'] - tag['timestamp'] > tag_age_interval):
+        if abs(time.time() * scale_factor - foundTag['timestamp']) > tag_age_interval * scale_factor:
+            logger.info("delete old tag")
             del tagList[index]
-    logger.info(tagList)
 
 def listSearch(name,key,lst):
     for index, item in enumerate(lst):
@@ -85,7 +93,6 @@ def on_connect(client, userdata, flags, rc):
 
 def main(args):
     global start_time
-    global isHTTPEnabled
     global tag_age_interval
     global http
     if not args.host:
@@ -185,6 +192,8 @@ def main(args):
     if(args.http_server):
         tag_age_interval = args.tag_age_interval
         http = httpServer(tagList,args.http_port)
+        sched.add_job(cleanTagList, 'interval', seconds=tag_age_interval)
+        sched.start()
         http.startServer()
 
     reactor.run()
