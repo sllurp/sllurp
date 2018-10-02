@@ -42,15 +42,19 @@ def shutdown(factory,http):
 def tag_report_cb(llrp_msg):
     """Function to run each time the reader reports seeing tags."""
     global numtags
-    tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
-    if len(tags):
-        payload = pprint.pformat(tags).replace('\'','\"')
-        payload = payload.replace('b\"','\"')
+    payload = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
+    if len(payload):
+        tags = pprint.pformat(payload).replace('\'','\"')
+        tags = tags.replace('b\"','\"')
         logger.debug('saw tag(s): %s', payload)
         if http:
+            if  payload.get("EPCData").get('EPC-96'):
+                epc = payload["EPCData"]['EPC-96'].decode('ascii')
+            elif payload.get("EPCData").get('EPC'):
+                epc = payload["EPCData"]['EPC'].decode('ascii')
             tag = {
-                'id' : tags['EPC-96'].decode('ascii'),
-                'timestamp': tags['LastSeenTimestampUTC'][0]
+                'id' : epc,
+                'timestamp': payload['LastSeenTimestampUTC'][0]
             }
             addToTagList(tag)
         # for tag in tags:
