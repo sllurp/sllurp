@@ -3697,10 +3697,11 @@ def encode_ImpinjFixedFrequencyListParameter(par):
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype']
     }
+    channellist = par.get('ChannelListIndex')
     payload = struct.pack('!H', par.get('FixedFrequencyMode'))
     payload += struct.pack('!H', 0) # Reserved space
-    payload += struct.pack('!H', par.get('ChannelListCount'))
-    for index in par.get('ChannelListIndex'):
+    payload += struct.pack('!H', len(channellist))
+    for index in channellist:
         payload += struct.pack('!H', index)
     custom_par['Payload'] = payload
 
@@ -3973,8 +3974,6 @@ class LLRPROSpec(dict):
                     ['ImpinjFixedFrequencyListParameter'] = {
                         'FixedFrequencyMode': 
                             impinj_fixed_frequency_param['FixedFrequencyMode'],
-                        'ChannelListCount': 
-                            impinj_fixed_frequency_param['ChannelListCount'],
                         'ChannelListIndex': 
                             impinj_fixed_frequency_param['ChannelListIndex']
                     }

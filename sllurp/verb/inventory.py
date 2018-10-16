@@ -113,7 +113,6 @@ def main(args):
     if args.impinj_fixed_freq:
         factory_args['impinj_fixed_frequency_param'] = {
             'FixedFrequencyMode': 2,
-            'ChannelListCount': 1,
             'ChannelListIndex': [1]
         }
 
