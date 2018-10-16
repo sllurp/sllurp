@@ -3841,7 +3841,8 @@ class LLRPROSpec(dict):
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
-                 impinj_search_mode=None, impinj_tag_content_selector=None):
+                 impinj_search_mode=None, impinj_tag_content_selector=None,
+                 impinj_fixed_frequency_param=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3967,12 +3968,16 @@ class LLRPROSpec(dict):
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
 
-            antconf['C1G2InventoryCommand']\
-                ['ImpinjFixedFrequencyListParameter'] = {
-                    'FixedFrequencyMode': 2,
-                    'ChannelListCount': 1,
-                    'ChannelListIndex': 1
-                }
+            if impinj_fixed_frequency_param is not None:
+                antconf['C1G2InventoryCommand']\
+                    ['ImpinjFixedFrequencyListParameter'] = {
+                        'FixedFrequencyMode': 
+                            impinj_fixed_frequency_param['FixedFrequencyMode'],
+                        'ChannelListCount': 
+                            impinj_fixed_frequency_param['ChannelListCount'],
+                        'ChannelListIndex': 
+                            impinj_fixed_frequency_param['ChannelListIndex']
+                    }
 
             ips['AntennaConfiguration'].append(antconf)
 

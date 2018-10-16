@@ -173,7 +173,8 @@ class LLRPClient(LineReceiver):
                  session=2, tag_population=4,
                  impinj_extended_configuration=False,
                  impinj_search_mode=None,
-                 impinj_tag_content_selector=None):
+                 impinj_tag_content_selector=None,
+                 impinj_fixed_frequency_param=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -208,11 +209,13 @@ class LLRPClient(LineReceiver):
         if self.start_inventory:
             logger.info('will start inventory on connect')
         if (impinj_search_mode is not None or
-                impinj_tag_content_selector is not None):
+                impinj_tag_content_selector is not None or
+                impinj_fixed_frequency_param is not None):
             logger.info('Enabling Impinj extensions')
         self.impinj_extended_configuration = impinj_extended_configuration
         self.impinj_search_mode = impinj_search_mode
         self.impinj_tag_content_selector = impinj_tag_content_selector
+        self.impinj_fixed_frequency_param = impinj_fixed_frequency_param
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -468,7 +471,8 @@ class LLRPClient(LineReceiver):
 
             if (self.impinj_search_mode is not None or
                     self.impinj_tag_content_selector is not None or
-                    self.impinj_extended_configuration is not None):
+                    self.impinj_extended_configuration is not None or
+                    self.impinj_fixed_frequency_param is not None):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -1089,6 +1093,9 @@ class LLRPClient(LineReceiver):
         if self.impinj_tag_content_selector is not None:
             rospec_kwargs['impinj_tag_content_selector'] = \
                 self.impinj_tag_content_selector
+        if self.impinj_fixed_frequency_param is not None:
+            rospec_kwargs['impinj_fixed_frequency_param'] = \
+                self.impinj_fixed_frequency_param
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)
