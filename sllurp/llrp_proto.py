@@ -2480,6 +2480,9 @@ def encode_C1G2InventoryCommand(par):
     if 'ImpinjInventorySearchModeParameter' in par:
         data += encode('ImpinjInventorySearchModeParameter')(
             par['ImpinjInventorySearchModeParameter'])
+    if 'ImpinjFixedFrequencyListParameter' in par:
+        data += encode('ImpinjFixedFrequencyListParameter')(
+            par['ImpinjFixedFrequencyListParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -2494,7 +2497,8 @@ Message_struct['C1G2InventoryCommand'] = {
         'C1G2RFControl',
         'C1G2SingulationControl',
         # XXX custom parameters
-        'ImpinjInventorySearchModeParameter'
+        'ImpinjInventorySearchModeParameter',
+        'ImpinjFixedFrequencyListParameter'
     ],
     'encode': encode_C1G2InventoryCommand
 }
@@ -3687,6 +3691,32 @@ Message_struct['ImpinjInventorySearchModeParameter'] = {
     'encode': encode_ImpinjInventorySearchModeParameter
 }
 
+def encode_ImpinjFixedFrequencyListParameter(par):
+    msg_struct_param = Message_struct['ImpinjFixedFrequencyListParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype']
+    }
+    payload = struct.pack('!H', par.get('FixedFrequencyMode'))
+    payload += struct.pack('!H', 0) # Reserved space
+    payload += struct.pack('!H', par.get('ChannelListCount'))
+    for index in par.get('ChannelListIndex'):
+        payload += struct.pack('!H', index)
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjFixedFrequencyListParameter'] = {
+    'vendorid': 25882,
+    'subtype': 26,
+    'fields': [
+        'FixedFrequencyMode',
+        'Reserved',
+        'ChannelListCount',
+        'ChannelListIndex'
+    ],
+    'encode': encode_ImpinjFixedFrequencyListParameter
+}
 
 def encode_ImpinjTagReportContentSelectorParameter(par):
     msg_struct_param = Message_struct['ImpinjTagReportContentSelectorParameter']
@@ -3936,6 +3966,13 @@ class LLRPROSpec(dict):
                 logger.info('impinj_search_mode: %s', impinj_search_mode)
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
+
+            antconf['C1G2InventoryCommand']\
+                ['ImpinjFixedFrequencyListParameter'] = {
+                    'FixedFrequencyMode': 2,
+                    'ChannelListCount': 1,
+                    'ChannelListIndex': 1
+                }
 
             ips['AntennaConfiguration'].append(antconf)
 
