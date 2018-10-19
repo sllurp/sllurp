@@ -48,10 +48,13 @@ def tag_report_cb(llrp_msg):
         tags = tags.replace('b\"','\"')
         logger.debug('saw tag(s): %s', payload)
         if http:
-            if  payload.get("EPCData").get('EPC-96'):
-                epc = payload["EPCData"]['EPC-96'].decode('ascii')
-            elif payload.get("EPCData").get('EPC'):
-                epc = payload["EPCData"]['EPC'].decode('ascii')
+            if "EPC-96" in payload:
+                epc = payload.get('EPC-96').decode('ascii')
+            elif "EPCData" in payload:
+                if 'EPC-96' in payload.get("EPCData"):
+                    epc = payload["EPCData"]['EPC-96'].decode('ascii')
+                elif 'EPC' in payload.get("EPCData"):
+                    epc = payload["EPCData"]['EPC'].decode('ascii')
             tag = {
                 'id' : epc,
                 'timestamp': payload['LastSeenTimestampUTC'][0]
