@@ -40,14 +40,15 @@ def tag_report_cb(llrp_msg):
     global numtags
     tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['ImpinjExtendedTagInformation']
     if len(tags):
-        payload = pprint.pformat(tags).replace('\'','\"')
-        payload = payload.replace('b\"','\"')
-        logger.info('saw tag(s): %s', payload)
-        # for tag in tags:
-        #     numtags += tag['TagSeenCount'][0]
-        if (client and topic ):
-            logger.info("sending mqtt")
-            client.publish(topic, payload=(payload), qos=0, retain=False)
+        if(tags['Direction']['FirstSeenSectorID'] != tags['Direction']['LastSeenSectorID']):
+            payload = pprint.pformat(tags).replace('\'','\"')
+            payload = payload.replace('b\"','\"')
+            logger.info('saw tag(s): %s', payload)
+            # for tag in tags:
+            #     numtags += tag['TagSeenCount'][0]
+            if (client and topic ):
+                logger.info("sending mqtt")
+                client.publish(topic, payload=(payload), qos=0, retain=False)
     else:
         logger.info('no tags seen')
         return

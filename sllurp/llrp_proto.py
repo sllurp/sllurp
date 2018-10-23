@@ -4166,7 +4166,7 @@ def decode_ImpinjDirectionReportData(data):
     logger.debug('ImpinjDirectionReportData input data length %s', len(body))
     par['Type'], \
     par['TagPopulationStatus'],\
-    par['FirstSeenSector'],\
+    par['FirstSeenSectorID'],\
     par['FirstSeenTimeStampUTC'],\
     par['LastSeenSectorID'],\
     par['LastSeenTimestampUTC'],\
