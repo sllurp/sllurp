@@ -23,7 +23,7 @@ client = None
 topic = None
 http = None
 tagList = []
-tag_age_interval = 10 * 1000000 # 2 secs in micro seconds
+tag_age_interval = 10 # 2 secs in micro seconds
 def finish(*args):
     runtime = monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
@@ -64,7 +64,7 @@ def tag_report_cb(llrp_msg):
         #     numtags += tag['TagSeenCount'][0]
         if (client and topic ):
             logger.info("sending mqtt")
-            client.publish(topic, payload=(payload), qos=0, retain=False)
+            client.publish(topic, payload=(tags), qos=0, retain=False)
         logger.info(tagList)
     else:
         logger.info('no tags seen')
