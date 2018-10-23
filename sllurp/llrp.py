@@ -184,7 +184,8 @@ class LLRPClient(LineReceiver):
                  facility_x_loc=0,
                  facility_y_loc=0,
                  orientation=0,
-                 enable_sector_id=[2,2,6]):
+                 enable_sector_id=[2,2,6],
+                 field_of_view=2):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -236,6 +237,7 @@ class LLRPClient(LineReceiver):
         self.facility_y_loc = facility_y_loc
         self.orientation = orientation
         self.enable_sector_id = enable_sector_id
+        self.field_of_view = field_of_view
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
 
@@ -1267,7 +1269,7 @@ class LLRPClient(LineReceiver):
         enabled_rospec.addCallback(self.send_START_ROSPEC, rospec,
                                    onCompletion=start_rospec)
         enabled_rospec.addErrback(self.panic, 'ENABLE_ROSPEC failed')
-       
+
 
         added_rospec = defer.Deferred()
         added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
@@ -1326,7 +1328,8 @@ class LLRPClient(LineReceiver):
             update_interval=self.update_interval,
             compute_window=self.compute_window,
             tag_age_interval=self.tag_age_interval,
-            enable_sector_id=self.enable_sector_id
+            enable_sector_id=self.enable_sector_id,
+            field_of_view=self.field_of_view
         )
         logger.info(start_mode)
         rospec_kwargs['start_mode'] = start_mode
@@ -1373,7 +1376,7 @@ class LLRPClient(LineReceiver):
         d = defer.Deferred()
         d.addErrback(self.panic, 'DELETE_ROSPEC failed')
         self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
-        return d 
+        return d
 
     @staticmethod
     def parsePowerTable(uhfbandcap):

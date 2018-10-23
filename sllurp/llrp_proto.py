@@ -4119,7 +4119,7 @@ Message_struct['ImpinjC1G2DirectionConfig'] = {
         'ImpinjTransmitPower',
         'G1G2Filter'
     ],
-    'encode': encode_ImpinjC1G2DirectionConfig    
+    'encode': encode_ImpinjC1G2DirectionConfig
 }
 
 
@@ -4129,7 +4129,7 @@ def encode_ImpinjDirectionReporting(par):
     binary = boolListToBinString([par['EnableUpdateReport'],par['EnableEntryReport'],par['EnableExitReport'],par['EnableDiagnosticReport']])
     binary = int(binary,2) << 4
     binary = binary & 0xf0
-    data = struct.pack ('!B', binary) 
+    data = struct.pack ('!B', binary)
     data += struct.pack('!B', 0x00)
 
     custom_par = {
@@ -4150,7 +4150,7 @@ Message_struct['ImpinjDirectionReporting'] = {
         'EnableDiagnosticReport',
         'DiagnosticReportLevel'
     ],
-    'encode': encode_ImpinjDirectionReporting   
+    'encode': encode_ImpinjDirectionReporting
 }
 
 
@@ -4225,7 +4225,6 @@ def decode_ImpinjExtendedTagInformation(data):
             logger.debug('EPC-96: %s', epc_data['EPC'])
         else:
             raise LLRPError('missing or invalid EPCData parameter')
-    
 
     logger.debug("ImpinjExtendedTagInformation body %s", body)
     report_body, subtype, loc_confidence_data = ImpinjExtendedTagInformationExtractor(body)
@@ -4264,13 +4263,13 @@ Message_struct['ImpinjExtendedTagInformation'] = {
         #'ImpinjLocationConfidence',
     ],
     'decode': decode_ImpinjExtendedTagInformation
-}   
+}
 
 
 def ImpinjExtendedTagInformationExtractor(data):
     unused_data = []
     header = data[0:par_header_len]
-    msgtype,length = struct.unpack(par_header, header) 
+    msgtype,length = struct.unpack(par_header, header)
     #the length returned is for the rest of the msg and not this particular section of the msg, this is a problem
     if msgtype != 1023:
         logger.debug('ImpinjExtendedTagInformationExtractor found msgtype %s', msgtype)
@@ -4372,7 +4371,7 @@ def encode_ImpinjLinkMonitorConfiguration(par):
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
         'Payload': data
-    }    
+    }
     return encode('CustomParameter')(custom_par)
 
 Message_struct['ImpinjLinkMonitorConfiguration'] = {
@@ -4432,7 +4431,7 @@ class LLRPROSpec(dict):
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
                  impinj_search_mode=None, impinj_tag_content_selector=None,
-                update_interval=20, compute_window=5, tag_age_interval=2, enable_sector_id=[2,2,6]):
+                update_interval=20, compute_window=5, tag_age_interval=2, enable_sector_id=[2,2,6], field_of_view=2):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -4494,9 +4493,9 @@ class LLRPROSpec(dict):
                         'DurationTriggerValue': 0,
                     }
                 },
-                'ImpinjLISpec': {                  
+                'ImpinjLISpec': {
                     'ImpinjLocationConfig': {
-                        'UpdateIntervalSeconds' : update_interval, 
+                        'UpdateIntervalSeconds' : update_interval,
                         'ComputeWindowSeconds': compute_window,
                         'TagAgeIntervalSeconds': tag_age_interval
                     },
@@ -4505,7 +4504,7 @@ class LLRPROSpec(dict):
                         'Session' : 2,            #b'10
                     },
                     'ImpinjTransmitPower':{
-                        'TransmitPower': tx_power                   
+                        'TransmitPower': tx_power
                     }
                 },
                 'ROReportSpec': {
@@ -4515,7 +4514,7 @@ class LLRPROSpec(dict):
                 }
 
             }
-            
+
         elif start_mode == "direction":
             logger.info("sending ROSpec for direction")
             logger.info(enable_sector_id)
@@ -4527,7 +4526,7 @@ class LLRPROSpec(dict):
                     'ROSpecStartTrigger': {
                         'ROSpecStartTriggerType': 'Null',
                     },
-                    'ROSpecStopTrigger': { 
+                    'ROSpecStopTrigger': {
                         'ROSpecStopTriggerType': 'Null',
                         'DurationTriggerValue': 0,
                     }
@@ -4539,7 +4538,7 @@ class LLRPROSpec(dict):
                     'ImpinjDirectionConfig' : {
                         'TagAgeIntervalSeconds' : tag_age_interval,
                         'UpdateIntervalSeconds' : update_interval,
-                        'FieldOfView' : 2,
+                        'FieldOfView' : field_of_view,
                         'ImpinjDirectionUserTagPopulationLimit': {
                             'UserTagPopulationLimit' : 20
                         }
@@ -4547,7 +4546,7 @@ class LLRPROSpec(dict):
                     'ImpinjC1G2DirectionConfig' : {
                         'RFMode': 1,
                         'ImpinjTransmitPower':{
-                            'TransmitPower': 81                   
+                            'TransmitPower': 81
                         }
                         # 'C1G2Filter': 0
                         # 'G1G2FilterParameter' : 0x0d020001

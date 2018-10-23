@@ -19,7 +19,7 @@ numtags = 0
 logger = logging.getLogger(__name__)
 client = None
 topic = None
-
+field_of_view = 1
 
 def finish(*args):
     runtime = monotonic() - start_time
@@ -115,7 +115,8 @@ def main(args):
         impinj_tag_content_selector=None,
         tag_age_interval=args.tag_age_interval,
         update_interval=args.time,
-        enable_sector_id=args.enable_sector_id
+        enable_sector_id=args.enable_sector_id,
+        field_of_view=args.field_of_view
     )
 
     if(args.mqtt_broker):

@@ -228,17 +228,17 @@ def location(host, port, antennas, tx_power,modulation, tari,
                                'time', 'compute_window','tag_age_interval','height','facility_x_loc','facility_y_loc',
                                'orientation'])
     args = Args(host=host, port=port,
-                antennas=antennas, 
+                antennas=antennas,
                 tx_power=tx_power,
                 modulation=modulation,
                 tari=tari,
                 mode_identifier=mode_identifier,
                 reconnect=reconnect,
-				mqtt_broker=mqtt_broker,
+                mqtt_broker=mqtt_broker,
                 mqtt_port=mqtt_port,
                 mqtt_topic=mqtt_topic,
                 tag_age_interval=tag_age_interval,
-                time=time, 
+                time=time,
                 compute_window=compute_window,
                 height=height,
                 facility_x_loc=facility_x_loc,
@@ -277,28 +277,31 @@ def location(host, port, antennas, tx_power,modulation, tari,
                 help="How fast in seconds do we want an update")
 @click.option('--enable_sector_id',cls=PythonLiteralOption, default=[2,2,6],
                 help="List of sector id to enable to detecting tags (4 max)")
+@click.option('--field_of_view',type=int, default=0,
+                help="field of view of the antenna : 0 = auto, 1 = narrow, 2 = wide")
 def direction(host, port, antennas, tx_power, modulation, tari,
               reconnect, mode_identifier, mqtt_broker, mqtt_port, mqtt_topic,
-              tag_age_interval, time, enable_sector_id):
+              tag_age_interval, time, enable_sector_id,field_of_view):
     """1D tag tracking (Impinj xArray/xSpan)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
                                'tx_power','modulation','tari','mode_identifier','reconnect',
                                'mqtt_broker', 'mqtt_port', 'mqtt_topic',
-                               'time', 'tag_age_interval', 'enable_sector_id'])
+                               'time', 'tag_age_interval', 'enable_sector_id', 'field_of_view'])
     args = Args(host=host, port=port,
-                antennas=antennas, 
+                antennas=antennas,
                 tx_power=tx_power,
                 modulation=modulation,
                 tari=tari,
                 mode_identifier=mode_identifier,
                 reconnect=reconnect,
-				mqtt_broker=mqtt_broker,
+                mqtt_broker=mqtt_broker,
                 mqtt_port=mqtt_port,
                 mqtt_topic=mqtt_topic,
                 tag_age_interval=tag_age_interval,
                 time=time,
-                enable_sector_id=enable_sector_id)
+                enable_sector_id=enable_sector_id,
+                field_of_view=field_of_view)
     logger.debug('direction args: %s', args)
     _direction.main(args)
 
