@@ -7,14 +7,14 @@ services:
     image: llrp_location
     container_name: llrp_location
     environment:
-      - ANT_ADDR=10.10.31.170
+      - ANT_ADDR=10.10.90.39 10.10.90.40
       - INTERVAL=20
-      - MQTT_BROKER=localhost
-      - MQTT_TOPIC=llrp/1
+      - MQTT_BROKER=10.10.10.83
+      - MQTT_TOPIC=llrp/location
       - TX_POWER=81 #max
       - MODE=1003
       - COMPUTE_WINDOW=5
       - TAG_AGE_INTERVAL=30
         #restart: always
-    network_mode: host
+        #network_mode: host
 

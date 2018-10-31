@@ -7,10 +7,10 @@ services:
     image: llrp_direction
     container_name: llrp_direction
     environment:
-      - ANT_ADDR=10.10.31.170
+      - ANT_ADDR=10.10.90.39 10.10.90.40
       - INTERVAL=10
       - MQTT_BROKER=localhost
-      - MQTT_TOPIC=llrp/1
+      - MQTT_TOPIC=llrp/direction
       - TX_POWER=81 #max
       - TAG_AGE_INTERVAL=4
       - ENABLE_SECTOR_ID=[2,2,6]

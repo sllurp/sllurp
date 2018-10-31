@@ -22,7 +22,7 @@ install_deps = [
     'monotonic;python_version<"3.3"',
     'twisted',
     'paho-mqtt',
-    'flask',
+    'Flask>=1.0.2',
     'apscheduler',
     'Flask-JSONRPC'
 ]

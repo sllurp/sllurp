@@ -77,7 +77,7 @@ def cli(debug, logfile):
 @click.option('--http-server',is_flag=True,default=False,
                help="enable HTTP server with REST endpoint")
 @click.option('--http-port', default=8080)
-@click.option('--tag_age_interval',type=int,default=10,
+@click.option('--tag-age-interval',type=int,default=10,
                help="Time in seconds for which the tag must \
                not be read (seen) before it is considered to \
                have exited from the field of view.")
