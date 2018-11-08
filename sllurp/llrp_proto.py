@@ -27,7 +27,7 @@ from __future__ import unicode_literals
 import logging
 import struct
 from collections import defaultdict
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
@@ -2523,6 +2523,29 @@ Message_struct['C1G2Filter'] = {
     'encode': encode_C1G2Filter
 }
 
+# 16.3.1.2.1.1.1 C1G2TagInventoryMask Parameter
+def encode_C1G2TagInventoryMask(par):
+    msgtype = Message_struct['C1G2TagInventoryMask']['type']
+    msg_header = '!HH'
+    maskbitcount = len(par['TagMask'])*4
+    data = struct.pack('!B', par['MB'] << 6)
+    data += struct.pack('!H', par['Pointer'])
+    if maskbitcount:
+        data += struct.pack('!H', maskbitcount)
+        data += unhexlify(par['TagMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['C1G2TagInventoryMask'] = {
+    'type': 332,
+    'fields': [
+        'MB',
+        'Pointer',
+        'TagMask'
+    ],
+    'encode': encode_C1G2TagInventoryMask
+}
 
 # 16.3.1.2.1.2 C1G2RFControl Parameter
 def encode_C1G2RFControl(par):
