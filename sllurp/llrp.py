@@ -171,6 +171,7 @@ class LLRPClient(LineReceiver):
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
+                 tag_filter_mask=None,
                  impinj_extended_configuration=False,
                  impinj_search_mode=None,
                  impinj_tag_content_selector=None):
@@ -195,6 +196,7 @@ class LLRPClient(LineReceiver):
         self.session = session
         self.tag_population = tag_population
         self.mode_identifier = mode_identifier
+        self.tag_filter_mask = tag_filter_mask
         self.antennas = antennas
         self.duration = duration
         self.peername = None
@@ -1083,6 +1085,8 @@ class LLRPClient(LineReceiver):
             tari=self.tari,
             tag_population=self.tag_population
         )
+        if self.tag_filter_mask is not None:
+            rospec_kwargs['tag_filter_mask'] = self.tag_filter_mask
         logger.info('Impinj search mode? %s', self.impinj_search_mode)
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode

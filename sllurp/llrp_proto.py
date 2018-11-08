@@ -3845,7 +3845,7 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
-                 session=2, tag_population=4,
+                 session=2, tag_population=4, tag_filter_mask=None,
                  impinj_search_mode=None, impinj_tag_content_selector=None):
         # Sanity checks
         if rospecid <= 0:
@@ -3959,6 +3959,12 @@ class LLRPROSpec(dict):
                     },
                 }
             }
+            if tag_filter_mask:
+                antconf['C1G2InventoryCommand']['C1G2Filter']['C1G2TagInventoryMask'] = {
+                    'MB': 1,    # EPC bank
+                    'Pointer': 0x20,    # Third word starts the EPC ID
+                    'TagMask': tag_filter_mask
+                }
             if reader_mode:
                 rfcont = {
                     'ModeIndex': mode_index,
