@@ -2504,8 +2504,7 @@ Message_struct['C1G2InventoryCommand'] = {
 def encode_C1G2Filter(par):
     msgtype = Message_struct['C1G2Filter']['type']
     msg_header = '!HH'
-    data = struct.pack('!B', par['T'] << 6)
-    # data = struct.pack('!B', 0)
+    data = struct.pack('!B', Message_struct['C1G2Filter']['T'] << 6) # XXX: hardcoded trucation for now
     if 'C1G2TagInventoryMask' in par:
         data += encode('C1G2TagInventoryMask')(
             par['C1G2TagInventoryMask'])
@@ -3960,10 +3959,12 @@ class LLRPROSpec(dict):
                 }
             }
             if tag_filter_mask:
-                antconf['C1G2InventoryCommand']['C1G2Filter']['C1G2TagInventoryMask'] = {
-                    'MB': 1,    # EPC bank
-                    'Pointer': 0x20,    # Third word starts the EPC ID
-                    'TagMask': tag_filter_mask
+                antconf['C1G2InventoryCommand']['C1G2Filter'] = {
+                    'C1G2TagInventoryMask': {
+                        'MB': 1,    # EPC bank
+                        'Pointer': 0x20,    # Third word starts the EPC ID
+                        'TagMask': tag_filter_mask
+                    }
                 }
             if reader_mode:
                 rfcont = {
