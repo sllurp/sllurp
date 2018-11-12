@@ -2527,6 +2527,8 @@ def encode_C1G2TagInventoryMask(par):
     msgtype = Message_struct['C1G2TagInventoryMask']['type']
     msg_header = '!HH'
     maskbitcount = len(par['TagMask'])*4
+    if len(par['TagMask']) % 2 != 0:    # check for odd numbered length hexstring
+        par['TagMask'] += '0'           # pad with zero
     data = struct.pack('!B', par['MB'] << 6)
     data += struct.pack('!H', par['Pointer'])
     if maskbitcount:
