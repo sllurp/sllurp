@@ -49,6 +49,8 @@ def cli(debug, logfile):
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
+@click.option('--tag-filter-mask', type=str, default=None, 
+              help=('Filter inventory on EPC ID (or part of ID)'))
 @click.option('--impinj-extended-configuration', is_flag=True, default=False,
               help=('Get Impinj extended configuration values'))
 @click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
@@ -62,7 +64,7 @@ def cli(debug, logfile):
               'on operating region if possible)')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               modulation, tari, session, mode_identifier,
-              tag_population, reconnect,
+              tag_population, reconnect, tag_filter_mask,
               impinj_extended_configuration,
               impinj_search_mode, impinj_reports, impinj_fixed_freq):
     """Conduct inventory (searching the area around the antennas)."""
@@ -70,7 +72,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'modulation', 'tari', 'session',
                                'population', 'mode_identifier',
-                               'reconnect',
+                               'reconnect', 'tag_filter_mask',
                                'impinj_extended_configuration',
                                'impinj_search_mode',
                                'impinj_reports', 
@@ -79,7 +81,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
-                reconnect=reconnect,
+                reconnect=reconnect, tag_filter_mask=tag_filter_mask,
                 impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
                 impinj_reports=impinj_reports,
