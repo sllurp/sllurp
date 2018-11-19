@@ -2480,6 +2480,9 @@ def encode_C1G2InventoryCommand(par):
     if 'ImpinjInventorySearchModeParameter' in par:
         data += encode('ImpinjInventorySearchModeParameter')(
             par['ImpinjInventorySearchModeParameter'])
+    if 'ImpinjFixedFrequencyListParameter' in par:
+        data += encode('ImpinjFixedFrequencyListParameter')(
+            par['ImpinjFixedFrequencyListParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -2494,7 +2497,8 @@ Message_struct['C1G2InventoryCommand'] = {
         'C1G2RFControl',
         'C1G2SingulationControl',
         # XXX custom parameters
-        'ImpinjInventorySearchModeParameter'
+        'ImpinjInventorySearchModeParameter',
+        'ImpinjFixedFrequencyListParameter'
     ],
     'encode': encode_C1G2InventoryCommand
 }
@@ -3687,6 +3691,33 @@ Message_struct['ImpinjInventorySearchModeParameter'] = {
     'encode': encode_ImpinjInventorySearchModeParameter
 }
 
+def encode_ImpinjFixedFrequencyListParameter(par):
+    msg_struct_param = Message_struct['ImpinjFixedFrequencyListParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype']
+    }
+    channellist = par.get('ChannelListIndex')
+    payload = struct.pack('!H', par.get('FixedFrequencyMode'))
+    payload += struct.pack('!H', 0) # Reserved space
+    payload += struct.pack('!H', len(channellist))
+    for index in channellist:
+        payload += struct.pack('!H', index)
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjFixedFrequencyListParameter'] = {
+    'vendorid': 25882,
+    'subtype': 26,
+    'fields': [
+        'FixedFrequencyMode',
+        'Reserved',
+        'ChannelListCount',
+        'ChannelListIndex'
+    ],
+    'encode': encode_ImpinjFixedFrequencyListParameter
+}
 
 def encode_ImpinjTagReportContentSelectorParameter(par):
     msg_struct_param = Message_struct['ImpinjTagReportContentSelectorParameter']
@@ -3811,7 +3842,8 @@ class LLRPROSpec(dict):
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
-                 impinj_search_mode=None, impinj_tag_content_selector=None):
+                 impinj_search_mode=None, impinj_tag_content_selector=None,
+                 impinj_fixed_frequency_param=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3936,6 +3968,15 @@ class LLRPROSpec(dict):
                 logger.info('impinj_search_mode: %s', impinj_search_mode)
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
+
+            if impinj_fixed_frequency_param is not None:
+                antconf['C1G2InventoryCommand']\
+                    ['ImpinjFixedFrequencyListParameter'] = {
+                        'FixedFrequencyMode': 
+                            impinj_fixed_frequency_param['FixedFrequencyMode'],
+                        'ChannelListIndex': 
+                            impinj_fixed_frequency_param['ChannelListIndex']
+                    }
 
             ips['AntennaConfiguration'].append(antconf)
 

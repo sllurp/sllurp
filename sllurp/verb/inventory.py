@@ -110,6 +110,11 @@ def main(args):
             'EnablePeakRSSI': False,
             'EnableRFDopplerFrequency': False
         }
+    if args.impinj_fixed_freq:
+        factory_args['impinj_fixed_frequency_param'] = {
+            'FixedFrequencyMode': 2,
+            'ChannelListIndex': [1]
+        }
 
     fac = LLRPClientFactory(**factory_args)
 
