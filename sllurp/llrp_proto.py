@@ -27,7 +27,7 @@ from __future__ import unicode_literals
 import logging
 import struct
 from collections import defaultdict
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
@@ -2506,15 +2506,51 @@ Message_struct['C1G2InventoryCommand'] = {
 
 # 16.3.1.2.1.1 C1G2Filter Parameter
 def encode_C1G2Filter(par):
-    raise NotImplementedError
+    msgtype = Message_struct['C1G2Filter']['type']
+    msg_header = '!HH'
+    data = struct.pack('!B', Message_struct['C1G2Filter']['T'] << 6) # XXX: hardcoded trucation for now
+    if 'C1G2TagInventoryMask' in par:
+        data += encode('C1G2TagInventoryMask')(
+            par['C1G2TagInventoryMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
 
 
 Message_struct['C1G2Filter'] = {
     'type': 331,
-    'fields': [],
-    'encode': lambda: None
+    'T': 0,
+    'fields': [
+        'C1G2TagInventoryMask'
+    ],
+    'encode': encode_C1G2Filter
 }
 
+# 16.3.1.2.1.1.1 C1G2TagInventoryMask Parameter
+def encode_C1G2TagInventoryMask(par):
+    msgtype = Message_struct['C1G2TagInventoryMask']['type']
+    msg_header = '!HH'
+    maskbitcount = len(par['TagMask'])*4
+    if len(par['TagMask']) % 2 != 0:    # check for odd numbered length hexstring
+        par['TagMask'] += '0'           # pad with zero
+    data = struct.pack('!B', par['MB'] << 6)
+    data += struct.pack('!H', par['Pointer'])
+    if maskbitcount:
+        data += struct.pack('!H', maskbitcount)
+        data += unhexlify(par['TagMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['C1G2TagInventoryMask'] = {
+    'type': 332,
+    'fields': [
+        'MB',
+        'Pointer',
+        'TagMask'
+    ],
+    'encode': encode_C1G2TagInventoryMask
+}
 
 # 16.3.1.2.1.2 C1G2RFControl Parameter
 def encode_C1G2RFControl(par):
@@ -3841,7 +3877,7 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
-                 session=2, tag_population=4,
+                 session=2, tag_population=4, tag_filter_mask=None,
                  impinj_search_mode=None, impinj_tag_content_selector=None,
                  impinj_fixed_frequency_param=None):
         # Sanity checks
@@ -3956,6 +3992,14 @@ class LLRPROSpec(dict):
                     },
                 }
             }
+            if tag_filter_mask:
+                antconf['C1G2InventoryCommand']['C1G2Filter'] = {
+                    'C1G2TagInventoryMask': {
+                        'MB': 1,    # EPC bank
+                        'Pointer': 0x20,    # Third word starts the EPC ID
+                        'TagMask': tag_filter_mask
+                    }
+                }
             if reader_mode:
                 rfcont = {
                     'ModeIndex': mode_index,
