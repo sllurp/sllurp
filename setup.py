@@ -24,7 +24,8 @@ install_deps = [
     'paho-mqtt',
     'Flask>=1.0.2',
     'apscheduler',
-    'Flask-JSONRPC'
+    'Flask-JSONRPC',
+    'requests'
 ]
 
 
