@@ -217,16 +217,19 @@ def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
 @click.option('--orientation',type=int,default=0,
                 help="The relative orientation of the antennas X-Y coordinates \
                 relative to the Store X-Y coordinates in degrees")
+@click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
+              help=('Impinj extension: inventory search mode '
+                    ' (1=single, 2=dual)'))
 def location(host, port, antennas, tx_power,modulation, tari,
               reconnect, mode_identifier, mqtt_broker, mqtt_port, mqtt_topic,
-              tag_age_interval, time, compute_window,height, facility_x_loc, facility_y_loc, orientation):
+              tag_age_interval, time, compute_window,height, facility_x_loc, facility_y_loc, orientation, impinj_search_mode):
     """Conduct tag localization (Impinj xArray)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'antennas',
                                'tx_power', 'modulation', 'tari', 'mode_identifier','reconnect',
                                'mqtt_broker', 'mqtt_port', 'mqtt_topic',
                                'time', 'compute_window','tag_age_interval','height','facility_x_loc','facility_y_loc',
-                               'orientation'])
+                               'orientation','impinj_search_mode'])
     args = Args(host=host, port=port,
                 antennas=antennas,
                 tx_power=tx_power,
@@ -243,7 +246,8 @@ def location(host, port, antennas, tx_power,modulation, tari,
                 height=height,
                 facility_x_loc=facility_x_loc,
                 facility_y_loc=facility_y_loc,
-                orientation=orientation)
+                orientation=orientation,
+                impinj_search_mode=impinj_search_mode)
     logger.debug('location args: %s', args)
     _location.main(args)
 
