@@ -25,7 +25,12 @@ install_deps = [
     'Flask>=1.0.2',
     'apscheduler',
     'Flask-JSONRPC',
-    'requests'
+    'requests',
+    'dash'
+    'plotly',
+    'dash_core_components',
+    'dash_html_components',
+    'python-polylabel',
 ]
 
 
