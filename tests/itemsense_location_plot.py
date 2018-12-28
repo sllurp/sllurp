@@ -26,8 +26,8 @@ x_zones = []
 y_zones = []
 colors = []
 threads = []
-zonesCoords = [] # has the following structure [{x:[],y:[]},{x:[],y:[]}...] each dict is a zone
-zonesMid = [] #[[x,y],[x,y]...]
+zonesCoords = [] # has the following structure [{"name" : name , "x":[],"y":[]},{"x":[],"y":[]}...] each dict is a zone
+zonesMid = [] #[{"name": name, "x": x ,"y": y},{"name": name, "x": x ,"y": y}...] mid coords of each zone
 lock = threading.Lock()
 
 
@@ -44,13 +44,14 @@ def getCurrentZoneTest():
             yZonesPoints.append(point.get("y"))
 
     for zone in zones:
+        zoneName = zone.get("name")
         zonesPoints = zone.get("points")
         x = []
         y = []
         for point in zonesPoints:
             x.append(int(point.get("x") * 100))
             y.append(int(point.get("y") * 100))
-        z = {"x": x, "y" : y}
+        z = {"name": zoneName, "x": x, "y" : y}
         coords.append(z)
 
     return xZonesPoints, yZonesPoints, coords
@@ -95,12 +96,13 @@ def getCurrentZoneItemSense(itemsenseIP, zoneName):
     coords = []
     for zone in zones:
         zonesPoints = zone.get("points")
+        zoneName = zone.get("name")
         x = []
         y = []
         for point in zonesPoints:
             x.append(int(point.get("x") * 100))
             y.append(int(point.get("y") * 100))
-        z = {"x": x, "y" : y}
+        z = {"name": zoneName, "x": x, "y" : y}
         coords.append(z)
 
     mid = []
@@ -110,7 +112,7 @@ def getCurrentZoneItemSense(itemsenseIP, zoneName):
         tempList = list(zip(x_coords,y_coords))
         coords = [list(elem) for elem in tempList]
         middleCoords = polylabel([coords])
-        mid.append([middleCoords[0] / 100, middleCoords[1] / 100])
+        mid.append({"name": zone.get("name"), "x" : middleCoords[0] / 100, "y": middleCoords[1] / 100})
 
     return xZonesPoints, yZonesPoints, mid
 
