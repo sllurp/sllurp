@@ -1,0 +1,6 @@
+python-polylabel
+dash_core_components
+dash_html_components
+numpy
+plotly
+scikit-learn
