@@ -116,7 +116,7 @@ def getCurrentZoneItemSense(itemsenseIP, zoneName):
 
     return xZonesPoints, yZonesPoints, mid
 
-def getCurentTagsItemsense(itemsenseIP,jobID):
+def getCurrentTagsItemsense(itemsenseIP,jobID):
     global x_locations
     global y_locations
     while(True):
@@ -242,7 +242,7 @@ if __name__ == '__main__':
         t.start()
     else:
         x_zones, y_zones, zonesMid = getCurrentZoneItemSense(args.itemsenseIP,args.zoneName)
-        t = threading.Thread(target=getCurentTagsItemsense,args=(args.itemsenseIP,args.jobID,))
+        t = threading.Thread(target=getCurrentTagsItemsense,args=(args.itemsenseIP,args.jobID,))
         threads.append(t)
         t.start()
     app.run_server(debug=True,host='0.0.0.0')
