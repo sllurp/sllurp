@@ -99,7 +99,6 @@ def main(main_args):
 
     fac = llrp.LLRPClientFactory(onFinish=onFinish,
                                  disconnect_when_done=True,
-                                 modulation=args.modulation,
                                  tari=args.tari,
                                  session=args.session,
                                  tag_population=args.population,
