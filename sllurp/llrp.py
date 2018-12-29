@@ -328,15 +328,22 @@ class LLRPClient(LineReceiver):
         return conf
 
     def parseCapabilities(self, capdict):
-        """Parse a capabilities dictionary and adjust instance settings
+        """Parse a capabilities dictionary and adjust instance settings.
 
-           Sets the following instance variables:
-           - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
-           - self.tx_power_table (list of dBm values)
-           - self.reader_mode (dictionary of mode settings, e.g., Tari)
+        At the time this function is called, the user has requested some
+        settings (e.g., mode identifier), but we haven't yet asked the reader
+        whether those requested settings are within its capabilities. This
+        function's job is to parse the reader's capabilities, compare them
+        against any requested settings, and raise an error if there are any
+        incompatibilities.
 
-           Raises ReaderConfigurationError if requested settings are not within
-           reader's capabilities.
+        Sets the following instance variables:
+        - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
+        - self.tx_power_table (list of dBm values)
+        - self.reader_mode (dictionary of mode settings, e.g., Tari)
+
+        Raises ReaderConfigurationError if the requested settings are not
+        within the reader's capabilities.
         """
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
