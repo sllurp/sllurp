@@ -351,12 +351,12 @@ def decode_param(data):
         <decoded data>} and bytes is the remaining bytes trailing the bytes we
         could decode.
     """
-    logger.info('decode_param data: %r', data)
+    logger.debug('decode_param data: %r', data)
     header_len = struct.calcsize('!HH')
     partype, parlen = struct.unpack('!HH', data[:header_len])
 
     pardata = data[header_len:parlen]
-    logger.info('decode_param pardata: %r', pardata)
+    logger.debug('decode_param pardata: %r', pardata)
 
     ret = {
         'Type': partype,
@@ -3651,7 +3651,7 @@ def encode_CustomMessage(msg):
     subtype = msg['Subtype']
     payload = msg.get('Payload', struct.pack('!I', 0))
     data = struct.pack('!IB', vendor_id, subtype) + payload
-    logger.info('data: %s', hexlify(data))
+    # logger.debug('data: %s', hexlify(data))
     return data
 
 
