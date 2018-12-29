@@ -393,14 +393,15 @@ class LLRPClient(LineReceiver):
             except IndexError:
                 raise ReaderConfigurationError('Invalid modulation')
 
-        if self.tari:
-            if not self.reader_mode:
-                errstr = 'Cannot set Tari without choosing a reader mode'
-                raise ReaderConfigurationError(errstr)
-            if self.tari > self.reader_mode['MaxTari']:
-                errstr = ('Requested Tari is greater than MaxTari for selected'
-                          'mode {}'.format(self.reader_mode))
-                raise ReaderConfigurationError(errstr)
+        # if we're trying to set Tari explicitly, but the selected mode doesn't
+        # support the requested Tari, that's a configuration error.
+        if self.reader_mode and self.tari:
+            if self.reader_mode['MinTari'] < self.tari < self.reader_mode['MaxTari']:
+                logger.debug('Overriding mode Tari %s with requested Tari %s',
+                             self.reader_mode['MaxTari'], self.tari)
+            else:
+                errstr = ('Requested Tari {} is incompatible with selected '
+                          'mode {}'.format(self.tari, self.reader_mode))
 
         logger.info('using reader mode: %s', self.reader_mode)
 
