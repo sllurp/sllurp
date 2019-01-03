@@ -11,7 +11,7 @@ import plotly
 import threading
 import requests
 import argparse
-from urllib.parse import quote_plus as urlParse
+from urllib.parse import quote as urlParse
 import json
 import random
 from polylabel import polylabel
@@ -32,16 +32,16 @@ plot = []
 mapName = ""
 zonesCoords = [] # has the following structure [{"name" : name , "x":[],"y":[]},{"x":[],"y":[]}...] each dict is a zone
 zonesMid = [] #[{"name": name, "x": x ,"y": y},{"name": name, "x": x ,"y": y}...] mid coords of each zone
-graphUpdateInterval = 1
+graphUpdateInterval = 2000
 waitingStatus = ["WAITING","STARTING","INITIALIZING"]
+username = "admin"
+password = "mofasexy"
 lock = threading.Lock()
 
-
-def getJobStatus(jobID):
-    r = requests.get('http://' + urlParse(itemsenseIP) + '/control/v1/jobs/show/' + urlParse(jobID))
-    jsonResults = r.json()
+def getJobStatus(itemsenseIP,jobID):
+    request = 'http://' + urlParse(itemsenseIP) + '/itemsense/control/v1/jobs/show/' + urlParse(jobID)
+    jsonResults = requests.get(request,auth=(username, password)).json()
     return jsonResults.get("status")
-
 
 def getCurrentZoneTest():
     coords = []
@@ -77,7 +77,6 @@ def getCurrentZoneTest():
         middleCoords = polylabel([temp])
         mid.append({"name": zone.get("name"), "x" : middleCoords[0] / 100, "y": middleCoords[1] / 100})
 
-
     return xZonesPoints, yZonesPoints, coords, mid, mapName
 
 def getCurentTagsTest(zoneCoordinates):
@@ -111,18 +110,28 @@ def generateTagsLocation(zoneCoordinates):
 def getTagZone(x,y):
     currentZone = "none"
     minDist = 99999
-    for zone in zoneMid:
+    for zone in zonesMid:
         dist = math.hypot(x - zone.get("x"), y - zone.get("y"))
         if dist < minDist:
             minDist = dist
             currentZone = zone.get("name")
     return currentZone
 
+def getCurrentZoneJson(filename):
+    with open(filename) as f:
+        jsonResults = json.load(f)
+    return getCurrentZoneHelper(jsonResults)
+
 def getCurrentZoneItemSense(itemsenseIP, zoneName):
     xZonesPoints = []
     yZonesPoints = []
-    r = requests.get('http://' + urlParse(itemsenseIP) + '/itemsense/configuration/v1/zoneMaps/show/' + urlParse(zoneName))
-    jsonResults = r.json()
+    request  = 'http://' + urlParse(itemsenseIP) + '/itemsense/configuration/v1/zoneMaps/show/' + urlParse(zoneName)
+    jsonResults = requests.get(request,auth=(username, password)).json()
+    return getCurrentZoneHelper(jsonResults)
+
+def getCurrentZoneHelper(jsonResults):
+    xZonesPoints = []
+    yZonesPoints = []
     zones = jsonResults.get("zones")
     mapName = jsonResults.get("name")
     for zone in zones:
@@ -160,7 +169,7 @@ def getCurrentTagsItemsense(itemsenseIP,jobID):
     global tags
     while(True):
         lock.acquire()
-        r = requests.get('http://' + urlParse(itemsenseIP) + '/data/v1/items/show/?jobId=' + urlParse(jobID))
+        r = requests.get('http://' + urlParse(itemsenseIP) + '/data/v1/items/show/?jobId=' + urlParse(jobID),auth=(username, password))
         jsonResults = r.json()
         items = jsonResults.get("items")
         tags.clear()
@@ -174,14 +183,90 @@ def getCurrentTagsItemsense(itemsenseIP,jobID):
             #x_locations.append(item.get('xLocation'))
             #y_locations.append(item.get('yLocation'))
             zone = getTagZone(item.get('xLocation'),item.get('yLocation'))
-            tag = {'epc': item.get('epc'), 'x': [item.get('xLocation')], 'y': [item.get('yLocation')],'zone': zone}
+            tag = {'epc': item.get('epc'), 'x': [item.get('xLocation')], 'y': [item.get('yLocation')],'zone': [zone]}
             tags.append(tag)
         lock.release()
         time.sleep(2)
 
-def getHistoryTagsItemsense(itemsenseIP,jobID):
-    return 0
 
+def getHistoryTagsJson(filename):
+    global tags 
+    with open(filename) as f:
+        jsonResults = json.load(f)
+    history = jsonResults.get("history")
+    for historic_tag in history:
+        if not tags:
+            zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+            zone=historic_tag.get("toZone")
+            tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
+            tags.append(tag)
+        else:
+            for i,item in enumerate(tags):
+                if item["epc"] == historic_tag["epc"]:
+                    item["x"].append(historic_tag.get("toX"))
+                    item["y"].append(historic_tag.get("toY"))
+                    zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+                    item["zone"].append(zone)
+                    break
+                else:
+                    if(i == len(tags) - 1):
+                        print("appending tag to tags")
+                        zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+                        tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
+                        tags.append(tag)
+
+def getHistoryTagsItemsense(itemsenseIP,jobID):
+    global tags
+    request = "http://" + urlParse(itemsenseIP) + "/itemsense/data/v1/items/show/history?jobId=" + urlParse(jobID) + "&zoneTransitionsOnly=false"
+    print(request)
+    jsonResults = requests.get(request,auth=(username, password)).json()
+    history = jsonResults.get("history")
+    for historic_tag in history:
+        if not tags:
+            zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+            zone=historic_tag.get("toZone")
+            tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
+            tags.append(tag)
+        else:
+            for i,item in enumerate(tags):
+                if item["epc"] == historic_tag["epc"]:
+                    item["x"].append(historic_tag.get("toX"))
+                    item["y"].append(historic_tag.get("toY"))
+                    zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+                    item["zone"].append(zone)
+                    break
+                else:
+                    if(i == len(tags) - 1):
+                        print("appending tag to tags")
+                        zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+                        tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
+                        tags.append(tag)
+
+def getHistoryTagsHelper(jsonResults):
+    tags = []
+    history = jsonResults.get("history")
+    for historic_tag in history:
+        if not tags:
+            zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+            zone=historic_tag.get("toZone")
+            tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
+            tags.append(tag)
+        else:
+            for i,item in enumerate(tags):
+                if item["epc"] == historic_tag["epc"]:
+                    item["x"].append(historic_tag.get("toX"))
+                    item["y"].append(historic_tag.get("toY"))
+                    zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+                    item["zone"].append(zone)
+                    break
+                else:
+                    if(i == len(tags) - 1):
+                        print("appending tag to tags")
+                        zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
+                        tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
+                        tags.append(tag)
+    return tags
+                
 def getTagColor(epc):
     if epc in epcColor:
         return epcColor.get(epc)
@@ -220,7 +305,7 @@ def update_graph_live(n):
         x=x_zones,
         y=y_zones,
         text=mapName,
-        hoverinfo="text",
+        hoverinfo="text+x+y",
         mode='markers+lines',
         marker=dict(
             size = 5,
@@ -239,7 +324,7 @@ def update_graph_live(n):
         traceTag = go.Scatter(
             x=tag.get("x"),
             y=tag.get("y"),
-            text="zone " + tag.get("zone"),
+            text=tag.get("zone"),
             mode='markers',
             hoverinfo = 'x+y+text',
             marker=dict(
@@ -275,27 +360,45 @@ def update_graph_live(n):
     return go.Figure(data=data,layout=layout)
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser(description='Itemsense Location Live Visualisation')
-    parser.add_argument('--test', action='store_true', help="test mode")
-    parser.add_argument('itemsenseIP', help='ItemsenseIP:Port')
-    parser.add_argument('jobID', help='Itemsense Job ID')
-    parser.add_argument('zoneName', help='Zone Name')
+    
+    parser.add_argument('-u', '--username', help='username',type=str )
+    parser.add_argument('-p','--password', help='password',type=str)
+
+    parser.add_argument('-ip','--itemsenseIP', help='ItemsenseIP',type=str)
+    parser.add_argument('-z','--zoneName', help='Zone Name',type=str)
+    parser.add_argument('-j','--jobID', help='Itemsense Job ID',type=str)
+
+    parser.add_argument('-d','--jsonData', help='json data filename',type=str)
+    parser.add_argument('-zd','--zoneData', help='zone data filename',type=str)
+
+    parser.add_argument('mode',help='Operation Mode',type=str, choices=["itemsense","test","json"])
     args = parser.parse_args()
-    if args.test:
-        x_zones, y_zones, zonesCoords, zoneMid, mapName = getCurrentZoneTest()
+
+    if args.mode == "test":
+        x_zones, y_zones, zonesCoords, zonesMid, mapName = getCurrentZoneTest()
         t = threading.Thread(target=getCurentTagsTest,args=(zonesCoords,))
         threads.append(t)
         t.start()
+    elif args.mode == "json":
+        x_zones, y_zones, zonesMid, mapName = getCurrentZoneJson(args.zoneData)
+        getHistoryTagsJson(args.jsonData)
     else:
+        username = args.username
+        password = args.password
         x_zones, y_zones, zonesMid, mapName = getCurrentZoneItemSense(args.itemsenseIP,args.zoneName)
-        status = getJobStatus(args.jobID)
+        status = getJobStatus(args.itemsenseIP,args.jobID)
         while status in waitingStatus:
-            status = getJobStatus(args.jobID)
+            status = getJobStatus(args.itemsenseIP,args.jobID)
             time.sleep(1)
+            print(status)
         if status == "STOPPED":
+            print("Getting Historical Data")
             getHistoryTagsItemsense(args.itemsenseIP,args.jobID)
-            graphUpdateInterval = 600000
+            graphUpdateInterval = 100
         elif status == "RUNNING":
+            print("Getting Live Data")
             t = threading.Thread(target=getCurrentTagsItemsense,args=(args.itemsenseIP,args.jobID,))
             threads.append(t)
             t.start()
