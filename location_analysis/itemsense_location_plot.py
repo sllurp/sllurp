@@ -197,7 +197,6 @@ def getHistoryTagsJson(filename):
     for historic_tag in history:
         if not tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
-            zone=historic_tag.get("toZone")
             tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
             tags.append(tag)
         else:
@@ -210,7 +209,6 @@ def getHistoryTagsJson(filename):
                     break
                 else:
                     if(i == len(tags) - 1):
-                        print("appending tag to tags")
                         zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
                         tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
                         tags.append(tag)
