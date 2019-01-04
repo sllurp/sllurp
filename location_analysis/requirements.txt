@@ -5,3 +5,4 @@ numpy
 plotly
 requests
 scikit-learn
+pandas

@@ -16,7 +16,10 @@ import json
 import random
 from polylabel import polylabel
 import math
+from sklearn.ensemble import IsolationForest
+import pandas as pd
 tags = [] # [{'epc':epc,'x':[], 'y':[],'zone':'zone1'},{'epc':epc,'x':[], 'y':[],'zone':'zone1'}...]
+outlier_tags = []
 ip = ""
 jobID = ""
 itemsenseIP = ""
@@ -37,6 +40,12 @@ waitingStatus = ["WAITING","STARTING","INITIALIZING"]
 username = "admin"
 password = "mofasexy"
 lock = threading.Lock()
+
+
+#Isolation Forest Settings
+contamination = 0.6
+max_samples=100
+behaviour='new'
 
 def getJobStatus(itemsenseIP,jobID):
     request = 'http://' + urlParse(itemsenseIP) + '/itemsense/control/v1/jobs/show/' + urlParse(jobID)
@@ -191,16 +200,18 @@ def getCurrentTagsItemsense(itemsenseIP,jobID):
 
 def getHistoryTagsJson(filename):
     global tags 
+    global outlier_tags
+    _tags = []
     with open(filename) as f:
         jsonResults = json.load(f)
     history = jsonResults.get("history")
     for historic_tag in history:
-        if not tags:
+        if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
             tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
-            tags.append(tag)
+            _tags.append(tag)
         else:
-            for i,item in enumerate(tags):
+            for i,item in enumerate(_tags):
                 if item["epc"] == historic_tag["epc"]:
                     item["x"].append(historic_tag.get("toX"))
                     item["y"].append(historic_tag.get("toY"))
@@ -208,25 +219,29 @@ def getHistoryTagsJson(filename):
                     item["zone"].append(zone)
                     break
                 else:
-                    if(i == len(tags) - 1):
+                    if(i == len(_tags) - 1):
                         zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
                         tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
-                        tags.append(tag)
+                        _tags.append(tag)
+    
+    tags, outlier_tags = isolationForestProcessing(_tags)
+        
 
 def getHistoryTagsItemsense(itemsenseIP,jobID):
     global tags
+    _tags = []
     request = "http://" + urlParse(itemsenseIP) + "/itemsense/data/v1/items/show/history?jobId=" + urlParse(jobID) + "&zoneTransitionsOnly=false"
     print(request)
     jsonResults = requests.get(request,auth=(username, password)).json()
     history = jsonResults.get("history")
     for historic_tag in history:
-        if not tags:
+        if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
             zone=historic_tag.get("toZone")
             tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
-            tags.append(tag)
+            _tags.append(tag)
         else:
-            for i,item in enumerate(tags):
+            for i,item in enumerate(_tags):
                 if item["epc"] == historic_tag["epc"]:
                     item["x"].append(historic_tag.get("toX"))
                     item["y"].append(historic_tag.get("toY"))
@@ -238,7 +253,9 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
                         print("appending tag to tags")
                         zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
                         tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
-                        tags.append(tag)
+                        _tags.append(tag)
+
+    tags, outlier_tags = isolationForestProcessing(_tags)    
 
 def getHistoryTagsHelper(jsonResults):
     tags = []
@@ -264,7 +281,30 @@ def getHistoryTagsHelper(jsonResults):
                         tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
                         tags.append(tag)
     return tags
-                
+
+
+def isolationForestProcessing(raw_data):
+  
+    inaccurate_tags = {'x':[],'y':[]}
+
+    for data in raw_data:
+        test_data = pd.DataFrame(data={'x': data.get("x") , 'y': data.get("y")})
+
+        clf = IsolationForest(behaviour = behaviour, max_samples = max_samples, contamination = contamination)
+        pred = clf.fit_predict(test_data)
+
+        for i,item in enumerate(pred):
+            if item == -1: 
+                #print(str(len(data.get('x'))) + " " + str(i) +  " " + str(len(pred)))
+                inaccurate_tags.get('x').append(data.get('x')[i])
+                inaccurate_tags.get('y').append(data.get('y')[i])
+        
+        data["x"] = [e for e in data.get("x") if e not in inaccurate_tags.get('x')]
+        data["y"] = [e for e in data.get("y") if e not in inaccurate_tags.get('y')]
+
+
+    return raw_data, inaccurate_tags
+
 def getTagColor(epc):
     if epc in epcColor:
         return epcColor.get(epc)
@@ -317,6 +357,7 @@ def update_graph_live(n):
         name=mapName
     )
     plot.clear()
+
     plot.append(traceZones)
     for tag in tags:
         traceTag = go.Scatter(
@@ -328,15 +369,29 @@ def update_graph_live(n):
             marker=dict(
                 size = 10,
                 color = getTagColor(tag.get("epc")),
-                opacity = 0.7,
+                opacity = 0.9,
             ),
             name=tag.get("epc")
         )
         plot.append(traceTag)
+
+    traceOutliers = go.Scatter(
+        x=outlier_tags.get('x'),
+        y=outlier_tags.get('y'),
+        hoverinfo="none",
+        mode='markers',
+        marker=dict(
+            size = 7,
+            color = 'rgb(255, 0, 0)',
+            opacity = 0.7,
+        ),
+        name="Outliers Points"
+    )
+    plot.append(traceOutliers)
     #print(plot)
     lock.release()
     data = plot
-    layout = go.Layout(autosize=True,title='Tag Location', 
+    layout = go.Layout(autosize=True,title='Tag Location with Isolation Forest with Contamination of ' +  str(contamination) + " Sample Size " + str(max_samples), 
         xaxis=dict(range=[min(x_zones) - 2, max(x_zones) + 2],
         title='X Distance m',
         tick0=0,
