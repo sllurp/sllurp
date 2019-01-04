@@ -19,7 +19,7 @@ import math
 from sklearn.ensemble import IsolationForest
 import pandas as pd
 tags = [] # [{'epc':epc,'x':[], 'y':[],'zone':'zone1'},{'epc':epc,'x':[], 'y':[],'zone':'[zone1,zone2,],'avg_x' = x, 'avg_y' = y}...]
-outlier_tags = []
+outlier_tags = {'x':[0],'y':[0]}
 ip = ""
 jobID = ""
 itemsenseIP = ""
@@ -35,7 +35,7 @@ plot = []
 mapName = ""
 zonesCoords = [] # has the following structure [{"name" : name , "x":[],"y":[]},{"x":[],"y":[]}...] each dict is a zone
 zonesMid = [] #[{"name": name, "x": x ,"y": y},{"name": name, "x": x ,"y": y}...] mid coords of each zone
-graphUpdateInterval = 2000
+graphUpdateInterval = 2
 waitingStatus = ["WAITING","STARTING","INITIALIZING"]
 username = "admin"
 password = "mofasexy"
@@ -43,7 +43,7 @@ lock = threading.Lock()
 
 
 #Isolation Forest Settings
-contamination = 0.6
+contamination = 0.5
 max_samples=100
 behaviour='new'
 
@@ -178,19 +178,14 @@ def getCurrentTagsItemsense(itemsenseIP,jobID):
     global tags
     while(True):
         lock.acquire()
-        r = requests.get('http://' + urlParse(itemsenseIP) + '/data/v1/items/show/?jobId=' + urlParse(jobID),auth=(username, password))
+        request = 'http://' + urlParse(itemsenseIP) + '/itemsense/data/v1/items/show' 
+        r = requests.get(request,auth=(username, password))
         jsonResults = r.json()
         items = jsonResults.get("items")
         tags.clear()
-        #epc.clear()
-        #x_locations.clear()
-        #y_locations.clear()
+
         for item in items:
-            #epc.append(item.get('epc'))
             getTagColor(item.get('epc'))
-            #colors.append(getTagColor(item.get('epc')))
-            #x_locations.append(item.get('xLocation'))
-            #y_locations.append(item.get('yLocation'))
             zone = getTagZone(item.get('xLocation'),item.get('yLocation'))
             tag = {'epc': item.get('epc'), 'x': [item.get('xLocation')], 'y': [item.get('yLocation')],'zone': [zone]}
             tags.append(tag)
@@ -229,6 +224,7 @@ def getHistoryTagsJson(filename):
 
 def getHistoryTagsItemsense(itemsenseIP,jobID):
     global tags
+    global outlier_tags
     _tags = []
     request = "http://" + urlParse(itemsenseIP) + "/itemsense/data/v1/items/show/history?jobId=" + urlParse(jobID) + "&zoneTransitionsOnly=false"
     print(request)
@@ -237,7 +233,6 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
     for historic_tag in history:
         if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
-            zone=historic_tag.get("toZone")
             tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
             _tags.append(tag)
         else:
@@ -249,13 +244,12 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
                     item["zone"].append(zone)
                     break
                 else:
-                    if(i == len(tags) - 1):
-                        print("appending tag to tags")
+                    if(i == len(_tags) - 1):
                         zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
                         tag = {"epc":historic_tag["epc"],"x": [historic_tag["toX"]], "y": [historic_tag["toY"]], "zone":[zone]}
                         _tags.append(tag)
-
-    tags, outlier_tags = isolationForestProcessing(_tags)    
+    
+    tags, outlier_tags = isolationForestProcessing(_tags)
 
 def getHistoryTagsHelper(jsonResults):
     tags = []
@@ -300,8 +294,12 @@ def isolationForestProcessing(raw_data):
                 inaccurate_tags.get('y').append(data.get('y')[i])
         
         #Remove the outliers from the original dataset
-        data["x"] = [e for e in data.get("x") if e not in inaccurate_tags.get('x')]
-        data["y"] = [e for e in data.get("y") if e not in inaccurate_tags.get('y')]
+        x = [e for e in data.get("x") if e not in inaccurate_tags.get('x')]
+        y = [e for e in data.get("y") if e not in inaccurate_tags.get('y')]
+        if x:
+            data["x"] = x
+        if y:
+            data["y"] = y
         data["avg_x"] = np.median(data["x"])
         data["avg_y"] = np.median(data["y"])
         data["avg_zone"] = getTagZone(data["avg_x"],data["avg_y"])
@@ -333,14 +331,6 @@ app.layout = html.Div(
 @app.callback(Output('live-update-graph', 'figure'),
               [Input('interval-component', 'n_intervals')])
 def update_graph_live(n):
-    # Create the graph with subplots
-    # fig = plotly.tools.make_subplots(rows=2, cols=1, vertical_spacing=0.2)
-    # fig['layout']['margin'] = {
-    #     'l': 10, 'r': 10, 'b': 10, 't': 10
-    # }
-    # fig['layout']['legend'] = {'x': 0, 'y': 1, 'xanchor': 'left'}
-    millis = int(round(time.time() * 1000000))
-
     lock.acquire()
     traceZones = go.Scatter(
         x=x_zones,
@@ -377,9 +367,9 @@ def update_graph_live(n):
             name=tag.get("epc")
         )
         traceAvgTag = go.Scatter(
-            x=[tag.get("avg_x")],
-            y=[tag.get("avg_y")],
-            text=tag.get("avg_zone"),
+            x=[tag.get("avg_x",0)],
+            y=[tag.get("avg_y",0)],
+            text=tag.get("avg_zone",0),
             mode='markers',
             hoverinfo = 'x+y+text',
             marker=dict(
@@ -426,7 +416,7 @@ def update_graph_live(n):
         tickcolor='#000'
         )
     )
-
+    
     return go.Figure(data=data,layout=layout)
 
 if __name__ == '__main__':
