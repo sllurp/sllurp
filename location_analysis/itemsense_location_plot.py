@@ -43,7 +43,7 @@ lock = threading.Lock()
 
 
 #Isolation Forest Settings
-contamination = 0.5
+contamination = 0.3
 max_samples=100
 behaviour='new'
 
@@ -296,9 +296,13 @@ def isolationForestProcessing(raw_data):
         #Remove the outliers from the original dataset
         x = [e for e in data.get("x") if e not in inaccurate_tags.get('x')]
         y = [e for e in data.get("y") if e not in inaccurate_tags.get('y')]
-        if x:
+        if contamination >= 0.4:
+            if x:
+                data["x"] = x
+            if y:
+                data["y"] = y
+        else:
             data["x"] = x
-        if y:
             data["y"] = y
         data["avg_x"] = np.median(data["x"])
         data["avg_y"] = np.median(data["y"])
