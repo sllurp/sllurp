@@ -18,7 +18,7 @@ from polylabel import polylabel
 import math
 from sklearn.ensemble import IsolationForest
 import pandas as pd
-tags = [] # [{'epc':epc,'x':[], 'y':[],'zone':'zone1'},{'epc':epc,'x':[], 'y':[],'zone':'zone1'}...]
+tags = [] # [{'epc':epc,'x':[], 'y':[],'zone':'zone1'},{'epc':epc,'x':[], 'y':[],'zone':'[zone1,zone2,],'avg_x' = x, 'avg_y' = y}...]
 outlier_tags = []
 ip = ""
 jobID = ""
@@ -299,9 +299,12 @@ def isolationForestProcessing(raw_data):
                 inaccurate_tags.get('x').append(data.get('x')[i])
                 inaccurate_tags.get('y').append(data.get('y')[i])
         
+        #Remove the outliers from the original dataset
         data["x"] = [e for e in data.get("x") if e not in inaccurate_tags.get('x')]
         data["y"] = [e for e in data.get("y") if e not in inaccurate_tags.get('y')]
-
+        data["avg_x"] = np.median(data["x"])
+        data["avg_y"] = np.median(data["y"])
+        data["avg_zone"] = getTagZone(data["avg_x"],data["avg_y"])
 
     return raw_data, inaccurate_tags
 
@@ -365,15 +368,29 @@ def update_graph_live(n):
             y=tag.get("y"),
             text=tag.get("zone"),
             mode='markers',
-            hoverinfo = 'x+y+text',
+            hoverinfo = 'none',
             marker=dict(
-                size = 10,
+                size = 7,
                 color = getTagColor(tag.get("epc")),
-                opacity = 0.9,
+                opacity = 0.6,
             ),
             name=tag.get("epc")
         )
+        traceAvgTag = go.Scatter(
+            x=[tag.get("avg_x")],
+            y=[tag.get("avg_y")],
+            text=tag.get("avg_zone"),
+            mode='markers',
+            hoverinfo = 'x+y+text',
+            marker=dict(
+                size = 15,
+                color = getTagColor(tag.get("epc")),
+                opacity = 1.0,
+            ),
+            name= "Avg " + tag.get("epc")
+        )
         plot.append(traceTag)
+        plot.append(traceAvgTag)
 
     traceOutliers = go.Scatter(
         x=outlier_tags.get('x'),
@@ -381,11 +398,11 @@ def update_graph_live(n):
         hoverinfo="none",
         mode='markers',
         marker=dict(
-            size = 7,
+            size = 5,
             color = 'rgb(255, 0, 0)',
-            opacity = 0.7,
+            opacity = 0.5,
         ),
-        name="Outliers Points"
+        name="Bad Detection"
     )
     plot.append(traceOutliers)
     #print(plot)
