@@ -1443,6 +1443,9 @@ class LLRPReaderClient(object):
         self._event_notification_callbacks = []
         self._disconnected_callbacks = []
 
+    def update_config(self, new_config):
+        self.config = new_config
+
     def get_peername(self):
         return (self._host, self._port)
 
