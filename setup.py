@@ -25,7 +25,8 @@ install_deps = [
     'Flask>=1.0.2',
     'apscheduler',
     'Flask-JSONRPC',
-    'requests'
+    'requests',
+    'Flask-API'
 ]
 
 

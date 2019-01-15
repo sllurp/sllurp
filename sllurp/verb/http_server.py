@@ -1,6 +1,7 @@
 from threading import Thread
 from flask import Flask
 from flask_jsonrpc import JSONRPC
+from flask_api import status
 import json
 app = Flask(__name__)
 jsonrpc = JSONRPC(app, '/jsonrpc')
@@ -29,7 +30,7 @@ class httpServer:
 @app.route("/gettags")
 def httpGetTags():
     if error:
-        return "Reader Connection Failed"
+        return "Reader Connection Failed",status.HTTP_503_SERVICE_UNAVAILABLE
     else:
         data = [item['id'] for item in payload]
         return json.dumps(data)
@@ -37,7 +38,7 @@ def httpGetTags():
 @app.route("/deletetags")
 def httpDeleteTags():
     if error:
-        return "Reader Connection Failed"
+        return "Reader Connection Failed",status.HTTP_503_SERVICE_UNAVAILABLE
     else:
         del payload[:]
         return "TagList Deleted"
@@ -46,7 +47,7 @@ def httpDeleteTags():
 def httpSetReaderError():
     global error
     error = True
-    return "reader connection failed"
+    return "set reader connection failed"
 
 @app.route("/removeConnectionError")
 def htttpRemoveReaderError():
@@ -57,7 +58,7 @@ def htttpRemoveReaderError():
 @jsonrpc.method('gettags')
 def jsonRPCGetTags():
     if error:
-        return "{\"Reader Connection Failed\"}"
+        return "Reader Connection Failed",status.HTTP_503_SERVICE_UNAVAILABLE
     else:
         data = [item['id'] for item in payload]
         return json.dumps(data)
@@ -65,7 +66,7 @@ def jsonRPCGetTags():
 @jsonrpc.method('deletetags')
 def jsonRPCDeleteTags():
     if error:
-        return "{\"Reader Connection Failed\"}"
+        return "Reader Connection Failed",status.HTTP_503_SERVICE_UNAVAILABLE
     else:
         del payload[:]
         return u'TagList Deleted'
