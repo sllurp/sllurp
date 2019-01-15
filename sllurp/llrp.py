@@ -15,6 +15,7 @@ from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import setDebugging
 import requests
+from requests.exceptions import ConnectionError
 LLRP_PORT = 5084
 
 setDebugging(True)
@@ -291,7 +292,11 @@ class LLRPClient(LineReceiver):
 
         logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
                     self.peer_port)
-        requests.get("http://127.0.0.1:" + self.http_port + "/removeConnectionError")
+        if self.start_mode == "inventory":
+            try:
+                requests.get("http://127.0.0.1:" + self.http_port + "/removeConnectionError")
+            except ConnectionError as e:
+                logger.debug("http server not started yet")
         self.factory.protocols.append(self)
 
     def setState(self, newstate, onComplete=None):
@@ -1645,7 +1650,11 @@ class LLRPClientFactory(ReconnectingClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         logger.info('connection failed: %s', reason.getErrorMessage())
-        requests.get("http://127.0.0.1:" + self.client_args["http_port"] + "/setConnectionError")
+        if self.client_args["start_mode"] == "inventory":
+            try:
+                requests.get("http://127.0.0.1:" + self.client_args["http_port"] + "/setConnectionError")
+            except ConnectionError as e:
+                logger.debug("http server not started yet")
         if self.reconnect:
             ReconnectingClientFactory.clientConnectionFailed(
                 self, connector, reason)
