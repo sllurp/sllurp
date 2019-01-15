@@ -14,6 +14,7 @@ from twisted.internet import reactor, task, defer
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import setDebugging
+import requests
 LLRP_PORT = 5084
 
 setDebugging(True)
@@ -185,7 +186,8 @@ class LLRPClient(LineReceiver):
                  facility_y_loc=0,
                  orientation=0,
                  enable_sector_id=[2,2,6],
-                 field_of_view=2):
+                 field_of_view=2,
+                 http_port=8080):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -238,6 +240,7 @@ class LLRPClient(LineReceiver):
         self.orientation = orientation
         self.enable_sector_id = enable_sector_id
         self.field_of_view = field_of_view
+        self.http_port = http_port
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
 
@@ -288,6 +291,7 @@ class LLRPClient(LineReceiver):
 
         logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
                     self.peer_port)
+        requests.get("http://127.0.0.1:" + self.http_port + "/removeConnectionError")
         self.factory.protocols.append(self)
 
     def setState(self, newstate, onComplete=None):
@@ -1641,6 +1645,7 @@ class LLRPClientFactory(ReconnectingClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         logger.info('connection failed: %s', reason.getErrorMessage())
+        requests.get("http://127.0.0.1:" + self.client_args["http_port"] + "/setConnectionError")
         if self.reconnect:
             ReconnectingClientFactory.clientConnectionFailed(
                 self, connector, reason)

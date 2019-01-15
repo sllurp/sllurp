@@ -110,7 +110,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 mqtt_port=mqtt_port,
                 mqtt_topic=mqtt_topic,
                 http_server=http_server,
-                http_port=http_port,
+                http_port=str(http_port),
                 tag_age_interval=tag_age_interval)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)

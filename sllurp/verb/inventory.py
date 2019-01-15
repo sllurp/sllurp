@@ -161,6 +161,7 @@ def main(args):
         impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
+        http_port = args.http_port,
     )
     if args.impinj_reports:
         factory_args['impinj_tag_content_selector'] = {

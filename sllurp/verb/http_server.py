@@ -6,6 +6,7 @@ app = Flask(__name__)
 jsonrpc = JSONRPC(app, '/jsonrpc')
 #payload is a list of dict
 payload = []
+error = False
 
 class httpServer:
     def __init__(self,data,port):
@@ -27,20 +28,44 @@ class httpServer:
 
 @app.route("/gettags")
 def httpGetTags():
-    data = [item['id'] for item in payload]
-    return json.dumps(data)
+    if error:
+        return "Reader Connection Failed"
+    else:
+        data = [item['id'] for item in payload]
+        return json.dumps(data)
 
 @app.route("/deletetags")
 def httpDeleteTags():
-    del payload[:]
-    return "TagList Deleted"
+    if error:
+        return "Reader Connection Failed"
+    else:
+        del payload[:]
+        return "TagList Deleted"
+
+@app.route("/setConnectionError")
+def httpSetReaderError():
+    global error
+    error = True
+    return "reader connection failed"
+
+@app.route("/removeConnectionError")
+def htttpRemoveReaderError():
+    global error
+    error = False
+    return "reader connected"
 
 @jsonrpc.method('gettags')
 def jsonRPCGetTags():
-    data = [item['id'] for item in payload]
-    return json.dumps(data)
+    if error:
+        return "{\"Reader Connection Failed\"}"
+    else:
+        data = [item['id'] for item in payload]
+        return json.dumps(data)
 
 @jsonrpc.method('deletetags')
 def jsonRPCDeleteTags():
-    del payload[:]
-    return u'TagList Deleted'
+    if error:
+        return "{\"Reader Connection Failed\"}"
+    else:
+        del payload[:]
+        return u'TagList Deleted'
