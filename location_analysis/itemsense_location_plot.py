@@ -43,7 +43,7 @@ lock = threading.Lock()
 
 
 #Isolation Forest Settings
-contamination = 0.3
+contamination = 0.5
 max_samples=100
 behaviour='new'
 
