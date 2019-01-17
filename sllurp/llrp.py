@@ -16,6 +16,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import setDebugging
 import requests
 from requests.exceptions import ConnectionError
+from .mqttStatus import MqttStatus
 LLRP_PORT = 5084
 
 setDebugging(True)
@@ -188,7 +189,9 @@ class LLRPClient(LineReceiver):
                  orientation=0,
                  enable_sector_id=[2,2,6],
                  field_of_view=2,
-                 http_port=8080):
+                 http_port=8080,
+                 mqtt_status=None,
+                 mqtt_client=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -242,6 +245,9 @@ class LLRPClient(LineReceiver):
         self.enable_sector_id = enable_sector_id
         self.field_of_view = field_of_view
         self.http_port = http_port
+        self.mqtt_status = mqtt_status
+        self.mqtt_client = mqtt_client
+
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
 
@@ -292,6 +298,9 @@ class LLRPClient(LineReceiver):
 
         logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
                     self.peer_port)
+        if self.mqtt_client is not None and self.mqtt_status is not None:
+            self.mqtt_status.setReaderStatus(self.peer_ip,"connected")
+            self.client_args['mqtt_client'].publish(self.mqtt_status.getTopic(), payload=self.mqtt_status.generateStatus(), qos=0, retain=False)
         if self.start_mode == "inventory":
             try:
                 requests.get("http://127.0.0.1:" + self.http_port + "/removeConnectionError")
@@ -808,6 +817,8 @@ class LLRPClient(LineReceiver):
                 'Type': 72,
                 'ID':   0,
             }})
+        if self.mqtt_client is not None and self.mqtt_status is not None:
+            self.client_args['mqtt_client'].publish(self.mqtt_status.getTopic(), payload=self.mqtt_status.generateStatus(), qos=0, retain=False)
 
     def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
         self.sendMessage({
@@ -1582,6 +1593,10 @@ class LLRPClientFactory(ReconnectingClientFactory):
         self._message_callbacks = defaultdict(list)
 
         self.protocols = []
+        self.mqtt_status = None
+        if 'mqtt_status_topic' in self.client_args and 'mqtt_client' in self.client_args:
+            self.mqtt_status = MqttStatus(self.client_args['start_mode'],self.client_args['mqtt_status_topic'])
+            self.client_args['mqtt_status'] = self.mqtt_status
 
     def startedConnecting(self, connector):
         dst = connector.getDestination()
@@ -1618,6 +1633,7 @@ class LLRPClientFactory(ReconnectingClientFactory):
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
             clargs['mode'] = "inventory"
+
         proto = LLRPClient(factory=self, **clargs)
 
         # register state-change callbacks with new client
@@ -1641,6 +1657,13 @@ class LLRPClientFactory(ReconnectingClientFactory):
 
     def clientConnectionLost(self, connector, reason):
         logger.info('lost connection: %s', reason.getErrorMessage())
+        if self.mqtt_status is not None:
+            self.sendMqttStatus(connector,"disconnected")
+        if self.client_args["start_mode"] == "inventory":
+            try:
+                requests.get("http://127.0.0.1:" + self.client_args["http_port"] + "/setConnectionError")
+            except ConnectionError as e:
+                logger.debug("http server not started yet")
         if self.reconnect:
             ReconnectingClientFactory.clientConnectionLost(
                 self, connector, reason)
@@ -1650,6 +1673,8 @@ class LLRPClientFactory(ReconnectingClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         logger.info('connection failed: %s', reason.getErrorMessage())
+        if self.mqtt_status is not None:
+            self.sendMqttStatus(connector,"disconnected")
         if self.client_args["start_mode"] == "inventory":
             try:
                 requests.get("http://127.0.0.1:" + self.client_args["http_port"] + "/setConnectionError")
@@ -1696,3 +1721,7 @@ class LLRPClientFactory(ReconnectingClientFactory):
                   for proto in self.protocols}
         logger.info('states: %s', states)
         return states
+
+    def sendMqttStatus(self,connector,status):
+        self.mqtt_status.setReaderStatus(connector.getDestination().host,status)
+        self.client_args['mqtt_client'].publish(self.mqtt_status.getTopic(), payload=self.mqtt_status.generateStatus(), qos=0, retain=False)
