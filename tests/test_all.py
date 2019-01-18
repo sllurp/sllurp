@@ -65,6 +65,9 @@ class MockConn(object):
     def write(self, mybytes):
         pass
 
+    def sendall(self, mybytes):
+        pass
+
 
 class FauxClient(object):
     def __init__(self):
@@ -83,9 +86,10 @@ class TestReaderEventNotification(unittest.TestCase):
     def test_decode(self):
         data = binascii.unhexlify('043f000000200ab288c900f600160080000c0004f8'
                                   '535baadaff010000060000')
-        client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        client.transport = MockConn('')
-        client.dataReceived(data)
+        config = sllurp.llrp.LLRPReaderConfig({'start_inventory': False})
+        reader = sllurp.llrp.LLRPReaderClient('localhost', config=config)
+        reader._socket = MockConn('')
+        reader.rawDataReceived(data)
 
 
 class TestDecodeROAccessReport (unittest.TestCase):
@@ -147,7 +151,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
     _client = None
     _tags_seen = 0
 
-    def tagcb(self, llrpmsg):
+    def tagcb(self, reader, tags):
         self._tags_seen += 1
 
     def setUp(self):
@@ -157,14 +161,16 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = MockConn(self._binr)
         logger.debug('%d bytes waiting', self._mock_conn.stream.waiting())
-        self._client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        self._client.transport = MockConn('')
-        self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
+        config = sllurp.llrp.LLRPReaderConfig({'start_inventory': False})
+        self._reader = sllurp.llrp.LLRPReaderClient('localhost', config=config)
+        self._reader._socket = MockConn('')
+        self._reader.add_tag_report_callback(self.tagcb)
+        #self._reader.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
 
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
-        self._client.state = sllurp.llrp.LLRPReaderState.STATE_INVENTORYING
-        self._client.dataReceived(self._binr)
+        self._reader.state = sllurp.llrp.LLRPReaderState.STATE_INVENTORYING
+        self._reader.rawDataReceived(self._binr)
         self.assertEqual(self._tags_seen, 45)
 
     def tearDown(self):
