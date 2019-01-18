@@ -231,14 +231,38 @@ class TestMessageStruct(unittest.TestCase):
             self.assertIn('fields', msg_struct)
             self.assertIsInstance(msg_struct['fields'], list)
 
-    @unittest.expectedFailure
     def test_unique_types(self):
-        d = {}
+        vendor_custom_types = {}
+        msg_types = {}
+        param_types = {}
         for msg_name, msg_struct in self.s.items():
+            vendorid  = msg_struct.get('vendorid')
+            if vendorid:
+                # Custom param/msg
+                self.assertIn('subtype', msg_struct)
+                msg_subtype = msg_struct['subtype']
+                self.assertIsInstance(msg_subtype, int)
+                vendor_types = vendor_custom_types.setdefault('vendorid', {})
+                self.assertNotIn(msg_subtype, vendor_types,
+                                 "vendor subtype is not unique in msg_struct")
+                vendor_types[msg_subtype] = True
+                continue
+
+            # Standard param/msg
             self.assertIn('type', msg_struct)
-            self.assertIsInstance(msg_struct['type'], int)
-            self.assertNotIn(msg_struct['type'], d)
-            d[msg_struct['type']] = True
+            msg_type = msg_struct['type']
+            self.assertIsInstance(msg_type, int)
+
+            if 'Ver' in msg_struct.get('fields', {}):
+                # This is a Message
+                self.assertNotIn(msg_type, msg_types,
+                                 "message type not unique in msg_struct")
+                msg_types[msg_type] = True
+            else:
+                # This is a Parameter
+                self.assertNotIn(msg_type, param_types,
+                                 "parameter type not unique in msg_struct")
+                param_types[msg_type] = True
 
 
 def test_get_reader_config():
