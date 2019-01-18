@@ -72,6 +72,7 @@ def main(args):
         start_inventory=True,
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
+        tag_filter_mask=args.tag_filter_mask,
         tag_content_selector={
             'EnableROSpecID': False,
             'EnableSpecIndex': False,
@@ -88,6 +89,7 @@ def main(args):
                 'EnablePCBits': False,
             }
         },
+        impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
     )
@@ -96,6 +98,11 @@ def main(args):
             'EnableRFPhaseAngle': True,
             'EnablePeakRSSI': True,
             'EnableRFDopplerFrequency': True
+        }
+    if args.impinj_fixed_freq:
+        factory_args['impinj_fixed_frequency_param'] = {
+            'FixedFrequencyMode': 2,
+            'ChannelListIndex': [1]
         }
 
 

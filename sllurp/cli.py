@@ -49,29 +49,43 @@ def cli(debug, logfile):
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
+@click.option('--tag-filter-mask', type=str, default=None,
+              help=('Filter inventory on EPC ID (or part of ID)'))
+@click.option('--impinj-extended-configuration', is_flag=True, default=False,
+              help=('Get Impinj extended configuration values'))
 @click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
               help=('Impinj extension: inventory search mode '
                     ' (1=single, 2=dual)'))
 @click.option('--impinj-reports', is_flag=True, default=False,
               help='Enable Impinj tag report content '
               '(Phase angle, RSSI, Doppler)')
+@click.option('--impinj-fixed-freq', is_flag=True, default=False,
+              help='Fix operating frequency (dependent '
+              'on operating region if possible)')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               modulation, tari, session, mode_identifier,
-              tag_population, reconnect,
-              impinj_search_mode, impinj_reports):
+              tag_population, reconnect, tag_filter_mask,
+              impinj_extended_configuration,
+              impinj_search_mode, impinj_reports, impinj_fixed_freq):
+    """Conduct inventory (searching the area around the antennas)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'modulation', 'tari', 'session',
                                'population', 'mode_identifier',
-                               'reconnect', 'impinj_search_mode',
-                               'impinj_reports'])
+                               'reconnect', 'tag_filter_mask',
+                               'impinj_extended_configuration',
+                               'impinj_search_mode',
+                               'impinj_reports',
+                               'impinj_fixed_freq'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
-                reconnect=reconnect,
+                reconnect=reconnect, tag_filter_mask=tag_filter_mask,
+                impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
-                impinj_reports=impinj_reports)
+                impinj_reports=impinj_reports,
+                impinj_fixed_freq=impinj_fixed_freq)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
 

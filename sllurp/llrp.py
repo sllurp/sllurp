@@ -96,6 +96,9 @@ class LLRPMessage(object):
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
             logger.debugfast('done deserializing %s command', name)
+        except ValueError:
+            logger.exception('Unable to decode body %s, %s', body,
+                    decoder(body))
         except LLRPError:
             logger.exception('Problem with %s message format', name)
             return ''
@@ -293,6 +296,7 @@ class LLRPClient(object):
         self.state = LLRPReaderState.STATE_DISCONNECTED
 
         self.capabilities = {}
+        self.configuration = {}
         self.reader_mode = None
 
         self.peername = None
@@ -335,6 +339,43 @@ class LLRPClient(object):
 
         if self.state_change_callback:
             self.state_change_callback(newstate)
+
+    def parseReaderConfig(self, confdict):
+        """Parse a reader configuration dictionary.
+
+        Examples:
+        {
+            Type: 23,
+            Data: b'\x00'
+        }
+        {
+            Type: 1023,
+            Vendor: 25882,
+            Subtype: 21,
+            Data: b'\x00'
+        }
+        """
+        logger.debugfast('parseReaderConfig input: %s', confdict)
+        conf = {}
+        for k, v in confdict.items():
+            if not k.startswith('Parameter'):
+                continue
+            ty = v['Type']
+            data = v['Data']
+            vendor = None
+            subtype = None
+            try:
+                vendor, subtype = v['Vendor'], v['Subtype']
+            except KeyError:
+                pass
+
+            if ty == 1023:
+                if vendor == 25882 and subtype == 37:
+                    tempc = struct.unpack('!H', data)[0]
+                    conf.update(temperature=tempc)
+            else:
+                conf[ty] = data
+        return conf
 
     def parseCapabilities(self, capdict):
         """Parse a capabilities dictionary and adjust instance settings
@@ -480,7 +521,9 @@ class LLRPClient(object):
                     self.panic(None, 'GET_READER_CAPABILITIES failed')
 
             if self.config.impinj_search_mode is not None \
-               or self.config.impinj_tag_content_selector is not None:
+               or self.config.impinj_tag_content_selector is not None \
+               or self.config.impinj_extended_configuration \
+               or self.config.impinj_fixed_frequency_param is not None:
 
                 def enable_impinj_ext_cb(state, is_success, *args):
                     if is_success:
@@ -563,6 +606,11 @@ class LLRPClient(object):
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s getting reader config: %s', status, err)
                 return
+
+            if msgName == 'GET_READER_CONFIG_RESPONSE':
+                rconfig = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
+                self.configuration = self.parseReaderConfig(rconfig)
+                logger.debugfast('Reader configuration: %s', self.configuration)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -763,13 +811,24 @@ class LLRPClient(object):
             onCompletion)
 
     def send_GET_READER_CONFIG(self, onCompletion):
-        self.sendMessage({
-            'GET_READER_CONFIG': {
-                'Ver':  1,
-                'Type': 2,
-                'ID':   0,
-                'RequestedData': Capability_Name2Type['All']
-            }})
+        cfg = {
+            'Ver':  1,
+            'Type': 2,
+            'ID':   0,
+            'RequestedData': Capability_Name2Type['All']
+        }
+        if self.config.impinj_extended_configuration:
+            cfg['CustomParameters'] = [
+                {
+                    'VendorID': 25882,
+                    # per Octane LLRP guide:
+                    # 21 = ImpinjRequestedData
+                    # 2000 = All configuration params
+                    'Subtype': 21,
+                    'Payload': struct.pack('!I', 2000)
+                }
+            ]
+        self.sendMessage({'GET_READER_CONFIG': cfg})
         self.setState(LLRPReaderState.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
@@ -1058,12 +1117,18 @@ class LLRPClient(object):
             tari=config.tari,
             tag_population=config.tag_population
         )
+        if config.tag_filter_mask is not None:
+            rospec_kwargs['tag_filter_mask'] = config.tag_filter_mask
         logger.info('Impinj search mode? %s', config.impinj_search_mode)
         if config.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = config.impinj_search_mode
         if config.impinj_tag_content_selector is not None:
             rospec_kwargs['impinj_tag_content_selector'] = \
                 config.impinj_tag_content_selector
+        if config.impinj_fixed_frequency_param is not None:
+            rospec_kwargs['impinj_fixed_frequency_param'] = \
+                config.impinj_fixed_frequency_param
+
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debugfast('ROSpec: %s', self.rospec)
@@ -1326,6 +1391,7 @@ class LLRPReaderConfig(object):
         self.tx_power_dbm = None
         self.modulation = DEFAULT_MODULATION
         self.disconnect_when_done = self.duration and self.duration > 0
+        self.tag_filter_mask = None
         self.tag_content_selector = {
             'EnableROSpecID': False,
             'EnableSpecIndex': False,
@@ -1356,9 +1422,11 @@ class LLRPReaderConfig(object):
         self.reset_on_connect = True
 
         ## Extensions specific
+        self.impinj_extended_configuration = False
         self.impinj_search_mode = None
         self.impinj_reports = False
         self.impinj_tag_content_selector = None
+        self.impinj_fixed_frequency_param = None
 
         ## If impinj extension, would be like:
         #self.impinj_tag_content_selector = {

@@ -27,7 +27,7 @@ from __future__ import unicode_literals
 import logging
 import struct
 from collections import defaultdict
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
@@ -324,7 +324,13 @@ def encode_GetReaderConfig(msg):
     ant = msg.get('AntennaID', 0)
     gpipn = msg.get('GPIPortNum', 0)
     gpopn = msg.get('GPOPortNum', 0)
-    return struct.pack('!BHHH', req, ant, gpipn, gpopn)
+    data = struct.pack('!BHHH', req, ant, gpipn, gpopn)
+
+    params = msg.get('CustomParameters', [])
+    for param in params:
+        data += encode('CustomParameter')(param)
+
+    return data
 
 
 Message_struct['GET_READER_CONFIG'] = {
@@ -340,6 +346,63 @@ Message_struct['GET_READER_CONFIG'] = {
 }
 
 
+def decode_Identification(data):
+    """Identification parameter (LLRP 1.1 Section 13.2.2)"""
+    header_len = struct.calcsize('!HHBH')
+    msgtype, msglen, idtype, bytecount = struct.unpack(
+        '!HHBH', data[:header_len])
+    ret = {}
+
+    idtypes = ['MAC Address', 'EPC']
+    try:
+        ret['IDType'] = idtypes[idtype]
+    except IndexError:
+        return {'IDType': b''}, data[msglen:]
+
+    # the remainder is ID value
+    ret['ReaderID'] = data[header_len:(header_len+bytecount)]
+
+    return ret, data[msglen:]
+
+
+Message_struct['Identification'] = {
+    'type': 218,
+    'fields': ['IDType', 'ByteCount', 'ReaderID'],
+    'decode': decode_Identification,
+}
+
+
+def decode_param(data):
+    """Decode any parameter to a byte sequence.
+
+    :param data: byte sequence representing an LLRP parameter.
+    :returns dict, bytes: where dict is {'Type': <decoded type>, 'Data':
+        <decoded data>} and bytes is the remaining bytes trailing the bytes we
+        could decode.
+    """
+    logger.debugfast('decode_param data: %r', data)
+    header_len = struct.calcsize('!HH')
+    partype, parlen = struct.unpack('!HH', data[:header_len])
+
+    pardata = data[header_len:parlen]
+    logger.debugfast('decode_param pardata: %r', pardata)
+
+    ret = {
+        'Type': partype,
+    }
+
+    if partype == 1023:
+        vsfmt = '!II'
+        vendor, subtype = struct.unpack(vsfmt, pardata[:struct.calcsize(vsfmt)])
+        ret['Vendor'] = vendor
+        ret['Subtype'] = subtype
+        ret['Data'] = pardata[struct.calcsize(vsfmt):]
+    else:
+        ret['Data'] = pardata,
+
+    return ret, data[parlen:]
+
+
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debugfast('decode_GetReaderConfigResponse')
@@ -347,7 +410,23 @@ def decode_GetReaderConfigResponse(data):
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
 
-    logger.debugfast('TODO: decode rest of GET_READER_CONFIG_RESPONSE')
+    ret, body = decode('Identification')(body)
+    msg['Identification'] = ret
+
+    paridx = 1
+    prev_bodylen = len(body)
+    while body:
+        ret, body = decode_param(body)
+        bodylen = len(body)
+        msg['Parameter {}'.format(paridx)] = ret
+        if bodylen >= prev_bodylen:
+            logger.error('Loop in parameter body decoding (%d bytes left)',
+                         bodylen)
+            break
+        paridx += 1
+    logger.debugfast('decode_param ran %d times', paridx - 1)
+
+    logger.debugfast('GET_READER_CONFIG_RESPONSE: %s', msg)
     return msg
 
 
@@ -2431,6 +2510,9 @@ def encode_C1G2InventoryCommand(par):
     if 'ImpinjIntelligentAntennaManagementParameter' in par:
         data += encode('ImpinjIntelligentAntennaManagementParameter')(
             par['ImpinjIntelligentAntennaManagementParameter'])
+    if 'ImpinjFixedFrequencyListParameter' in par:
+        data += encode('ImpinjFixedFrequencyListParameter')(
+            par['ImpinjFixedFrequencyListParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -2446,7 +2528,8 @@ Message_struct['C1G2InventoryCommand'] = {
         'C1G2SingulationControl',
         # XXX custom parameters
         'ImpinjInventorySearchModeParameter',
-        'ImpinjIntelligentAntennaManagementParameter'
+        'ImpinjIntelligentAntennaManagementParameter',
+        'ImpinjFixedFrequencyListParameter',
     ],
     'encode': encode_C1G2InventoryCommand
 }
@@ -2475,15 +2558,51 @@ Message_struct['ImpinjIntelligentAntennaManagementParameter'] = {
 
 # 16.3.1.2.1.1 C1G2Filter Parameter
 def encode_C1G2Filter(par):
-    raise NotImplementedError
+    msgtype = Message_struct['C1G2Filter']['type']
+    msg_header = '!HH'
+    data = struct.pack('!B', Message_struct['C1G2Filter']['T'] << 6) # XXX: hardcoded trucation for now
+    if 'C1G2TagInventoryMask' in par:
+        data += encode('C1G2TagInventoryMask')(
+            par['C1G2TagInventoryMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
 
 
 Message_struct['C1G2Filter'] = {
     'type': 331,
-    'fields': [],
-    'encode': lambda: None
+    'T': 0,
+    'fields': [
+        'C1G2TagInventoryMask'
+    ],
+    'encode': encode_C1G2Filter
 }
 
+# 16.3.1.2.1.1.1 C1G2TagInventoryMask Parameter
+def encode_C1G2TagInventoryMask(par):
+    msgtype = Message_struct['C1G2TagInventoryMask']['type']
+    msg_header = '!HH'
+    maskbitcount = len(par['TagMask'])*4
+    if len(par['TagMask']) % 2 != 0:    # check for odd numbered length hexstring
+        par['TagMask'] += '0'           # pad with zero
+    data = struct.pack('!B', par['MB'] << 6)
+    data += struct.pack('!H', par['Pointer'])
+    if maskbitcount:
+        data += struct.pack('!H', maskbitcount)
+        data += unhexlify(par['TagMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['C1G2TagInventoryMask'] = {
+    'type': 332,
+    'fields': [
+        'MB',
+        'Pointer',
+        'TagMask'
+    ],
+    'encode': encode_C1G2TagInventoryMask
+}
 
 # 16.3.1.2.1.2 C1G2RFControl Parameter
 def encode_C1G2RFControl(par):
@@ -3695,14 +3814,19 @@ Message_struct['CustomParameter'] = {
 # Vendor custom parameters and messages
 #
 
-def encode_ImpinjInventorySearchModeParameter(par):
-    msg_struct_param = Message_struct['ImpinjInventorySearchModeParameter']
+
+def encode_ImpinjCustomParameter(subtype, value):
     custom_par = {
-        'VendorID': msg_struct_param['vendorid'],
-        'Subtype': msg_struct_param['subtype'],
-        'Payload': struct.pack('!H', par)
+        'VendorID': 25882,
+        'Subtype': subtype,
+        'Payload': struct.pack('!H', value)
     }
     return encode('CustomParameter')(custom_par)
+
+
+def encode_ImpinjInventorySearchModeParameter(par):
+    return encode_ImpinjCustomParameter(23, par)
+
 
 Message_struct['ImpinjInventorySearchModeParameter'] = {
     'vendorid': 25882,
@@ -3711,6 +3835,33 @@ Message_struct['ImpinjInventorySearchModeParameter'] = {
     'encode': encode_ImpinjInventorySearchModeParameter
 }
 
+def encode_ImpinjFixedFrequencyListParameter(par):
+    msg_struct_param = Message_struct['ImpinjFixedFrequencyListParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype']
+    }
+    channellist = par.get('ChannelListIndex')
+    payload = struct.pack('!H', par.get('FixedFrequencyMode'))
+    payload += struct.pack('!H', 0) # Reserved space
+    payload += struct.pack('!H', len(channellist))
+    for index in channellist:
+        payload += struct.pack('!H', index)
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjFixedFrequencyListParameter'] = {
+    'vendorid': 25882,
+    'subtype': 26,
+    'fields': [
+        'FixedFrequencyMode',
+        'Reserved',
+        'ChannelListCount',
+        'ChannelListIndex'
+    ],
+    'encode': encode_ImpinjFixedFrequencyListParameter
+}
 
 def encode_ImpinjTagReportContentSelectorParameter(par):
     msg_struct_param = Message_struct['ImpinjTagReportContentSelectorParameter']
@@ -3793,7 +3944,17 @@ def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
 
-        xml_str = tabs + '<%s>\n' % name
+        ret = tabs + '<%s>\n' % name
+
+        if name.startswith('Parameter '):
+            ret = '{tabs}<Parameter>\n'.format(tabs=tabs)
+            for k in ('Type', 'Data', 'Vendor', 'Subtype'):
+                if k not in msg:
+                    continue
+                ret += '{tabs1}<{k}>{data}</{k}>\n'.format(
+                    k=k, tabs1=tabs + '\t', data=msg[k])
+            ret += '{tabs}</Parameter>\n'.format(tabs=tabs, **msg)
+            return ret
 
         fields = Message_struct[name]['fields']
         for p in fields:
@@ -3803,16 +3964,16 @@ def llrp_data2xml(msg):
                 continue
 
             if isinstance(sub, dict):
-                xml_str += __llrp_data2xml(sub, p, level + 1)
+                ret += __llrp_data2xml(sub, p, level + 1)
             elif isinstance(sub, list) and sub and isinstance(sub[0], dict):
                 for e in sub:
-                    xml_str += __llrp_data2xml(e, p, level + 1)
+                    ret += __llrp_data2xml(e, p, level + 1)
             else:
-                xml_str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
+                ret += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
-        xml_str += tabs + '</%s>\n' % name
+        ret += tabs + '</%s>\n' % name
 
-        return xml_str
+        return ret
 
     ans = ''
     for p in msg:
@@ -3825,8 +3986,9 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector=None, tari=None,
-                 session=2, tag_population=4,
-                 impinj_search_mode=None, impinj_tag_content_selector=None):
+                 session=2, tag_population=4, tag_filter_mask=None,
+                 impinj_search_mode=None, impinj_tag_content_selector=None,
+                 impinj_fixed_frequency_param=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'\
@@ -3941,6 +4103,14 @@ class LLRPROSpec(dict):
                     },
                 }
             }
+            if tag_filter_mask:
+                antconf['C1G2InventoryCommand']['C1G2Filter'] = {
+                    'C1G2TagInventoryMask': {
+                        'MB': 1,    # EPC bank
+                        'Pointer': 0x20,    # Third word starts the EPC ID
+                        'TagMask': tag_filter_mask
+                    }
+                }
             if reader_mode:
                 rfcont = {
                     'ModeIndex': mode_index,
@@ -3953,6 +4123,15 @@ class LLRPROSpec(dict):
                 logger.info('impinj_search_mode: %s', impinj_search_mode)
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
+
+            if impinj_fixed_frequency_param is not None:
+                antconf['C1G2InventoryCommand']\
+                    ['ImpinjFixedFrequencyListParameter'] = {
+                        'FixedFrequencyMode':
+                            impinj_fixed_frequency_param['FixedFrequencyMode'],
+                        'ChannelListIndex':
+                            impinj_fixed_frequency_param['ChannelListIndex']
+                    }
 
             ips['AntennaConfiguration'].append(antconf)
 
