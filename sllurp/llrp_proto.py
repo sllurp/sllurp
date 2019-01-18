@@ -3814,19 +3814,14 @@ Message_struct['CustomParameter'] = {
 # Vendor custom parameters and messages
 #
 
-
-def encode_ImpinjCustomParameter(subtype, value):
+def encode_ImpinjInventorySearchModeParameter(par):
+    msg_struct_param = Message_struct['ImpinjInventorySearchModeParameter']
     custom_par = {
-        'VendorID': 25882,
-        'Subtype': subtype,
-        'Payload': struct.pack('!H', value)
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
     }
     return encode('CustomParameter')(custom_par)
-
-
-def encode_ImpinjInventorySearchModeParameter(par):
-    return encode_ImpinjCustomParameter(23, par)
-
 
 Message_struct['ImpinjInventorySearchModeParameter'] = {
     'vendorid': 25882,
