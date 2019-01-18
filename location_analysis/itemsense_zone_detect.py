@@ -12,6 +12,9 @@ import math
 from sklearn.ensemble import IsolationForest
 import pandas as pd
 
+import warnings
+warnings.filterwarnings("ignore")
+
 tags = [] # [{'epc':epc,'x':[], 'y':[],'zone':'zone1'},{'epc':epc,'x':[], 'y':[],'zone':'[zone1,zone2,],'avg_x' = x, 'avg_y' = y}...]
 outlier_tags = {'x':[0],'y':[0]}
 ip = ""
@@ -33,6 +36,7 @@ graphUpdateInterval = 2
 waitingStatus = ["WAITING","STARTING","INITIALIZING"]
 username = "admin"
 password = "mofasexy"
+del_keys = ['x','y','zone']
 
 #Isolation Forest Settings
 contamination = 0.5
@@ -213,7 +217,6 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
     global outlier_tags
     _tags = []
     request = "http://" + urlParse(itemsenseIP) + "/itemsense/data/v1/items/show/history?jobId=" + urlParse(jobID) + "&zoneTransitionsOnly=false"
-    print(request)
     jsonResults = requests.get(request,auth=(username, password)).json()
     history = jsonResults.get("history")
     for historic_tag in history:
@@ -313,9 +316,10 @@ if __name__ == '__main__':
     parser.add_argument('-j','--jobID', help='Itemsense Job ID',type=str)
 
     parser.add_argument('-d','--jsonData', help='json data filename',type=str)
+    parser.add_argument('-ja', '--jsonArgs', help='json that includes the args (only for node-red)',type=str)
     parser.add_argument('-zd','--zoneData', help='zone data filename',type=str)
 
-    parser.add_argument('mode',help='Operation Mode',type=str, choices=["itemsense","test","json"])
+    parser.add_argument('mode',help='Operation Mode',type=str, choices=["itemsense","test","json","node-red"])
     args = parser.parse_args()
 
     if args.mode == "test":
@@ -324,12 +328,12 @@ if __name__ == '__main__':
     elif args.mode == "json":
         x_zones, y_zones, zonesMid, mapName = getCurrentZoneJson(args.zoneData)
         getHistoryTagsJson(args.jsonData)
-        del_keys = ['x','y','zone']
+        
         for tag in tags:
             for key in del_keys:
                 tag.pop(key)
         print(json.dumps(tags,indent=2))
-    else:
+    elif args.mode == "itemsense":
         username = args.username
         password = args.password
         x_zones, y_zones, zonesMid, mapName = getCurrentZoneItemSense(args.itemsenseIP,args.zoneName)
@@ -339,8 +343,36 @@ if __name__ == '__main__':
             time.sleep(1)
             print(status)
         if status == "STOPPED":
-            print("Getting Historical Data")
+            #print("Getting Historical Data")
             getHistoryTagsItemsense(args.itemsenseIP,args.jobID)
+            graphUpdateInterval = 100
+            for tag in tags:
+                for key in del_keys:
+                    tag.pop(key)
+            print(json.dumps(tags,indent=2))
+        elif status == "RUNNING":
+            print("Error job is still running")
+            exit
+        if status == "ERROR":
+            print("invalid jobID")
+            exit
+    elif args.mode == "node-red":
+        j = json.loads(args.jsonArgs)
+        username = j.get("username")
+        password = j.get("password")
+        itemsenseIP = j.get("itemsenseIP")
+        zoneName = j.get("zoneName")
+        jobID = j.get("jobID")
+
+        x_zones, y_zones, zonesMid, mapName = getCurrentZoneItemSense(itemsenseIP,zoneName)
+        status = getJobStatus(itemsenseIP,jobID)
+        while status in waitingStatus:
+            status = getJobStatus(itemsenseIP,jobID)
+            time.sleep(1)
+            print(status)
+        if status == "STOPPED":
+            #print("Getting Historical Data")
+            getHistoryTagsItemsense(itemsenseIP,jobID)
             graphUpdateInterval = 100
             for tag in tags:
                 for key in del_keys:

@@ -3519,7 +3519,7 @@ def decode_ReaderEventNotificationData(data):
         if ret:
             par[event_name] = ret
         else:
-            logger.warning('error decoding event %s', )
+            logger.warning('error decoding event %s', event_name)
             body = body[evt_length:]
             continue
 

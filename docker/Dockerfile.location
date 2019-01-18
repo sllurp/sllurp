@@ -5,5 +5,8 @@ COPY ./ /sllurp
 WORKDIR /sllurp
 RUN python setup.py install
 
-CMD sllurp location $ANT_ADDR -r -X $TX_POWER -t $INTERVAL --mqtt-broker $MQTT_BROKER --mqtt-topic $MQTT_TOPIC --mode-identifier $MODE --compute_window $COMPUTE_WINDOW --tag_age_interval $TAG_AGE_INTERVAL
+CMD sllurp location $ANT_ADDR -r -X $TX_POWER -t $INTERVAL --mqtt-broker $MQTT_BROKER --mqtt-topic $MQTT_TOPIC \
+--mode-identifier $MODE --compute_window $COMPUTE_WINDOW --tag_age_interval $TAG_AGE_INTERVAL \
+--mqtt-broker $MQTT_BROKER --mqtt-status-topic $MQTT_STATUS_TOPIC \
+--mqtt-status-interval $MQTT_STATUS_INTERVAL \
 

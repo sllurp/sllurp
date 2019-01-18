@@ -132,6 +132,7 @@ def main(args):
         if(args.mqtt_status_topic):
             factory_args['mqtt_client'] = client
             factory_args['mqtt_status_topic'] = args.mqtt_status_topic
+            factory_args['mqtt_status_interval'] = args.mqtt_status_interval
     fac = LLRPClientFactory(**factory_args)
 
     # tag_report_cb will be called every time the reader sends a TagReport
