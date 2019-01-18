@@ -3,6 +3,7 @@ from collections import defaultdict
 import logging
 import pprint
 import struct
+import time
 from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
@@ -191,7 +192,9 @@ class LLRPClient(LineReceiver):
                  field_of_view=2,
                  http_port=8080,
                  mqtt_status=None,
-                 mqtt_client=None):
+                 mqtt_client=None,
+                 mqtt_status_topic=None,
+                 mqtt_status_interval=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -247,7 +250,7 @@ class LLRPClient(LineReceiver):
         self.http_port = http_port
         self.mqtt_status = mqtt_status
         self.mqtt_client = mqtt_client
-
+        self.keepalive_interval = int(mqtt_status_interval)
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
 
@@ -300,7 +303,7 @@ class LLRPClient(LineReceiver):
                     self.peer_port)
         if self.mqtt_client is not None and self.mqtt_status is not None:
             self.mqtt_status.setReaderStatus(self.peer_ip,"connected")
-            self.client_args['mqtt_client'].publish(self.mqtt_status.getTopic(), payload=self.mqtt_status.generateStatus(), qos=0, retain=False)
+            self.mqtt_client.publish(self.mqtt_status.getTopic(), payload=self.mqtt_status.generateStatus(), qos=0, retain=False)
         if self.start_mode == "inventory":
             try:
                 requests.get("http://127.0.0.1:" + self.http_port + "/removeConnectionError")
@@ -599,7 +602,7 @@ class LLRPClient(LineReceiver):
             #self.send_ENABLE_EVENTS_AND_REPORTS()
 
             self.send_SET_READER_CONFIG(self.start_mode,self.height,self.facility_x_loc,
-                self.facility_y_loc,self.orientation,onCompletion=d)
+                self.facility_y_loc,self.orientation,self.keepalive_interval,onCompletion=d)
 
         elif self.state == LLRPClient.STATE_SENT_SET_CONFIG:
             if msgName not in ('SET_READER_CONFIG_RESPONSE',
@@ -818,7 +821,7 @@ class LLRPClient(LineReceiver):
                 'ID':   0,
             }})
         if self.mqtt_client is not None and self.mqtt_status is not None:
-            self.client_args['mqtt_client'].publish(self.mqtt_status.getTopic(), payload=self.mqtt_status.generateStatus(), qos=0, retain=False)
+                self.mqtt_client.publish(self.mqtt_status.getTopic(), payload=self.mqtt_status.generateStatus(), qos=0, retain=False)
 
     def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
         self.sendMessage({
@@ -876,7 +879,7 @@ class LLRPClient(LineReceiver):
                 'ID': 0,
             }})
 
-    def send_SET_READER_CONFIG(self,start_mode,height,facility_x_loc,facility_y_loc,orientation,onCompletion):
+    def send_SET_READER_CONFIG(self,start_mode,height,facility_x_loc,facility_y_loc,orientation,keepalive_interval,onCompletion):
         tagReportContentSelector = {
             'EnableROSpecID': False,
             'EnableSpecIndex': False,
@@ -920,8 +923,8 @@ class LLRPClient(LineReceiver):
                         'N': 1,
                     },
                     'KeepaliveSpec': {
-                        'KeepaliveTriggerType' : 0,
-                        'TimeInterval' : 12000
+                        'KeepaliveTriggerType' : 1,
+                        'TimeInterval' : keepalive_interval
                     },
                     'EventsAndReports': {
                         'Type':226,
@@ -929,7 +932,7 @@ class LLRPClient(LineReceiver):
                     },
                     'ImpinjLinkMonitorConfiguration':{
                         'LinkMonitorMode' : 0,
-                        'LinkDownThreshold' : 5
+                        'LinkDownThreshold' : 10
                     },
                     'ImpinjPlacementConfiguration':{
                         'HeightCm' : height,
@@ -970,8 +973,8 @@ class LLRPClient(LineReceiver):
                         'N': 1
                     },
                     'KeepaliveSpec': {
-                        'KeepaliveTriggerType' : 0,
-                        'TimeInterval' : 10000
+                        'KeepaliveTriggerType' : 1,
+                        'TimeInterval' : keepalive_interval
                     },
                     'EventsAndReports': {
                         'Type':226,
@@ -1018,8 +1021,16 @@ class LLRPClient(LineReceiver):
                             ## with llrp v2 (spec 1_1)
                             #'SpecLoopEvent': True,
                     },
-                }
-            }}) 
+                },
+                'ImpinjLinkMonitorConfiguration':{
+                    'LinkMonitorMode' : 0,
+                    'LinkDownThreshold' : 10
+                },
+                'KeepaliveSpec': {
+                    'KeepaliveTriggerType' : 1,
+                    'TimeInterval' : keepalive_interval
+                },
+            }})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(onCompletion)
 

@@ -7,16 +7,17 @@ services:
     image: llrp_inventory
     container_name: llrp_inventory
     ports:
-      - "8080:8080"
+      - "3030:3030"
     environment:
-      - ANT_ADDR=10.10.90.39 10.10.90.40
+      - ANT_ADDR=10.10.90.16 10.10.90.13
       - INTERVAL=2
       - MQTT_BROKER=10.10.10.83
-      - MQTT_TOPIC=llrp/inventory
       - TAG_AGE_INTERVAL=10
-      - HTTP_PORT=8080
+      - HTTP_PORT=3030
       - TX_POWER=81 #max
       - MODE=1003
+      - MQTT_STATUS_INTERVAL=10000
+      - MQTT_STATUS_TOPIC=llrp/1/stats
         #restart: always
         #network_mode: "host"
 

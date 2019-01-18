@@ -26,8 +26,9 @@ class MqttStatus:
       }
     }
     self.readerStatus = {}
+    self.status = {} #ok,degraded
     self.topic = topic
-
+    
   def generateStatus(self):
     self.baseStatus["date"]["raw"] = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat()
     utc_offset_sec = time.altzone if time.localtime().tm_isdst else time.timezone
@@ -36,7 +37,13 @@ class MqttStatus:
     self.baseStatus["date"]["offset"] = int(-utc_offset_sec / 3600)
     self.baseStatus["date"]["epoch"] = int(time.time())
     self.baseStatus["uptime"] = int(self.uptime())
-    self.baseStatus["llrp"]["status"] = self.readerStatus
+    self.baseStatus["llrp"]["antenna"] = self.readerStatus
+    self.baseStatus["llrp"]["status"] = "ok"
+    self.baseStatus["llrp"]["reason"] = ""
+    for ant, status in self.readerStatus.items():
+      if status == "disconnected":
+        self.baseStatus["llrp"]["status"] = "degraded"
+        self.baseStatus["llrp"]["reason"] = self.baseStatus["llrp"]["reason"] + str(ant) + " disconnected" + ", "
     return json.dumps(self.baseStatus)
 
   def uptime(self):
@@ -51,11 +58,8 @@ class MqttStatus:
       return uptime
 
   def setReaderStatus(self,readerIP,status):
-    if readerIP in self.readerStatus:
       self.readerStatus[readerIP] = status
-    else:
-      self.readerStatus[readerIP] = status
-  
+
   def setTopic(self,topic):
     self.topic = topic
   
