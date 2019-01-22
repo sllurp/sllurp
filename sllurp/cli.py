@@ -106,7 +106,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'impinj_search_mode',
                                'impinj_reports',
                                'mqtt_broker', 'mqtt_port', 'mqtt_topic', 'mqtt_status_topic', 'mqtt_status_interval',
-                               'mqtt_username','mqtt_password'
+                               'mqtt_username','mqtt_password',
                                'http_server', 'http_port', 'tag_age_interval'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, modulation=modulation,
