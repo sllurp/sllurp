@@ -17,3 +17,5 @@ services:
       - MQTT_STATUS_INTERVAL=10
       - MQTT_STATUS_TOPIC=llrp/1
       - MQTT_PORT=1883
+      - MQTT_USERNAME=itp
+      - MQTT_PASSWORD=itpmofa
