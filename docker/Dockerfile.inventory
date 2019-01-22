@@ -8,4 +8,5 @@ RUN python setup.py install
 CMD sllurp inventory $ANT_ADDR -r -X $TX_POWER -t $INTERVAL  --http-server --http-port $HTTP_PORT \
 --tag-age-interval $TAG_AGE_INTERVAL -a 0 --mode-identifier $MODE \
 --mqtt-broker $MQTT_BROKER --mqtt-status-topic $MQTT_STATUS_TOPIC \
---mqtt-status-interval $MQTT_STATUS_INTERVAL --mqtt-port $MQTT_PORT
+--mqtt-status-interval $MQTT_STATUS_INTERVAL --mqtt-port $MQTT_PORT \
+--mqtt-username $MQTT_USERNAME --mqtt-password $MQTT_PASSWORD

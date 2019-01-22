@@ -123,7 +123,7 @@ def main(args):
         global client
         global topic
         client = mqtt.Client()
-        if args.mqtt_password is not None and args.mqtt_username is not None:
+        if args.mqtt_password and args.mqtt_username:
             client.username_pw_set(args.mqtt_username, args.mqtt_password)
         client.connect(args.mqtt_broker, args.mqtt_port, 60)
         client.loop_start()
