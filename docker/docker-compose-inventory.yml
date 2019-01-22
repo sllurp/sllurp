@@ -18,6 +18,7 @@ services:
       - MODE=1003
       - MQTT_STATUS_INTERVAL=10000
       - MQTT_STATUS_TOPIC=llrp/1/stats
+      - MQTT_PORT=1883
         #restart: always
         #network_mode: "host"
 
