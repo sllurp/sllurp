@@ -17,6 +17,5 @@ services:
       - TAG_AGE_INTERVAL=30
       - MQTT_STATUS_INTERVAL=10000
       - MQTT_STATUS_TOPIC=llrp/1/stats
-        #restart: always
-        #network_mode: host
+      - MQTT_PORT=1883
 
