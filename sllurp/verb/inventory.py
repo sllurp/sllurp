@@ -173,6 +173,8 @@ def main(args):
         global client
         global topic
         client = mqtt.Client()
+        if 'mqtt_password' in args.mqtt_password and 'mqtt_username' in args.mqtt_username:
+            client.username_pw_set(args.mqtt_username, args.mqtt_password)
         client.connect(args.mqtt_broker, args.mqtt_port, 60)
         client.loop_start()
         client.on_connect = on_connect

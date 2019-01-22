@@ -7,5 +7,6 @@ RUN python setup.py install
 
 CMD sllurp direction $ANT_ADDR --enable_sector_id $ENABLE_SECTOR_ID -r -X $TX_POWER -t $INTERVAL \
 --mqtt-broker $MQTT_BROKER --mqtt-topic $MQTT_TOPIC --tag_age_interval $TAG_AGE_INTERVAL --mqtt-status-topic $MQTT_STATUS_TOPIC \
---mqtt-status-interval $MQTT_STATUS_INTERVAL --mqtt-port $MQTT_PORT
+--mqtt-status-interval $MQTT_STATUS_INTERVAL --mqtt-port $MQTT_PORT \
+--mqtt-username $MQTT_USERNAME --mqtt-password $MQTT_PASSWORD
 
