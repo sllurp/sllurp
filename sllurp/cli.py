@@ -38,8 +38,6 @@ def cli(debug, logfile):
                    ' default 1)')
 @click.option('-X', '--tx-power', type=int, default=0,
               help='transmit power (default 0=max power)')
-@click.option('-M', '--modulation', type=click.Choice(mods),
-              help='Reader-to-Tag Modulation')
 @click.option('-T', '--tari', type=int, default=0,
               help='Tari value (default 0=auto)')
 @click.option('-s', '--session', type=int, default=2,
@@ -63,14 +61,14 @@ def cli(debug, logfile):
               help='Fix operating frequency (dependent '
               'on operating region if possible)')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
-              modulation, tari, session, mode_identifier,
+              tari, session, mode_identifier,
               tag_population, reconnect, tag_filter_mask,
               impinj_extended_configuration,
               impinj_search_mode, impinj_reports, impinj_fixed_freq):
     """Conduct inventory (searching the area around the antennas)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
-                               'tx_power', 'modulation', 'tari', 'session',
+                               'tx_power', 'tari', 'session',
                                'population', 'mode_identifier',
                                'reconnect', 'tag_filter_mask',
                                'impinj_extended_configuration',
@@ -78,7 +76,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'impinj_reports', 
                                'impinj_fixed_freq'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
-                antennas=antennas, tx_power=tx_power, modulation=modulation,
+                antennas=antennas, tx_power=tx_power,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
                 reconnect=reconnect, tag_filter_mask=tag_filter_mask,
@@ -110,8 +108,6 @@ def log(host, outfile, antennas, epc, reader_timestamp):
               help='issue a TagReport every N tags')
 @click.option('-X', '--tx-power', type=int, default=0,
               help='transmit power (default 0=max power)')
-@click.option('-M', '--modulation', type=click.Choice(mods),
-              help='Reader-to-Tag Modulation')
 @click.option('-T', '--tari', type=int, default=0,
               help='Tari value (default 0=auto)')
 @click.option('-s', '--session', type=int, default=2,
@@ -131,15 +127,15 @@ def log(host, outfile, antennas, epc, reader_timestamp):
               help='Word addresss of the first word to read/write')
 @click.option('-ap', '--access-password', type=int, default=0,
               help='Access password for secure state if R/W locked')
-def access(host, port, time, report_every_n_tags, tx_power, modulation, tari,
+def access(host, port, time, report_every_n_tags, tx_power, tari,
            session, tag_population, read_words, write_words, count,
            memory_bank, word_ptr, access_password):
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n',
-                               'tx_power', 'modulation', 'tari', 'session',
+                               'tx_power', 'tari', 'session',
                                'population', 'read_words', 'write_words',
                                'count', 'mb', 'word_ptr', 'access_password'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
-                tx_power=tx_power, modulation=modulation, tari=tari,
+                tx_power=tx_power, tari=tari,
                 session=session, population=tag_population,
                 read_words=read_words, write_words=write_words, count=count,
                 mb=memory_bank, word_ptr=word_ptr,

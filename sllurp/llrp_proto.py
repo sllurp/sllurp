@@ -216,11 +216,6 @@ Modulation_Name2Type = {
     'WISP5pre': 0,
     'WISP5': 0,
 }
-Modulation_DefaultTari = {
-    'WISP5pre': 12500,
-    'WISP5': 6250,
-}
-DEFAULT_MODULATION = 'M4'
 
 #
 # LLRP Messages
