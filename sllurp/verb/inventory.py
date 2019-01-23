@@ -5,41 +5,38 @@ from __future__ import print_function, division
 import logging
 import pprint
 import time
-from twisted.internet import reactor, defer
 
 from sllurp.util import monotonic
-from sllurp.llrp import LLRPClientFactory
+from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
+from sllurp.llrp_proto import Modulation_DefaultTari
+from sllurp.log import get_logger
+from sllurp.log import is_general_debug_enabled, set_general_debug
 
 start_time = None
 
 numtags = 0
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-
-def finish(*args):
+def finish_cb(reader):
     runtime = monotonic() - start_time
     logger.info('total # of tags seen: %d (%d tags/second)', numtags,
                 numtags/runtime)
-    if reactor.running:
-        reactor.stop()
+
+def inventory_start_cb(reader, state):
+    global start_time
+    start_time = monotonic()
 
 
-def shutdown(factory):
-    return factory.politeShutdown()
-
-
-def tag_report_cb(llrp_msg):
+def tag_report_cb(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     global numtags
-    tags = llrp_msg.msgdict['RO_ACCESS_REPORT']['TagReportData']
     if len(tags):
         logger.info('saw tag(s): %s', pprint.pformat(tags))
         for tag in tags:
-            numtags += tag['TagSeenCount'][0]
+            numtags += tag['TagSeenCount']
     else:
         logger.info('no tags seen')
         return
-
 
 def main(args):
     global start_time
@@ -49,23 +46,11 @@ def main(args):
         return 0
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
-    antmap = {
-        host: {
-            str(ant): 'Antenna {}'.format(ant) for ant in enabled_antennas
-        } for host in args.host
-    }
-    logger.info('Antenna map: %s', antmap)
-
-    # d.callback will be called when all connections have terminated normally.
-    # use d.addCallback(<callable>) to define end-of-program behavior.
-    d = defer.Deferred()
-    d.addCallback(finish)
 
     factory_args = dict(
-        onFinish=d,
         duration=args.time,
         report_every_n_tags=args.every_n,
-        antenna_dict=antmap,
+        antennas=enabled_antennas,
         tx_power=args.tx_power,
         tari=args.tari,
         session=args.session,
@@ -85,7 +70,11 @@ def main(args):
             'EnableFirstSeenTimestamp': False,
             'EnableLastSeenTimestamp': True,
             'EnableTagSeenCount': True,
-            'EnableAccessSpecID': False
+            'EnableAccessSpecID': False,
+            'C1G2EPCMemorySelector': {
+                'EnableCRC': False,
+                'EnablePCBits': False,
+            }
         },
         impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
@@ -94,8 +83,8 @@ def main(args):
     if args.impinj_reports:
         factory_args['impinj_tag_content_selector'] = {
             'EnableRFPhaseAngle': True,
-            'EnablePeakRSSI': False,
-            'EnableRFDopplerFrequency': False
+            'EnablePeakRSSI': True,
+            'EnableRFDopplerFrequency': True
         }
     if args.impinj_fixed_freq:
         factory_args['impinj_fixed_frequency_param'] = {
@@ -103,24 +92,47 @@ def main(args):
             'ChannelListIndex': [1]
         }
 
-    fac = LLRPClientFactory(**factory_args)
 
-    # tag_report_cb will be called every time the reader sends a TagReport
-    # message (i.e., when it has "seen" tags).
-    fac.addTagReportCallback(tag_report_cb)
-
+    reader_clients = []
     for host in args.host:
         if ':' in host:
             host, port = host.split(':', 1)
             port = int(port)
         else:
             port = args.port
-        reactor.connectTCP(host, port, fac, timeout=3)
 
-    # catch ctrl-C and stop inventory before disconnecting
-    reactor.addSystemEventTrigger('before', 'shutdown', shutdown, fac)
+        config = LLRPReaderConfig(factory_args)
+        reader = LLRPReaderClient(host, port, config)
+        reader.add_disconnected_callback(finish_cb)
+        reader.add_tag_report_callback(tag_report_cb)
+        reader.add_state_callback(LLRPReaderState.STATE_INVENTORYING, inventory_start_cb)
+        reader_clients.append(reader)
 
-    # start runtime measurement to determine rates
+
     start_time = monotonic()
+    try:
+        for reader in reader_clients:
+            reader.connect()
+    except Exception:
+        # On one error, abort all
+        for reader in reader_clients:
+            reader.disconnect()
 
-    reactor.run()
+    while True:
+        try:
+            # Join all threads using a timeout so it doesn't block
+            # Filter out threads which have been joined or are None
+            alive_readers = [reader for reader in reader_clients if reader.is_alive()]
+            if not alive_readers:
+                break
+            for reader in alive_readers:
+                reader.join(1)
+        except (KeyboardInterrupt, SystemExit):
+            # catch ctrl-C and stop inventory before disconnecting
+            logger.info("Exit detected! Stopping readers...")
+            for reader in reader_clients:
+                try:
+                    reader.disconnect()
+                except:
+                    logger.exception("Error during disconnect. Ignoring...")
+                    pass

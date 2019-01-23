@@ -19,7 +19,7 @@ def BIT(n):
 
 
 def BITMASK(n):
-    return ((1 << (n)) - 1)
+    return (1 << (n)) - 1
 
 
 def func():
@@ -61,3 +61,22 @@ else:
 
     def iterkeys(d):
         return d.iterkeys()
+
+def find_closest(table, target):
+    left = 0
+    right = len(table) - 1
+
+    if target > table[right]:
+        left = right
+    else:
+        # find the closest value in the conversion table
+        while right != left + 1:
+            middle = (left + right) // 2
+            if table[middle] == target:
+                left = middle
+                break
+            if table[middle] < target:
+                left = middle
+            if table[middle] > target:
+                right = middle
+    return left, table[left]

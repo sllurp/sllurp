@@ -65,6 +65,9 @@ class MockConn(object):
     def write(self, mybytes):
         pass
 
+    def sendall(self, mybytes):
+        pass
+
 
 class FauxClient(object):
     def __init__(self):
@@ -83,9 +86,10 @@ class TestReaderEventNotification(unittest.TestCase):
     def test_decode(self):
         data = binascii.unhexlify('043f000000200ab288c900f600160080000c0004f8'
                                   '535baadaff010000060000')
-        client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        client.transport = MockConn('')
-        client.dataReceived(data)
+        config = sllurp.llrp.LLRPReaderConfig({'start_inventory': False})
+        reader = sllurp.llrp.LLRPReaderClient('localhost', config=config)
+        reader._socket = MockConn('')
+        reader.rawDataReceived(data)
 
 
 class TestDecodeROAccessReport (unittest.TestCase):
@@ -147,7 +151,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
     _client = None
     _tags_seen = 0
 
-    def tagcb(self, llrpmsg):
+    def tagcb(self, reader, tags):
         self._tags_seen += 1
 
     def setUp(self):
@@ -157,14 +161,16 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = MockConn(self._binr)
         logger.debug('%d bytes waiting', self._mock_conn.stream.waiting())
-        self._client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        self._client.transport = MockConn('')
-        self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
+        config = sllurp.llrp.LLRPReaderConfig({'start_inventory': False})
+        self._reader = sllurp.llrp.LLRPReaderClient('localhost', config=config)
+        self._reader._socket = MockConn('')
+        self._reader.add_tag_report_callback(self.tagcb)
+        #self._reader.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
 
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
-        self._client.state = sllurp.llrp.LLRPClient.STATE_INVENTORYING
-        self._client.dataReceived(self._binr)
+        self._reader.state = sllurp.llrp.LLRPReaderState.STATE_INVENTORYING
+        self._reader.rawDataReceived(self._binr)
         self.assertEqual(self._tags_seen, 45)
 
     def tearDown(self):
@@ -225,14 +231,38 @@ class TestMessageStruct(unittest.TestCase):
             self.assertIn('fields', msg_struct)
             self.assertIsInstance(msg_struct['fields'], list)
 
-    @unittest.expectedFailure
     def test_unique_types(self):
-        d = {}
+        vendor_custom_types = {}
+        msg_types = {}
+        param_types = {}
         for msg_name, msg_struct in self.s.items():
+            vendorid  = msg_struct.get('vendorid')
+            if vendorid:
+                # Custom param/msg
+                self.assertIn('subtype', msg_struct)
+                msg_subtype = msg_struct['subtype']
+                self.assertIsInstance(msg_subtype, int)
+                vendor_types = vendor_custom_types.setdefault('vendorid', {})
+                self.assertNotIn(msg_subtype, vendor_types,
+                                 "vendor subtype is not unique in msg_struct")
+                vendor_types[msg_subtype] = True
+                continue
+
+            # Standard param/msg
             self.assertIn('type', msg_struct)
-            self.assertIsInstance(msg_struct['type'], int)
-            self.assertNotIn(msg_struct['type'], d)
-            d[msg_struct['type']] = True
+            msg_type = msg_struct['type']
+            self.assertIsInstance(msg_type, int)
+
+            if 'Ver' in msg_struct.get('fields', {}):
+                # This is a Message
+                self.assertNotIn(msg_type, msg_types,
+                                 "message type not unique in msg_struct")
+                msg_types[msg_type] = True
+            else:
+                # This is a Parameter
+                self.assertNotIn(msg_type, param_types,
+                                 "parameter type not unique in msg_struct")
+                param_types[msg_type] = True
 
 
 def test_get_reader_config():

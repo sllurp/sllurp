@@ -1,28 +1,35 @@
 from __future__ import print_function, unicode_literals
 from collections import defaultdict
-import logging
 import pprint
 import struct
+import select
+
+from binascii import hexlify
+from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
+                    IPPROTO_TCP, TCP_NODELAY, socket, error as SocketError)
+from threading import Thread, Event
+
 from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
     llrp_data2xml, LLRPMessageDict, Modulation_Name2Type
 from .llrp_errors import ReaderConfigurationError
-from binascii import hexlify
-from .util import BITMASK, natural_keys, iterkeys
-from twisted.internet import reactor, task, defer
-from twisted.internet.protocol import ReconnectingClientFactory
-from twisted.protocols.basic import LineReceiver
+from .log import get_logger, is_general_debug_enabled
+from .util import BITMASK, natural_keys, iterkeys, find_closest
 
-LLRP_PORT = 5084
+LLRP_DEFAULT_PORT = 5084
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
 
 
 class LLRPMessage(object):
     hdr_fmt = '!HI'
-    hdr_len = struct.calcsize(hdr_fmt)  # == 6 bytes
+    hdr_struct = struct.Struct(hdr_fmt)
+    hdr_len = hdr_struct.size  # == 6 bytes
+
     full_hdr_fmt = hdr_fmt + 'I'
-    full_hdr_len = struct.calcsize(full_hdr_fmt)  # == 10 bytes
+    full_hdr_struct = struct.Struct(full_hdr_fmt)
+    full_hdr_len = full_hdr_struct.size  # == 10 bytes
 
     def __init__(self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
@@ -34,6 +41,7 @@ class LLRPMessage(object):
         self.msgbytes = None
         if msgdict:
             self.msgdict = LLRPMessageDict(msgdict)
+
             if not msgbytes:
                 self.serialize()
         if msgbytes:
@@ -46,7 +54,7 @@ class LLRPMessage(object):
             raise LLRPError('No message dict to serialize.')
         msgdict_iter = iterkeys(self.msgdict)
         name = next(msgdict_iter)
-        logger.debug('serializing %s command', name)
+        logger.debugfast('serializing %s command', name)
         ver = self.msgdict[name]['Ver'] & BITMASK(3)
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
         msgid = self.msgdict[name]['ID']
@@ -56,25 +64,24 @@ class LLRPMessage(object):
             raise LLRPError('Cannot find encoder for message type '
                             '{}'.format(name))
         data = encoder(self.msgdict[name])
-        self.msgbytes = struct.pack(self.full_hdr_fmt,
-                                    (ver << 10) | msgtype,
-                                    len(data) + self.full_hdr_len,
-                                    msgid) + data
-        logger.debug('serialized bytes: %s', hexlify(self.msgbytes))
-        logger.debug('done serializing %s command', name)
+        self.msgbytes = self.full_hdr_struct.pack((ver << 10) | msgtype,
+            len(data) + self.full_hdr_len, msgid) + data
+        if is_general_debug_enabled():
+            logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
+            logger.debugfast('done serializing %s command', name)
 
     def deserialize(self):
         """Turns a sequence of bytes into a message dictionary."""
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
         data = self.msgbytes
-        msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
-                                               data[:self.full_hdr_len])
+        msgtype, length, msgid = self.full_hdr_struct.unpack(
+            data[:self.full_hdr_len])
         ver = (msgtype >> 10) & BITMASK(3)
         msgtype = msgtype & BITMASK(10)
         try:
             name = Message_Type2Name[msgtype]
-            logger.debug('deserializing %s command', name)
+            logger.debugfast('deserializing %s command', name)
             decoder = Message_struct[name]['decode']
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
@@ -87,7 +94,7 @@ class LLRPMessage(object):
             self.msgdict[name]['Ver'] = ver
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
-            logger.debug('done deserializing %s command', name)
+            logger.debugfast('done deserializing %s command', name)
         except ValueError:
             logger.exception('Unable to decode body %s, %s', body,
                     decoder(body))
@@ -130,7 +137,121 @@ class LLRPMessage(object):
         return ret
 
 
-class LLRPClient(LineReceiver):
+class C1G2TargetTag(object):
+    def __init__(self, MB=0, Pointer=0, MaskBitCount=0, TagMask=b'',
+                 DataBitCount=0, TagData=b''):
+        self.MB = MB
+        self.Match = 1
+        self.Pointer = Pointer
+        self.MaskBitCount = MaskBitCount
+        self.TagMask = TagMask
+        self.DataBitCount = DataBitCount
+        self.TagData = TagData
+
+
+class C1G2OpSpec(object):
+    pass
+
+class C1G2Read(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WordCount=0):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WordCount = WordCount
+
+class C1G2Write(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WriteDataWordCount=0, WriteData=b''):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WriteDataWordCount = WriteDataWordCount
+        self.WriteData = WriteData
+
+class C1G2Kill(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, KillPassword=0):
+        self.OpSpecID = OpSpecID
+        self.KillPassword = KillPassword
+
+class C1G2Recommission(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, KillPassword=0, Flag3SB=False,
+                 Flag2SB=False, FlagLSB=False):
+        self.OpSpecID = OpSpecID
+        self.KillPassword = KillPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.Flag3SB = Flag3SB
+        self.Flag2SB = Flag2SB
+        self.FlagLSB = FlagLSB
+
+class C1G2LockPayload(object):
+    def __init__(self, Privilege, DataField):
+        if Privilege < 0 or Privilege > 3:
+            raise ValueError("Invalid Privilege value")
+        if DataField < 0 or Privilege > 4:
+            raise ValueError("Invalid DataField value")
+
+        self.Privilege = Privilege
+        self.DataField = DataField
+
+class C1G2Lock(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, LockPayload=None):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        if not LockPayload:
+            raise ValueError("At least one C1G2LockPayload needs to be defined")
+        if not isinstance(LockPayload, list):
+            LockPayload = [LockPayload]
+        self.LockPayload = LockPayload
+
+class C1G2BlockErase(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WriteCount=0):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WriteCount = WriteCount
+
+class C1G2BlockWrite(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0,
+                 WriteDataWordCount=0, WriteData=b''):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.WordPtr = WordPtr
+        self.WriteDataWordCount = WriteDataWordCount
+        self.WriteData = WriteData
+
+class C1G2BlockPermalock(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, BlockPtr=0,
+                 BlockMaskWordCount=0, BlockMask=b''):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.BlockPtr = BlockPtr
+        self.BlockMaskWordCount = BlockMaskWordCount
+        self.BlockMask = BlockMask
+
+class C1G2GetBlockPermalockStatus(C1G2OpSpec):
+    def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, BlockPtr=0,
+                 BlockRange=0):
+        self.OpSpecID = OpSpecID
+        self.AccessPassword = AccessPassword
+        # Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved'
+        self.MB = MB
+        self.BlockPtr = BlockPtr
+        self.BlockRange = BlockRange
+
+
+class LLRPReaderState(object):
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
     STATE_CONNECTED = 3
@@ -148,145 +269,75 @@ class LLRPClient(LineReceiver):
     STATE_SENT_ENABLE_IMPINJ_EXTENSIONS = 24
 
     @classmethod
-    def getStates(_):
-        state_names = [st for st in dir(LLRPClient) if st.startswith('STATE_')]
+    def getStates(cls):
+        state_names = [st for st in dir(cls) if st.startswith('STATE_')]
         for state_name in state_names:
-            state_num = getattr(LLRPClient, state_name)
+            state_num = getattr(LLRPReaderState, state_name)
             yield state_name, state_num
 
     @classmethod
-    def getStateName(_, state):
+    def getStateName(cls, state):
         try:
-            return [st_name for st_name, st_num in LLRPClient.getStates()
+            return [st_name for st_name, st_num in cls.getStates()
                     if st_num == state][0]
         except IndexError:
             raise LLRPError('unknown state {}'.format(state))
 
-    def __init__(self, factory, duration=None, report_every_n_tags=None,
-                 antennas=(1,), tx_power=0,
-                 tari=0, start_inventory=True, reset_on_connect=True,
-                 disconnect_when_done=True,
-                 report_timeout_ms=0,
-                 tag_content_selector={},
-                 mode_identifier=None,
-                 session=2, tag_population=4,
-                 tag_filter_mask=None,
-                 impinj_extended_configuration=False,
-                 impinj_search_mode=None,
-                 impinj_tag_content_selector=None,
-                 impinj_fixed_frequency_param=None):
-        self.factory = factory
-        self.setRawMode()
-        self.state = LLRPClient.STATE_DISCONNECTED
-        self.report_every_n_tags = report_every_n_tags
-        self.report_timeout_ms = report_timeout_ms
+
+class LLRPClient(object):
+    def __init__(self, config, transport_tx_write=None,
+                 state_change_callback=None):
+
+        self.config = config
+        self.transport_tx_write = transport_tx_write
+        self.state_change_callback = state_change_callback
+
+        self.state = LLRPReaderState.STATE_DISCONNECTED
+
         self.capabilities = {}
         self.configuration = {}
         self.reader_mode = None
-        if isinstance(tx_power, int):
-            self.tx_power = {ant: tx_power for ant in antennas}
-        elif isinstance(tx_power, dict):
-            if set(antennas) != set(tx_power.keys()):
-                raise LLRPError('Must specify tx_power for each antenna')
-            self.tx_power = tx_power.copy()
-        else:
-            raise LLRPError('tx_power must be dict or int')
-        self.tari = tari
-        self.session = session
-        self.tag_population = tag_population
-        self.mode_identifier = mode_identifier
-        self.tag_filter_mask = tag_filter_mask
-        self.antennas = antennas
-        self.duration = duration
+
         self.peername = None
+
         self.tx_power_table = []
-        self.start_inventory = start_inventory
-        self.reset_on_connect = reset_on_connect
-        if self.reset_on_connect:
+
+        if config.reset_on_connect:
             logger.info('will reset reader state on connect')
-        self.disconnect_when_done = disconnect_when_done
-        self.tag_content_selector = tag_content_selector
-        if self.start_inventory:
+
+        if config.start_inventory:
             logger.info('will start inventory on connect')
-        if (impinj_search_mode is not None or
-                impinj_tag_content_selector is not None or
-                impinj_fixed_frequency_param is not None):
+
+        if config.impinj_search_mode is not None \
+           or config.impinj_tag_content_selector is not None:
             logger.info('Enabling Impinj extensions')
-        self.impinj_extended_configuration = impinj_extended_configuration
-        self.impinj_search_mode = impinj_search_mode
-        self.impinj_tag_content_selector = impinj_tag_content_selector
-        self.impinj_fixed_frequency_param = impinj_fixed_frequency_param
 
-        logger.info('using antennas: %s', self.antennas)
-        logger.info('transmit power: %s', self.tx_power)
+        logger.info('using antennas: %s', config.antennas)
+        logger.info('transmit power: %s', config.tx_power)
 
-        # for partial data transfers
-        self.expectingRemainingBytes = 0
-        self.partialData = ''
-
-        # state-change callbacks: STATE_* -> [list of callables]
-        self._state_callbacks = {}
-        for _, st_num in LLRPClient.getStates():
-            self._state_callbacks[st_num] = []
-
-        # message callbacks (including tag reports):
-        # msg_name -> [list of callables]
-        self._message_callbacks = defaultdict(list)
 
         # Deferreds to fire during state machine machinations
         self._deferreds = defaultdict(list)
 
-        self.disconnecting = False
         self.rospec = None
 
         self.last_msg_id = 0
 
-    def addStateCallback(self, state, cb):
-        """Add a callback to run upon a state transition.
+        self.disconnecting = False
 
-        When an LLRPClient `proto` enters `state`, `cb(proto)` will be called.
 
-        Args:
-            state: A state from LLRPClient.STATE_*.
-            cb: A callable that takes an LLRPClient argument.
-        """
-        self._state_callbacks[state].append(cb)
 
-    def addMessageCallback(self, msg_type, cb):
-        self._message_callbacks[msg_type].append(cb)
-
-    def connectionMade(self):
-        t = self.transport
-        t.setTcpKeepAlive(True)
-
-        # overwrite the peer hostname with the hostname the connector asked us
-        # for (e.g., 'localhost' instead of '127.0.0.1')
-        dest = t.connector.getDestination()
-        self.peer_ip, self.peer_port = t.getHandle().getpeername()
-        self.peername = (dest.host, self.peer_port)
-
-        logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
-                    self.peer_port)
-        self.factory.protocols.append(self)
-
-    def setState(self, newstate, onComplete=None):
+    def setState(self, newstate, onCompletion=None):
         assert newstate is not None
-        logger.debug('state change: %s -> %s',
-                     LLRPClient.getStateName(self.state),
-                     LLRPClient.getStateName(newstate))
+        if is_general_debug_enabled():
+            logger.debugfast('state change: %s -> %s',
+                            LLRPReaderState.getStateName(self.state),
+                            LLRPReaderState.getStateName(newstate))
 
         self.state = newstate
 
-        for fn in self._state_callbacks[newstate]:
-            fn(self)
-
-    def _setState_wrapper(self, _, *args, **kwargs):
-        """Version of setState suitable for calling via a Deferred callback.
-           XXX this is a gross hack."""
-        self.setState(args[0], **kwargs)
-
-    def connectionLost(self, reason):
-        self.factory.protocols.remove(self)
+        if self.state_change_callback:
+            self.state_change_callback(newstate)
 
     def parseReaderConfig(self, confdict):
         """Parse a reader configuration dictionary.
@@ -303,7 +354,7 @@ class LLRPClient(LineReceiver):
             Data: b'\x00'
         }
         """
-        logger.debug('parseReaderConfig input: %s', confdict)
+        logger.debugfast('parseReaderConfig input: %s', confdict)
         conf = {}
         for k, v in confdict.items():
             if not k.startswith('Parameter'):
@@ -346,33 +397,37 @@ class LLRPClient(LineReceiver):
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
         max_ant = gdc['MaxNumberOfAntennaSupported']
-        if max(self.antennas) > max_ant:
-            reqd = ','.join(map(str, self.antennas))
+        if max(self.config.antennas) > max_ant:
+            reqd = ','.join(map(str, self.config.antennas))
             avail = ','.join(map(str, range(1, max_ant + 1)))
             errmsg = ('Invalid antenna set specified: requested={},'
                       ' available={}; ignoring invalid antennas'.format(
                           reqd, avail))
             raise ReaderConfigurationError(errmsg)
-        logger.debug('set antennas: %s', self.antennas)
+        logger.debugfast('set antennas: %s', self.config.antennas)
 
         # parse available transmit power entries, set self.tx_power
         bandcap = capdict['RegulatoryCapabilities']['UHFBandCapabilities']
         self.tx_power_table = self.parsePowerTable(bandcap)
-        logger.debug('tx_power_table: %s', self.tx_power_table)
-        self.setTxPower(self.tx_power)
+        logger.debugfast('tx_power_table: %s', self.tx_power_table)
+        if self.config.tx_power_dbm is not None:
+            self.setTxPowerDbm(self.config.tx_power_dbm)
+        else:
+            self.setTxPower(self.config.tx_power)
 
         # parse list of reader's supported mode identifiers
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
         mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
 
-        # select a mode by matching available modes to requested parameters
-        if self.mode_identifier is not None:
-            logger.debug('Setting mode from mode_identifier=%s',
-                         self.mode_identifier)
+        # select a mode by matching available modes to requested parameters:
+        # favor mode_identifier over modulation
+        if self.config.mode_identifier is not None:
+            logger.debugfast('Setting mode from mode_identifier=%s',
+                             self.config.mode_identifier)
             try:
                 mode = [mo for mo in mode_list
-                        if mo['ModeIdentifier'] == self.mode_identifier][0]
+                        if mo['ModeIdentifier'] == self.config.mode_identifier][0]
                 self.reader_mode = mode
             except IndexError:
                 valid_modes = sorted(mo['ModeIdentifier'] for mo in mode_list)
@@ -382,13 +437,13 @@ class LLRPClient(LineReceiver):
 
         # if we're trying to set Tari explicitly, but the selected mode doesn't
         # support the requested Tari, that's a configuration error.
-        if self.reader_mode and self.tari:
-            if self.reader_mode['MinTari'] < self.tari < self.reader_mode['MaxTari']:
+        if self.reader_mode and self.config.tari:
+            if self.reader_mode['MinTari'] < self.config.tari < self.reader_mode['MaxTari']:
                 logger.debug('Overriding mode Tari %s with requested Tari %s',
-                             self.reader_mode['MaxTari'], self.tari)
+                             self.reader_mode['MaxTari'], self.config.tari)
             else:
                 errstr = ('Requested Tari {} is incompatible with selected '
-                          'mode {}'.format(self.tari, self.reader_mode))
+                          'mode {}'.format(self.config.tari, self.reader_mode))
 
         logger.info('using reader mode: %s', self.reader_mode)
 
@@ -396,27 +451,18 @@ class LLRPClient(LineReceiver):
         deferreds = self._deferreds[msgName]
         if not deferreds:
             return
-        logger.debug('running %d Deferreds for %s; '
-                     'isSuccess=%s', len(deferreds), msgName, isSuccess)
-        for d in deferreds:
-            if isSuccess:
-                d.callback(self.state)
-            else:
-                d.errback(self.state)
+        if is_general_debug_enabled():
+            logger.debugfast('running %d Deferreds for %s; '
+                            'isSuccess=%s', len(deferreds), msgName, isSuccess)
+        for deferred_cb in deferreds:
+            deferred_cb(self.state, isSuccess)
         del self._deferreds[msgName]
 
     def handleMessage(self, lmsg):
         """Implements the LLRP client state machine."""
-        logger.debug('LLRPMessage received in state %s: %s', self.state, lmsg)
+        logger.debugfast('LLRPMessage received in state %s: %s', self.state,
+                         lmsg)
         msgName = lmsg.getName()
-        lmsg.proto = self
-        lmsg.peername = self.peername
-
-        # call per-message callbacks
-        logger.debug('starting message callbacks for %s', msgName)
-        for fn in self._message_callbacks[msgName]:
-            fn(lmsg)
-        logger.debug('done with message callbacks for %s', msgName)
 
         # keepalives can occur at any time
         if msgName == 'KEEPALIVE':
@@ -424,28 +470,29 @@ class LLRPClient(LineReceiver):
             return
 
         if msgName == 'RO_ACCESS_REPORT' and \
-                self.state != LLRPClient.STATE_INVENTORYING:
-            logger.debug('ignoring RO_ACCESS_REPORT because not inventorying')
+                self.state != LLRPReaderState.STATE_INVENTORYING:
+            logger.debugfast('ignoring RO_ACCESS_REPORT because not inventorying')
             return
 
         if msgName == 'READER_EVENT_NOTIFICATION' and \
-                self.state >= LLRPClient.STATE_CONNECTED:
-            logger.debug('Got reader event notification')
+                self.state >= LLRPReaderState.STATE_CONNECTED:
+            logger.debugfast('Got reader event notification')
             return
 
-        logger.debug('in handleMessage(%s), there are %d Deferreds',
-                     msgName, len(self._deferreds[msgName]))
+        if is_general_debug_enabled():
+            logger.debugfast('in handleMessage(%s), there are %d Deferreds',
+                             msgName, len(self._deferreds[msgName]))
 
         #######
         # LLRP client state machine follows.  Beware: gets thorny.  Note the
-        # order of the LLRPClient.STATE_* fields.
+        # order of the LLRPReaderState.STATE_* fields.
         #######
 
         # in DISCONNECTED, CONNECTING, and CONNECTED states, expect only
         # READER_EVENT_NOTIFICATION messages.
-        if self.state in (LLRPClient.STATE_DISCONNECTED,
-                          LLRPClient.STATE_CONNECTING,
-                          LLRPClient.STATE_CONNECTED):
+        if self.state in (LLRPReaderState.STATE_DISCONNECTED,
+                          LLRPReaderState.STATE_CONNECTING,
+                          LLRPReaderState.STATE_CONNECTED):
             if msgName != 'READER_EVENT_NOTIFICATION':
                 logger.error('unexpected message %s while connecting', msgName)
                 return
@@ -459,27 +506,38 @@ class LLRPClient(LineReceiver):
                 logger.fatal('Could not start session on reader: %s', status)
                 return
 
+            self.disconnecting = False
+
             self.processDeferreds(msgName, lmsg.isSuccess())
 
             # a Deferred to call when we get GET_READER_CAPABILITIES_RESPONSE
-            d = defer.Deferred()
-            d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
-            d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
+            def get_reader_capabilities_cb(state, is_success, *args):
+                if is_success:
+                    self.setState(LLRPReaderState.STATE_CONNECTED)
+                else:
+                    self.panic(None, 'GET_READER_CAPABILITIES failed')
 
-            if (self.impinj_search_mode is not None or
-                    self.impinj_tag_content_selector is not None or
-                    self.impinj_extended_configuration is not None or
-                    self.impinj_fixed_frequency_param is not None):
-                caps = defer.Deferred()
-                caps.addCallback(self.send_GET_READER_CAPABILITIES,
-                                 onCompletion=d)
-                caps.addErrback(self.panic, 'ENABLE_IMPINJ_EXTENSIONS failed')
-                self.send_ENABLE_IMPINJ_EXTENSIONS(onCompletion=caps)
+            if self.config.impinj_search_mode is not None \
+               or self.config.impinj_tag_content_selector is not None \
+               or self.config.impinj_extended_configuration \
+               or self.config.impinj_fixed_frequency_param is not None:
+
+                def enable_impinj_ext_cb(state, is_success, *args):
+                    if is_success:
+                        self.send_GET_READER_CAPABILITIES(
+                            self, onCompletion=get_reader_capabilities_cb)
+                    else:
+                        self.panic(None, 'ENABLE_IMPINJ_EXTENSIONS failed')
+
+                self.send_ENABLE_IMPINJ_EXTENSIONS(
+                    onCompletion=enable_impinj_ext_cb)
             else:
-                self.send_GET_READER_CAPABILITIES(self, onCompletion=d)
+                self.send_GET_READER_CAPABILITIES(
+                    self, onCompletion=get_reader_capabilities_cb)
 
-        elif self.state == LLRPClient.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS:
-            logger.debug(lmsg)
+        elif self.state == LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS:
+            if is_general_debug_enabled():
+                logger.debugfast(lmsg)
             if msgName != 'CUSTOM_MESSAGE':
                 logger.error('unexpected response %s while enabling Impinj'
                              'extensions', msgName)
@@ -491,13 +549,13 @@ class LLRPClient(LineReceiver):
                 logger.fatal('Error %s enabling Impinj extensions: %s',
                              status, err)
                 return
-            logger.debug('Successfully enabled Impinj extensions')
+            logger.debugfast('Successfully enabled Impinj extensions')
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
         # in state SENT_GET_CAPABILITIES, expect GET_CAPABILITIES_RESPONSE;
         # respond to this message by advancing to state CONNECTED.
-        elif self.state == LLRPClient.STATE_SENT_GET_CAPABILITIES:
+        elif self.state == LLRPReaderState.STATE_SENT_GET_CAPABILITIES:
             if msgName != 'GET_READER_CAPABILITIES_RESPONSE':
                 logger.error('unexpected response %s getting capabilities',
                              msgName)
@@ -511,7 +569,9 @@ class LLRPClient(LineReceiver):
 
             self.capabilities = \
                 lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-            logger.debug('Capabilities: %s', pprint.pformat(self.capabilities))
+            if is_general_debug_enabled():
+                logger.debugfast('Capabilities: %s',
+                                 pprint.pformat(self.capabilities))
             try:
                 self.parseCapabilities(self.capabilities)
             except LLRPError as err:
@@ -520,13 +580,17 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-            d = defer.Deferred()
-            d.addCallback(self._setState_wrapper,
-                          LLRPClient.STATE_SENT_GET_CONFIG)
-            d.addErrback(self.panic, 'GET_READER_CONFIG failed')
-            self.send_GET_READER_CONFIG(onCompletion=d)
+            def get_reader_config_cb(state, is_success, *args):
+                if is_success:
+                    self.setState(LLRPReaderState.STATE_SENT_GET_CONFIG)
+                else:
+                    self.panic(None, 'GET_READER_CONFIG failed')
 
-        elif self.state == LLRPClient.STATE_SENT_GET_CONFIG:
+            if self.disconnecting:
+                return
+            self.send_GET_READER_CONFIG(onCompletion=get_reader_config_cb)
+
+        elif self.state == LLRPReaderState.STATE_SENT_GET_CONFIG:
             if msgName not in ('GET_READER_CONFIG_RESPONSE',
                                'DELETE_ACCESSSPEC_RESPONSE',
                                'DELETE_ROSPEC_RESPONSE'):
@@ -541,20 +605,24 @@ class LLRPClient(LineReceiver):
                 return
 
             if msgName == 'GET_READER_CONFIG_RESPONSE':
-                config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
-                self.configuration = self.parseReaderConfig(config)
-                logger.debug('Reader configuration: %s', self.configuration)
+                rconfig = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
+                self.configuration = self.parseReaderConfig(rconfig)
+                logger.debugfast('Reader configuration: %s', self.configuration)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-            d = defer.Deferred()
-            d.addCallback(self._setState_wrapper,
-                          LLRPClient.STATE_SENT_SET_CONFIG)
-            d.addErrback(self.panic, 'SET_READER_CONFIG failed')
-            self.send_ENABLE_EVENTS_AND_REPORTS()
-            self.send_SET_READER_CONFIG(onCompletion=d)
+            def set_reader_config_cb(state, is_success, *args):
+                if is_success:
+                    self.setState(LLRPReaderState.STATE_SENT_SET_CONFIG)
+                else:
+                    self.panic(None, 'SET_READER_CONFIG failed')
 
-        elif self.state == LLRPClient.STATE_SENT_SET_CONFIG:
+            if self.disconnecting:
+                return
+            self.send_ENABLE_EVENTS_AND_REPORTS()
+            self.send_SET_READER_CONFIG(onCompletion=set_reader_config_cb)
+
+        elif self.state == LLRPReaderState.STATE_SENT_SET_CONFIG:
             if msgName not in ('SET_READER_CONFIG_RESPONSE',
                                'GET_READER_CONFIG_RESPONSE',
                                'DELETE_ACCESSSPEC_RESPONSE'):
@@ -570,17 +638,24 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-            if self.reset_on_connect:
-                d = self.stopPolitely(disconnect=False)
-                if self.start_inventory:
-                    d.addCallback(self.startInventory)
-            elif self.start_inventory:
+            if self.disconnecting:
+                return
+
+            if self.config.reset_on_connect:
+                def on_politely_stopped_cb(state, is_success, *args):
+                    if is_success:
+                        self.setState(LLRPReaderState.STATE_CONNECTED)
+                        if self.config.start_inventory:
+                            self.startInventory()
+
+                self.stopPolitely(onCompletion=on_politely_stopped_cb)
+            elif self.config.start_inventory:
                 self.startInventory()
 
         # in state SENT_ADD_ROSPEC, expect only ADD_ROSPEC_RESPONSE; respond to
         # favorable ADD_ROSPEC_RESPONSE by enabling the added ROSpec and
         # advancing to state SENT_ENABLE_ROSPEC.
-        elif self.state == LLRPClient.STATE_SENT_ADD_ROSPEC:
+        elif self.state == LLRPReaderState.STATE_SENT_ADD_ROSPEC:
             if msgName != 'ADD_ROSPEC_RESPONSE':
                 logger.error('unexpected response %s when adding ROSpec',
                              msgName)
@@ -597,7 +672,7 @@ class LLRPClient(LineReceiver):
         # in state SENT_ENABLE_ROSPEC, expect only ENABLE_ROSPEC_RESPONSE;
         # respond to favorable ENABLE_ROSPEC_RESPONSE by starting the enabled
         # ROSpec and advancing to state SENT_START_ROSPEC.
-        elif self.state == LLRPClient.STATE_SENT_ENABLE_ROSPEC:
+        elif self.state == LLRPReaderState.STATE_SENT_ENABLE_ROSPEC:
             if msgName != 'ENABLE_ROSPEC_RESPONSE':
                 logger.error('unexpected response %s when enabling ROSpec',
                              msgName)
@@ -613,7 +688,7 @@ class LLRPClient(LineReceiver):
 
         # in state PAUSING, we have sent a DISABLE_ROSPEC, so expect only
         # DISABLE_ROSPEC_RESPONSE.  advance to state PAUSED.
-        elif self.state == LLRPClient.STATE_PAUSING:
+        elif self.state == LLRPReaderState.STATE_PAUSING:
             if msgName != 'DISABLE_ROSPEC_RESPONSE':
                 logger.error('unexpected response %s '
                              ' when disabling ROSpec', msgName)
@@ -630,7 +705,7 @@ class LLRPClient(LineReceiver):
         # in state SENT_START_ROSPEC, expect only START_ROSPEC_RESPONSE;
         # respond to favorable START_ROSPEC_RESPONSE by advancing to state
         # INVENTORYING.
-        elif self.state == LLRPClient.STATE_SENT_START_ROSPEC:
+        elif self.state == LLRPReaderState.STATE_SENT_START_ROSPEC:
             if msgName == 'RO_ACCESS_REPORT':
                 return
             if msgName == 'READER_EVENT_NOTIFICATION':
@@ -649,7 +724,7 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-        elif self.state == LLRPClient.STATE_INVENTORYING:
+        elif self.state == LLRPReaderState.STATE_INVENTORYING:
             if msgName not in ('RO_ACCESS_REPORT',
                                'READER_EVENT_NOTIFICATION',
                                'ADD_ACCESSSPEC_RESPONSE',
@@ -662,34 +737,26 @@ class LLRPClient(LineReceiver):
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-        elif self.state == LLRPClient.STATE_SENT_DELETE_ACCESSSPEC:
+        elif self.state == LLRPReaderState.STATE_SENT_DELETE_ACCESSSPEC:
             if msgName != 'DELETE_ACCESSSPEC_RESPONSE':
                 logger.error('unexpected response %s when deleting AccessSpec',
                              msgName)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
-        elif self.state == LLRPClient.STATE_SENT_DELETE_ROSPEC:
+        elif self.state == LLRPReaderState.STATE_SENT_DELETE_ROSPEC:
             if msgName != 'DELETE_ROSPEC_RESPONSE':
                 logger.error('unexpected response %s when deleting ROSpec',
                              msgName)
 
-            if lmsg.isSuccess():
-                if self.disconnecting:
-                    self.setState(LLRPClient.STATE_DISCONNECTED)
-                else:
-                    self.setState(LLRPClient.STATE_CONNECTED)
-
-            else:
+            if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.error('DELETE_ROSPEC failed with status %s: %s',
                              status, err)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
-            if self.disconnecting:
-                logger.info('disconnecting')
-                self.transport.loseConnection()
+
 
         else:
             logger.warn('message %s received in unknown state!', msgName)
@@ -698,59 +765,10 @@ class LLRPClient(LineReceiver):
             logger.error('there should NOT be Deferreds left for %s,'
                          ' but there are!', msgName)
 
-    def rawDataReceived(self, data):
-        logger.debug('got %d bytes from reader: %s', len(data),
-                     hexlify(data))
-
-        if self.expectingRemainingBytes:
-            if len(data) >= self.expectingRemainingBytes:
-                data = self.partialData + data
-                self.partialData = ''
-                self.expectingRemainingBytes -= len(data)
-            else:
-                # still not enough; wait until next time
-                self.partialData += data
-                self.expectingRemainingBytes -= len(data)
-                return
-
-        while data:
-            # parse the message header to grab its length
-            if len(data) >= LLRPMessage.full_hdr_len:
-                msg_type, msg_len, message_id = \
-                    struct.unpack(LLRPMessage.full_hdr_fmt,
-                                  data[:LLRPMessage.full_hdr_len])
-            else:
-                logger.warning('Too few bytes (%d) to unpack message header',
-                               len(data))
-                self.partialData = data
-                self.expectingRemainingBytes = \
-                    LLRPMessage.full_hdr_len - len(data)
-                break
-
-            logger.debug('expect %d bytes (have %d)', msg_len, len(data))
-
-            if len(data) < msg_len:
-                # got too few bytes
-                self.partialData = data
-                self.expectingRemainingBytes = msg_len - len(data)
-                break
-            else:
-                # got at least the right number of bytes
-                self.expectingRemainingBytes = 0
-                try:
-                    lmsg = LLRPMessage(msgbytes=data[:msg_len])
-                    self.handleMessage(lmsg)
-                    data = data[msg_len:]
-                except LLRPError:
-                    logger.exception('Failed to decode LLRPMessage; '
-                                     'will not decode %d remaining bytes',
-                                     len(data))
-                    break
-
     def panic(self, failure, *args):
         logger.error('panic(): %s', args)
-        logger.error(failure.getErrorMessage())
-        logger.error(failure.getTraceback())
+        #logger.error(failure.getErrorMessage())
+        #logger.error(failure.getTraceback())
         return failure
 
     def complain(self, failure, *args):
@@ -774,7 +792,7 @@ class LLRPClient(LineReceiver):
                 'Subtype': 21,
                 # skip payload
             }})
-        self.setState(LLRPClient.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS)
+        self.setState(LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS)
         self._deferreds['CUSTOM_MESSAGE'].append(onCompletion)
 
     def send_GET_READER_CAPABILITIES(self, _, onCompletion):
@@ -785,7 +803,7 @@ class LLRPClient(LineReceiver):
                 'ID':   0,
                 'RequestedData': Capability_Name2Type['All']
             }})
-        self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
+        self.setState(LLRPReaderState.STATE_SENT_GET_CAPABILITIES)
         self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(
             onCompletion)
 
@@ -796,7 +814,7 @@ class LLRPClient(LineReceiver):
             'ID':   0,
             'RequestedData': Capability_Name2Type['All']
         }
-        if self.impinj_extended_configuration:
+        if self.config.impinj_extended_configuration:
             cfg['CustomParameters'] = [
                 {
                     'VendorID': 25882,
@@ -808,7 +826,7 @@ class LLRPClient(LineReceiver):
                 }
             ]
         self.sendMessage({'GET_READER_CONFIG': cfg})
-        self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
+        self.setState(LLRPReaderState.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
@@ -821,7 +839,7 @@ class LLRPClient(LineReceiver):
             }})
 
     def send_SET_READER_CONFIG(self, onCompletion):
-        self.sendMessage({
+        msg = {
             'SET_READER_CONFIG': {
                 'Ver':  1,
                 'Type': 3,
@@ -829,40 +847,43 @@ class LLRPClient(LineReceiver):
                 'ResetToFactoryDefaults': False,
                 'ReaderEventNotificationSpec': {
                     'EventNotificationState': {
-                            'HoppingEvent': False,
-                            'GPIEvent': False,
-                            'ROSpecEvent': False,
-                            'ReportBufferFillWarning': False,
-                            'ReaderExceptionEvent': False,
-                            'RFSurveyEvent': False,
-                            'AISpecEvent': False,
-                            'AISpecEventWithSingulation': False,
-                            'AntennaEvent': False,
-                            ## Next one will only be available
-                            ## with llrp v2 (spec 1_1)
-                            #'SpecLoopEvent': True,
+                        'HoppingEvent': False,
+                        'GPIEvent': False,
+                        'ROSpecEvent': False,
+                        'ReportBufferFillWarning': False,
+                        'ReaderExceptionEvent': False,
+                        'RFSurveyEvent': False,
+                        'AISpecEvent': False,
+                        'AISpecEventWithSingulation': False,
+                        'AntennaEvent': False,
+                        ## Next one will only be available
+                        ## with llrp v2 (spec 1_1)
+                        #'SpecLoopEvent': False,
                     },
                 }
-            }})
-        self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
+            }
+        }
+        for event, enabled in self.config.event_selector.items():
+            msg['SET_READER_CONFIG']['ReaderEventNotificationSpec']\
+                ['EventNotificationState'][event] = enabled
+        self.sendMessage(msg)
+        self.setState(LLRPReaderState.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
-        logger.debug('about to send_ADD_ROSPEC')
-        try:
-            self.sendMessage({
-                'ADD_ROSPEC': {
-                    'Ver':  1,
-                    'Type': 20,
-                    'ID':   0,
-                    'ROSpecID': rospec['ROSpecID'],
-                    'ROSpec': rospec,
-            }})
-        except Exception as ex:
-            logger.exception(ex)
-        logger.debug('sent ADD_ROSPEC')
-        self.setState(LLRPClient.STATE_SENT_ADD_ROSPEC)
+        logger.debugfast('about to send_ADD_ROSPEC')
+        self.sendMessage({
+            'ADD_ROSPEC': {
+                'Ver':  1,
+                'Type': 20,
+                'ID':   0,
+                'ROSpecID': rospec['ROSpecID'],
+                'ROSpec': rospec,
+            }
+        })
+        logger.debugfast('sent ADD_ROSPEC')
+        self.setState(LLRPReaderState.STATE_SENT_ADD_ROSPEC)
         self._deferreds['ADD_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ENABLE_ROSPEC(self, _, rospec, onCompletion):
@@ -873,7 +894,7 @@ class LLRPClient(LineReceiver):
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
             }})
-        self.setState(LLRPClient.STATE_SENT_ENABLE_ROSPEC)
+        self.setState(LLRPReaderState.STATE_SENT_ENABLE_ROSPEC)
         self._deferreds['ENABLE_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_START_ROSPEC(self, _, rospec, onCompletion):
@@ -884,7 +905,7 @@ class LLRPClient(LineReceiver):
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
             }})
-        self.setState(LLRPClient.STATE_SENT_START_ROSPEC)
+        self.setState(LLRPReaderState.STATE_SENT_START_ROSPEC)
         self._deferreds['START_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ADD_ACCESSSPEC(self, accessSpec, onCompletion):
@@ -921,8 +942,7 @@ class LLRPClient(LineReceiver):
         if onCompletion:
             self._deferreds['ENABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
-    def send_DELETE_ACCESSSPEC(self, placeHolderArg, readSpecParam,
-                               writeSpecParam, stopParam, accessSpecID=1,
+    def send_DELETE_ACCESSSPEC(self, accessSpecID=1,
                                onCompletion=None):
         # logger.info('Deleting current accessSpec.')
         self.sendMessage({
@@ -933,63 +953,68 @@ class LLRPClient(LineReceiver):
                 'AccessSpecID': accessSpecID  # ONE AccessSpec
             }})
 
-        # Hackfix to chain startAccess to send_DELETE, since appending a
-        # deferred doesn't seem to work...
-        task.deferLater(reactor, 0, self.startAccess, readWords=readSpecParam,
-                        writeWords=writeSpecParam, accessStopParam=stopParam,
-                        accessSpecID=accessSpecID)
+        if onCompletion:
+            self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
-    def startAccess(self, readWords=None, writeWords=None, target=None,
-                    accessStopParam=None, accessSpecID=1, param=None,
-                    *args):
-        m = Message_struct['AccessSpec']
-        if not target:
-            target = {
-                'MB': 0,
-                'Pointer': 0,
-                'MaskBitCount': 0,
-                'TagMask': b'',
-                'DataBitCount': 0,
-                'TagData': b''
-            }
+    def startAccess(self, opSpec, targetSpec=None, stopAfterCount=0,
+                    accessSpecID=1):
+        if not targetSpec:
+            # XXX correct default values?
+            targetSpec = [C1G2TargetTag()]
+        if not isinstance(targetSpec, list):
+            targetSpec = [targetSpec]
+        elif len(targetSpec) > 2:
+            raise ValueError("A maximum of 2 C1G2TargetTag is allowed per "
+                             "accessSpec")
+        targetParam = []
+        for target in targetSpec:
+            targetParam.append({
+                'MB': target.MB,
+                'M': target.Match,
+                'Pointer': target.Pointer,
+                'MaskBitCount': target.MaskBitCount,
+                'TagMask': target.TagMask,
+                'DataBitCount': target.DataBitCount,
+                'TagData': target.TagData
+            })
 
-        opSpecParam = {
-            'OpSpecID': 0,
-            'AccessPassword': 0,
+        accessStopParam = {
+            'AccessSpecStopTriggerType': 1 if stopAfterCount > 0 else 0,
+            'OperationCountValue': stopAfterCount,
         }
 
-        if readWords:
-            opSpecParam['MB'] = readWords['MB']
-            opSpecParam['WordPtr'] = readWords['WordPtr']
-            opSpecParam['WordCount'] = readWords['WordCount']
-            if 'OpSpecID' in readWords:
-                opSpecParam['OpSpecID'] = readWords['OpSpecID']
-            if 'AccessPassword' in readWords:
-                opSpecParam['AccessPassword'] = readWords['AccessPassword']
-
-        elif writeWords:
-            opSpecParam['MB'] = writeWords['MB']
-            opSpecParam['WordPtr'] = writeWords['WordPtr']
-            opSpecParam['WriteDataWordCount'] = \
-                writeWords['WriteDataWordCount']
-            opSpecParam['WriteData'] = writeWords['WriteData']
-            if 'OpSpecID' in writeWords:
-                opSpecParam['OpSpecID'] = writeWords['OpSpecID']
-            if 'AccessPassword' in writeWords:
-                opSpecParam['AccessPassword'] = writeWords['AccessPassword']
-
-        elif param:
-            # special parameters like C1G2Lock
-            opSpecParam = param
-
+        if isinstance(opSpec, C1G2Read):
+            opSpecParam = {
+                'OpSpecID': opSpec.OpSpecID,
+                'AccessPassword': opSpec.AccessPassword,
+                'MB': opSpec.MB,
+                'WordPtr': opSpec.WordPtr,
+                'WordCount': opSpec.WordCount
+            }
+        elif isinstance(opSpec, (C1G2Write, C1G2BlockWrite)):
+            opSpecParam = {
+                'OpSpecID': opSpec.OpSpecID,
+                'AccessPassword': opSpec.AccessPassword,
+                'MB': opSpec.MB,
+                'WordPtr': opSpec.WordPtr,
+                'WriteDataWordCount': opSpec.WriteDataWordCount,
+                'WriteData': opSpec.WriteData
+            }
+        elif isinstance(opSpec, C1G2Lock):
+            opSpecParam = {
+                'OpSpecID': opSpec.OpSpecID,
+                'AccessPassword': opSpec.AccessPassword,
+                'LockPayload': []
+            }
+            for payload in opSpec.LockPayload:
+                opSpecParam['LockPayload'].append({
+                    'Privilege': payload.Privilege,
+                    'DataField': payload.DataField
+                })
         else:
-            raise LLRPError('startAccess requires readWords or writeWords.')
+            raise LLRPError('Selected opSpec type is not yet supported.')
 
-        if accessStopParam is None:
-            accessStopParam = {}
-            accessStopParam['AccessSpecStopTriggerType'] = 0
-            accessStopParam['OperationCountValue'] = 0
-
+        m = Message_struct['AccessSpec']
         accessSpec = {
             'Type': m['type'],
             'AccessSpecID': accessSpecID,
@@ -1000,15 +1025,7 @@ class LLRPClient(LineReceiver):
             'AccessSpecStopTrigger': accessStopParam,
             'AccessCommand': {
                 'TagSpecParameter': {
-                    'C1G2TargetTag': {  # XXX correct values?
-                        'MB': target['MB'],
-                        'M': 1,
-                        'Pointer': target['Pointer'],
-                        'MaskBitCount': target['MaskBitCount'],
-                        'TagMask': target['TagMask'],
-                        'DataBitCount': target['DataBitCount'],
-                        'TagData': target['TagData']
-                    }
+                    'C1G2TargetTag': targetParam,
                 },
                 'OpSpecParameter': opSpecParam,
             },
@@ -1016,28 +1033,37 @@ class LLRPClient(LineReceiver):
                 'AccessReportTrigger': 1  # report at end of access
             }
         }
-        logger.debug('AccessSpec: %s', accessSpec)
+        logger.debugfast('AccessSpec: %s', accessSpec)
 
-        d = defer.Deferred()
-        d.addCallback(self.send_ENABLE_ACCESSSPEC, accessSpecID)
-        d.addErrback(self.panic, 'ADD_ACCESSSPEC failed')
+        def add_accessspec_cb(state, is_success, *args):
+            if is_success:
+                self.send_ENABLE_ACCESSSPEC(state, accessSpecID)
+            else:
+                self.panic(None, 'ADD_ACCESSSPEC failed')
 
-        self.send_ADD_ACCESSSPEC(accessSpec, onCompletion=d)
+        self.send_ADD_ACCESSSPEC(accessSpec,
+                                 onCompletion=add_accessspec_cb)
 
-    def nextAccess(self, readSpecPar, writeSpecPar, stopSpecPar,
+    def nextAccess(self, opSpec, targetSpec=None, stopAfterCount=0,
                    accessSpecID=1):
-        d = defer.Deferred()
-        d.addCallback(self.send_DELETE_ACCESSSPEC, readSpecPar, writeSpecPar,
-                      stopSpecPar, accessSpecID)
-        d.addErrback(self.send_DELETE_ACCESSSPEC, readSpecPar, writeSpecPar,
-                     stopSpecPar, accessSpecID)
-        # d.addErrback(self.panic, 'DISABLE_ACCESSSPEC failed')
+        def start_next_accessspec_cb(state, is_success, *args):
+            self.startAccess(opSpec=opSpec,
+                             targetSpec=targetSpec,
+                             stopAfterCount=stopAfterCount,
+                             accessSpecID=accessSpecID)
 
-        self.send_DISABLE_ACCESSSPEC(accessSpecID, onCompletion=d)
+        def disable_accessspec_cb(state, is_success, *args):
+            self.send_DELETE_ACCESSSPEC(accessSpecID,
+                                        onCompletion=start_next_accessspec_cb)
+            #if not is_success:
+            #    self.panic(None, 'DISABLE_ACCESSSPEC failed')
 
-    def startInventory(self, proto=None, force_regen_rospec=False):
+        self.send_DISABLE_ACCESSSPEC(accessSpecID,
+                                     onCompletion=disable_accessspec_cb)
+
+    def startInventory(self, force_regen_rospec=False):
         """Add a ROSpec to the reader and enable it."""
-        if self.state == LLRPClient.STATE_INVENTORYING:
+        if self.state == LLRPReaderState.STATE_INVENTORYING:
             logger.warn('ignoring startInventory() while already inventorying')
             return None
 
@@ -1048,64 +1074,68 @@ class LLRPClient(LineReceiver):
         # upside-down chain of callbacks: add, enable, start ROSpec
         # started_rospec = defer.Deferred()
         # started_rospec.addCallback(self._setState_wrapper,
-        #                            LLRPClient.STATE_INVENTORYING)
+        #                            LLRPReaderState.STATE_INVENTORYING)
         # started_rospec.addErrback(self.panic, 'START_ROSPEC failed')
-        # logger.debug('made started_rospec')
+        # logger.debugfast('made started_rospec')
 
-        enabled_rospec = defer.Deferred()
-        enabled_rospec.addCallback(self._setState_wrapper,
-                                   LLRPClient.STATE_INVENTORYING)
-        # enabled_rospec.addCallback(self.send_START_ROSPEC, rospec,
-        #                            onCompletion=started_rospec)
-        enabled_rospec.addErrback(self.panic, 'ENABLE_ROSPEC failed')
-        logger.debug('made enabled_rospec')
+        def enabled_rospec_cb(state, is_success, *args):
+            if is_success:
+                self.setState(LLRPReaderState.STATE_INVENTORYING)
+            else:
+                self.panic(None, 'ENABLE_ROSPEC failed')
 
-        added_rospec = defer.Deferred()
-        added_rospec.addCallback(self.send_ENABLE_ROSPEC, rospec,
-                                 onCompletion=enabled_rospec)
-        added_rospec.addErrback(self.panic, 'ADD_ROSPEC failed')
-        logger.debug('made added_rospec')
+        logger.debugfast('made enabled_rospec')
 
-        self.send_ADD_ROSPEC(rospec, onCompletion=added_rospec)
+        def send_added_rospec_cb(state, is_success, *args):
+            if is_success:
+                self.send_ENABLE_ROSPEC(state, rospec,
+                                        onCompletion=enabled_rospec_cb)
+            else:
+                self.panic(None, 'ADD_ROSPEC failed')
+
+        logger.debugfast('made added_rospec')
+
+        self.send_ADD_ROSPEC(rospec, onCompletion=send_added_rospec_cb)
 
     def getROSpec(self, force_new=False):
         if self.rospec and not force_new:
             return self.rospec
 
         # create an ROSpec to define the reader's inventorying behavior
+        config = self.config
         rospec_kwargs = dict(
-            duration_sec=self.duration,
-            report_every_n_tags=self.report_every_n_tags,
-            report_timeout_ms=self.report_timeout_ms,
-            tx_power=self.tx_power,
-            antennas=self.antennas,
-            tag_content_selector=self.tag_content_selector,
-            session=self.session,
-            tari=self.tari,
-            tag_population=self.tag_population
+            duration_sec=config.duration,
+            report_every_n_tags=config.report_every_n_tags,
+            report_timeout_ms=config.report_timeout_ms,
+            tx_power=config.tx_power,
+            antennas=config.antennas,
+            tag_content_selector=config.tag_content_selector,
+            session=config.session,
+            tari=config.tari,
+            tag_population=config.tag_population
         )
-        if self.tag_filter_mask is not None:
-            rospec_kwargs['tag_filter_mask'] = self.tag_filter_mask
-        logger.info('Impinj search mode? %s', self.impinj_search_mode)
-        if self.impinj_search_mode is not None:
-            rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
-        if self.impinj_tag_content_selector is not None:
+        if config.tag_filter_mask is not None:
+            rospec_kwargs['tag_filter_mask'] = config.tag_filter_mask
+        logger.info('Impinj search mode? %s', config.impinj_search_mode)
+        if config.impinj_search_mode is not None:
+            rospec_kwargs['impinj_search_mode'] = config.impinj_search_mode
+        if config.impinj_tag_content_selector is not None:
             rospec_kwargs['impinj_tag_content_selector'] = \
-                self.impinj_tag_content_selector
-        if self.impinj_fixed_frequency_param is not None:
+                config.impinj_tag_content_selector
+        if config.impinj_fixed_frequency_param is not None:
             rospec_kwargs['impinj_fixed_frequency_param'] = \
-                self.impinj_fixed_frequency_param
+                config.impinj_fixed_frequency_param
+
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
-        logger.debug('ROSpec: %s', self.rospec)
+        logger.debugfast('ROSpec: %s', self.rospec)
         return self.rospec
 
-    def stopPolitely(self, disconnect=False):
+    def stopPolitely(self, onCompletion=None, disconnect=False):
         """Delete all active ROSpecs.  Return a Deferred that will be called
            when the DELETE_ROSPEC_RESPONSE comes back."""
         logger.info('stopping politely')
         if disconnect:
-            logger.info('will disconnect when stopped')
             self.disconnecting = True
         self.sendMessage({
             'DELETE_ACCESSSPEC': {
@@ -1114,16 +1144,20 @@ class LLRPClient(LineReceiver):
                 'ID': 0,
                 'AccessSpecID': 0  # all AccessSpecs
             }})
-        self.setState(LLRPClient.STATE_SENT_DELETE_ACCESSSPEC)
+        self.setState(LLRPReaderState.STATE_SENT_DELETE_ACCESSSPEC)
 
-        d = defer.Deferred()
-        d.addCallback(self.stopAllROSpecs)
-        d.addErrback(self.panic, 'DELETE_ACCESSSPEC failed')
+        def send_delete_accessspec_cb(state, is_success, *args):
+            if is_success:
+                self.stopAllROSpecs(onCompletion)
+            else:
+                self.panic(None, 'DELETE_ACCESSSPEC failed')
+                if onCompletion:
+                    onCompletion(state, is_success, *args)
 
-        self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(d)
-        return d
+        self._deferreds['DELETE_ACCESSSPEC_RESPONSE'].append(
+            send_delete_accessspec_cb)
 
-    def stopAllROSpecs(self, *args):
+    def stopAllROSpecs(self, onCompletion=None):
         self.sendMessage({
             'DELETE_ROSPEC': {
                 'Ver':  1,
@@ -1131,13 +1165,16 @@ class LLRPClient(LineReceiver):
                 'ID':   0,
                 'ROSpecID': 0
             }})
-        self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
+        self.setState(LLRPReaderState.STATE_SENT_DELETE_ROSPEC)
 
-        d = defer.Deferred()
-        d.addErrback(self.panic, 'DELETE_ROSPEC failed')
+        def stop_all_rospecs_cb(state, is_success, *args):
+            if not is_success:
+                self.panic(None, 'DELETE_ROSPEC failed')
+            if onCompletion:
+                onCompletion(state, is_success, *args)
 
-        self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
-        return d
+        self._deferreds['DELETE_ROSPEC_RESPONSE'].append(stop_all_rospecs_cb)
+        return None
 
     @staticmethod
     def parsePowerTable(uhfbandcap):
@@ -1147,10 +1184,10 @@ class LLRPClient(LineReceiver):
             self.capabilities['RegulatoryCapabilities']['UHFBandCapabilities']
         @return: a list of [0, dBm value, dBm value, ...]
 
-        >>> LLRPClient.parsePowerTable({'TransmitPowerLevelTableEntry1': \
+        >>> LLRPReaderState.parsePowerTable({'TransmitPowerLevelTableEntry1': \
             {'Index': 1, 'TransmitPowerValue': 3225}})
         [0, 32.25]
-        >>> LLRPClient.parsePowerTable({})
+        >>> LLRPReaderState.parsePowerTable({})
         [0]
         """
         bandtbl = {k: v for k, v in uhfbandcap.items()
@@ -1175,7 +1212,7 @@ class LLRPClient(LineReceiver):
             logger.warn('get_tx_power(): tx_power_table is empty!')
             return {}
 
-        logger.debug('requested tx_power: %s', tx_power)
+        logger.debugfast('requested tx_power: %s', tx_power)
         min_power = self.tx_power_table.index(min(self.tx_power_table))
         max_power = self.tx_power_table.index(max(self.tx_power_table))
 
@@ -1194,9 +1231,27 @@ class LLRPClient(LineReceiver):
                 raise LLRPError('Invalid tx_power for antenna {}: '
                                 'requested={}, min_available={}, '
                                 'max_available={}'.format(
-                                    antid, self.tx_power, min_power,
+                                    antid, tx_power, min_power,
                                     max_power))
         return ret
+
+    def setTxPowerDbm(self, tx_pow_dbm=None):
+        if tx_pow_dbm is None:
+            # select max TX power
+            ret_tx_power = {ant: self.tx_power_table[-1]
+                            for ant in self.config.antennas}
+        else:
+            ret_config_dbm = {}
+            ret_tx_power = {}
+            for antid, req_dbm in tx_pow_dbm.items():
+                tx_power, real_dbm = find_closest(self.tx_power_table, req_dbm)
+                ret_config_dbm[antid] = req_dbm
+                ret_tx_power[antid] = tx_power
+                logger.debug("Want %.1f dBm output, select %.1f dBm, idx %d",
+                             req_dbm, real_dbm, tx_power)
+            self.config.tx_power_dbm = ret_config_dbm
+
+        self.setTxPower(ret_tx_power)
 
     def setTxPower(self, tx_power):
         """Set the transmission power for one or more antennas.
@@ -1204,28 +1259,35 @@ class LLRPClient(LineReceiver):
         @param tx_power: index into self.tx_power_table
         """
         tx_pow_validated = self.get_tx_power(tx_power)
-        logger.debug('tx_pow_validated: %s', tx_pow_validated)
+        logger.debugfast('tx_pow_validated: %s', tx_pow_validated)
         needs_update = False
         for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
-            if self.tx_power[ant] != tx_pow_idx:
-                self.tx_power[ant] = tx_pow_idx
+            if self.config.tx_power[ant] != tx_pow_idx:
+                self.config.tx_power[ant] = tx_pow_idx
                 needs_update = True
 
-            logger.debug('tx_power for antenna %s: %s (%s dBm)', ant,
+            logger.debugfast('tx_power for antenna %s: %s (%s dBm)', ant,
                          tx_pow_idx, tx_pow_dbm)
 
-        if needs_update and self.state == LLRPClient.STATE_INVENTORYING:
-            logger.debug('changing tx power; will stop politely, then resume')
-            d = self.stopPolitely()
-            d.addCallback(self.startInventory, force_regen_rospec=True)
+        if needs_update and self.state == LLRPReaderState.STATE_INVENTORYING:
+            logger.debugfast('changing tx power; will stop politely, then resume')
+            def on_politely_stopped_cb(state, is_success, *args):
+                if is_success:
+                    self.setState(LLRPReaderState.STATE_CONNECTED)
+                    self.startInventory(force_regen_rospec=True)
+            self.stopPolitely(onCompletion=on_politely_stopped_cb)
 
     def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
         """Pause an inventory operation for a set amount of time."""
-        logger.debug('pause(%s)', duration_seconds)
-        if self.state != LLRPClient.STATE_INVENTORYING:
+        logger.debugfast('pause(%s)', duration_seconds)
+        # Temporary error until fixed.
+        if duration_seconds > 0:
+            raise ReaderConfigurationError('"duration_seconds > 0" is not yet'
+                                           'implemented for "pause".')
+        if self.state != LLRPReaderState.STATE_INVENTORYING:
             if not force:
                 logger.info('ignoring pause(); not inventorying (state==%s)',
-                            self.getStateName(self.state))
+                            LLRPReaderState.getStateName(self.state))
                 return None
             else:
                 logger.info('forcing pause()')
@@ -1242,43 +1304,53 @@ class LLRPClient(LineReceiver):
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
             }})
-        self.setState(LLRPClient.STATE_PAUSING)
+        self.setState(LLRPReaderState.STATE_PAUSING)
 
-        d = defer.Deferred()
-        d.addCallback(self._setState_wrapper, LLRPClient.STATE_PAUSED)
-        d.addErrback(self.complain, 'pause() failed')
-        self._deferreds['DISABLE_ROSPEC_RESPONSE'].append(d)
+        def disable_rospec_pause_cb(state, is_success, *args):
+            if is_success:
+                self.setState(LLRPReaderState.STATE_PAUSED)
+            else:
+                self.complain(None, 'pause() failed')
 
+        self._deferreds['DISABLE_ROSPEC_RESPONSE'].append(disable_rospec_pause_cb)
+
+        # TODO @fviard To be fixed!!
         if duration_seconds > 0:
-            startAgain = task.deferLater(reactor, duration_seconds,
-                                         lambda: None)
-            startAgain.addCallback(lambda _: self.resume())
+            logger.warning("TO BE FIXED!!")
+            # startAgain = task.deferLater(reactor, duration_seconds,
+            #                             lambda: None)
+            # startAgain.addCallback(lambda _: self.resume())
 
-        return d
+        return disable_rospec_pause_cb
 
     def resume(self, force_regen_rospec=False):
-        logger.debug('resuming, force_regen_rospec=%s', force_regen_rospec)
+        logger.debugfast('resuming, force_regen_rospec=%s', force_regen_rospec)
 
         if force_regen_rospec:
             self.rospec = self.getROSpec(force_new=True)
 
-        if self.state in (LLRPClient.STATE_CONNECTED,
-                          LLRPClient.STATE_DISCONNECTED):
-            logger.debug('will startInventory()')
+        if self.state in (LLRPReaderState.STATE_CONNECTED,
+                          LLRPReaderState.STATE_DISCONNECTED):
+            logger.debugfast('will startInventory()')
             self.startInventory()
             return
 
-        if self.state != LLRPClient.STATE_PAUSED:
-            logger.debug('cannot resume() if not paused (state=%s); ignoring',
-                         self.getStateName(self.state))
+        if self.state != LLRPReaderState.STATE_PAUSED:
+            logger.debugfast('cannot resume() if not paused (state=%s); '
+                             'ignoring',
+                             LLRPReaderState.getStateName(self.state))
             return None
 
         logger.info('resuming')
 
-        d = defer.Deferred()
-        d.addCallback(self._setState_wrapper, LLRPClient.STATE_INVENTORYING)
-        d.addErrback(self.panic, 'resume() failed')
-        self.send_ENABLE_ROSPEC(None, self.rospec['ROSpec'], onCompletion=d)
+        def enable_rospec_resume_cb(state, is_success, *args):
+            if is_success:
+                self.setState(LLRPReaderState.STATE_INVENTORYING)
+            else:
+                self.complain(None, 'resume() failed')
+
+        self.send_ENABLE_ROSPEC(None, self.rospec['ROSpec'],
+                                onCompletion=enable_rospec_resume_cb)
 
     def sendMessage(self, msg_dict):
         """Serialize and send a dict LLRP Message
@@ -1294,143 +1366,524 @@ class LLRPClient(LineReceiver):
         llrp_msg = LLRPMessage(msgdict=msg_dict)
 
         assert llrp_msg.msgbytes, "LLRPMessage is empty"
-        self.transport.write(llrp_msg.msgbytes)
+        self.transport_tx_write(llrp_msg.msgbytes)
 
         return sent_ids
 
-class LLRPClientFactory(ReconnectingClientFactory):
-    maxDelay = 60  # seconds
 
-    def __init__(self, start_first=False, onFinish=None, reconnect=False,
-                 antenna_dict=None, **kwargs):
-        self.onFinish = onFinish
-        self.start_first = start_first
-        self.client_args = kwargs
-        if isinstance(antenna_dict, dict):
-            self.antenna_dict = antenna_dict
+class LLRPReaderConfig(object):
+    def __init__(self, config_dict=None):
+
+        self.duration = None
+        self.tari = 0
+        self.session = 2
+        self.mode_identifier = None
+        self.tag_population = 4
+        self.report_every_n_tags = None
+        self.report_timeout_ms = 0
+        self.antennas = [1]
+        # Use the power associated with an exact tx power index
+        self.tx_power = 0
+        # Use the power level closest to the requested dbm value
+        self.tx_power_dbm = None
+        self.disconnect_when_done = self.duration and self.duration > 0
+        self.tag_filter_mask = None
+        self.tag_content_selector = {
+            'EnableROSpecID': False,
+            'EnableSpecIndex': False,
+            'EnableInventoryParameterSpecID': False,
+            'EnableAntennaID': False,
+            'EnableChannelIndex': True,
+            'EnablePeakRSSI': False,
+            'EnableFirstSeenTimestamp': False,
+            'EnableLastSeenTimestamp': True,
+            'EnableTagSeenCount': True,
+            'EnableAccessSpecID': False
+        }
+
+        self.event_selector = {
+            'HoppingEvent': False,
+            'GPIEvent': False,
+            'ROSpecEvent': False,
+            'ReportBufferFillWarning': False,
+            'ReaderExceptionEvent': False,
+            'RFSurveyEvent': False,
+            'AISpecEvent': False,
+            'AISpecEventWithSingulation': False,
+            'AntennaEvent': False,
+        }
+
+        self.reconnect = False
+        self.start_inventory = True
+        self.reset_on_connect = True
+
+        ## Extensions specific
+        self.impinj_extended_configuration = False
+        self.impinj_search_mode = None
+        self.impinj_reports = False
+        self.impinj_tag_content_selector = None
+        self.impinj_fixed_frequency_param = None
+
+        ## If impinj extension, would be like:
+        #self.impinj_tag_content_selector = {
+        #    'EnableRFPhaseAngle': True,
+        #    'EnablePeakRSSI': False,
+        #    'EnableRFDopplerFrequency': False
+        #}
+
+
+        if config_dict:
+            self.update_config(config_dict)
+
+        self.validate_config()
+
+    def update_config(self, config_dict):
+        for key, value in config_dict.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+    def validate_config(self):
+        if hasattr(self, 'tx_power'):
+            if isinstance(self.tx_power, int):
+                self.tx_power = {ant: self.tx_power for ant in self.antennas}
+            elif isinstance(self.tx_power, dict):
+                if set(self.antennas) != set(self.tx_power.keys()):
+                    raise LLRPError('Must specify tx_power for each antenna')
+            else:
+                raise LLRPError('tx_power must be dict or int')
+        if hasattr(self, 'tx_power_dbm') and \
+           self.tx_power_dbm is not None:
+            if isinstance(self.tx_power_dbm, float):
+                self.tx_power_dbm = {ant: self.tx_power_dbm
+                                     for ant in self.antennas}
+            elif isinstance(self.tx_power_dbm, dict):
+                if set(self.antennas) != set(self.tx_power_dbm.keys()):
+                    raise LLRPError('Must specify tx_power for each antenna')
+            else:
+                raise LLRPError('tx_power must be dict or float')
+
+class LLRPReaderClient(object):
+    def __init__(self, host, port=None, config=None, timeout=5.0):
+        if port is None:
+            port = LLRP_DEFAULT_PORT
+        self._port = port
+        self._host = host
+        self._socktimeout = timeout
+
+        self._socket = None
+        self._socket_thread = None
+        # Needed?
+        self.disconnect_requested = Event()
+        self._stop_main_loop = Event()
+
+        # for partial data transfers
+        self.expectingRemainingBytes = 0
+        self.partialData = ''
+
+        if config:
+            self.config = config
         else:
-            self.antenna_dict = {}
+            self.config = LLRPReaderConfig()
 
-        # reconnection logic: if self.reconnect is False, maxDelay doesn't
-        # matter because clients won't try to reconnect
-        self.reconnect = reconnect
+        # New llrp client
+        self.llrp = LLRPClient(
+            self.config,
+            transport_tx_write=self.send_data,
+            state_change_callback=self._on_llrp_state_changed
+        )
 
-        # callbacks to pass to connected clients
-        # (map of LLRPClient.STATE_* -> [list of callbacks])
-        self._state_callbacks = defaultdict(list)
-        for _, st_num in LLRPClient.getStates():
-            self._state_callbacks[st_num] = []
+        # callbacks
 
-        # message callbacks to pass to connected clients
-        self._message_callbacks = defaultdict(list)
+        # state-change callbacks: STATE_* -> [list of callables]
+        self._llrp_state_callbacks = {}
+        for _, st_num in LLRPReaderState.getStates():
+            self._llrp_state_callbacks[st_num] = []
 
-        self.protocols = []
+        # message callbacks (including tag reports):
+        # msg_name -> [list of callables]
+        self._llrp_message_callbacks = defaultdict(list)
 
-    def startedConnecting(self, connector):
-        dst = connector.getDestination()
-        logger.info('connecting to %s:%d...', dst.host, dst.port)
+        self._tag_report_callbacks = []
+        self._event_notification_callbacks = []
+        self._disconnected_callbacks = []
 
-    def addStateCallback(self, state, cb):
-        self._state_callbacks[state].append(cb)
+    def update_config(self, new_config):
+        self.config = new_config
 
-    def addTagReportCallback(self, cb):
-        self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
+    def get_peername(self):
+        return (self._host, self._port)
 
-    def buildProtocol(self, addr):
-        """Get a new LLRP client protocol object.
+    def add_state_callback(self, state, cb):
+        """Add a callback to run upon a state transition.
 
-        Consult self.antenna_dict to look up antennas to use.
+        When an LLRPReaderState enters `state`, `cb()` will be called.
+
+        Args:
+            state: A state from LLRPReaderState.STATE_*.
+            cb: A callable that takes an LLRPReaderState argument.
         """
-        self.resetDelay()  # reset reconnection backoff state
-        clargs = self.client_args.copy()
+        if cb not in self._llrp_state_callbacks[state]:
+            self._llrp_state_callbacks[state].append(cb)
 
-        # optionally configure antennas from self.antenna_dict, which looks
-        # like {'10.0.0.1:5084': {'1': 'ant1', '2': 'ant2'}}
-        hostport = '{}:{}'.format(addr.host, addr.port)
-        logger.debug('Building protocol for %s', hostport)
-        if hostport in self.antenna_dict:
-            clargs['antennas'] = [
-                int(x) for x in self.antenna_dict[hostport].keys()]
-        elif addr.host in self.antenna_dict:
-            clargs['antennas'] = [
-                int(x) for x in self.antenna_dict[addr.host].keys()]
-        logger.debug('Antennas in buildProtocol: %s', clargs.get('antennas'))
+    def remove_state_callback(self, state, cb):
+        if cb in self._llrp_state_callbacks[state]:
+            self._llrp_state_callbacks[state].remove(cb)
 
-        logger.debug('%s start_inventory: %s', hostport,
-                     clargs.get('start_inventory'))
-        if self.start_first and not self.protocols:
-            # this is the first protocol, so let's start it inventorying
-            clargs['start_inventory'] = True
-        proto = LLRPClient(factory=self, **clargs)
-
-        # register state-change callbacks with new client
-        for state, cbs in self._state_callbacks.items():
-            for cb in cbs:
-                proto.addStateCallback(state, cb)
-
-        # register message callbacks with new client
-        for msg_type, cbs in self._message_callbacks.items():
-            for cb in cbs:
-                proto.addMessageCallback(msg_type, cb)
-
-        return proto
-
-    def nextAccess(self, readParam=None, writeParam=None, stopParam=None,
-                   accessSpecID=1):
-        # logger.info('Stopping current accessSpec.')
-        for proto in self.protocols:
-            proto.nextAccess(readSpecPar=readParam, writeSpecPar=writeParam,
-                             stopSpecPar=stopParam, accessSpecID=accessSpecID)
-
-    def clientConnectionLost(self, connector, reason):
-        logger.info('lost connection: %s', reason.getErrorMessage())
-        if self.reconnect:
-            ReconnectingClientFactory.clientConnectionLost(
-                self, connector, reason)
-        elif not self.protocols:
-            if self.onFinish:
-                self.onFinish.callback(None)
-
-    def clientConnectionFailed(self, connector, reason):
-        logger.info('connection failed: %s', reason.getErrorMessage())
-        if self.reconnect:
-            ReconnectingClientFactory.clientConnectionFailed(
-                self, connector, reason)
-        elif not self.protocols:
-            if self.onFinish:
-                self.onFinish.callback(None)
-
-    def resumeInventory(self):
-        for proto in self.protocols:
-            proto.resume()
-
-    def pauseInventory(self, seconds=0):
-        for proto in self.protocols:
-            proto.pause(duration_seconds=seconds)
-
-    def setTxPower(self, tx_power, peername=None):
-        """Set the transmit power on one or all readers
-
-        If peername is None, set the transmit power for all readers.
-        Otherwise, set it for that specific reader.
-        """
-        if peername:
-            protocols = [p for p in self.protocols
-                         if p.peername[0] == peername]
+    def clear_state_callback(self, state):
+        if state in self._llrp_state_callbacks:
+            self._llrp_state_callbacks[state] = []
         else:
-            protocols = self.protocols
-        for proto in protocols:
-            proto.setTxPower(tx_power)
+            self._llrp_message_callbacks = defaultdict(list)
 
-    def politeShutdown(self):
-        """Stop inventory on all connected readers."""
-        protoDeferreds = []
-        for proto in self.protocols:
-            protoDeferreds.append(proto.stopPolitely(disconnect=True))
-        return defer.DeferredList(protoDeferreds)
 
-    def getProtocolStates(self):
-        states = {str(proto.peername[0]): LLRPClient.getStateName(proto.state)
-                  for proto in self.protocols}
-        logger.info('states: %s', states)
-        return states
+    def add_message_callback(self, msg_type, cb):
+        if cb not in self._llrp_message_callbacks[msg_type]:
+            self._llrp_message_callbacks[msg_type].append(cb)
+
+    def remove_message_callback(self, msg_type, cb):
+        if cb in self._llrp_message_callbacks[msg_type]:
+            self._llrp_message_callbacks[msg_type].remove(cb)
+
+    def clear_message_callback(self, msg_type=None):
+        if msg_type:
+            self._llrp_message_callbacks[msg_type] = []
+        else:
+            self._llrp_message_callbacks = defaultdict(list)
+
+
+    def add_tag_report_callback(self, cb):
+        if not self._llrp_message_callbacks['RO_ACCESS_REPORT']:
+            self._llrp_message_callbacks['RO_ACCESS_REPORT'].append(
+                self._on_llrp_tag_report)
+
+        if cb not in self._tag_report_callbacks:
+            self._tag_report_callbacks.append(cb)
+
+    def remove_tag_report_callback(self, cb):
+        if cb in self._tag_report_callbacks:
+            self._tag_report_callbacks.remove(cb)
+
+    def clear_tag_report_callback(self, cb):
+        self._tag_report_callbacks = []
+
+
+    def add_event_callback(self, cb):
+        if not self._llrp_message_callbacks['READER_EVENT_NOTIFICATION']:
+            self._llrp_message_callbacks['READER_EVENT_NOTIFICATION'].append(
+                self._on_llrp_event_notification)
+
+        if cb not in self._event_notification_callbacks:
+            self._event_notification_callbacks.append(cb)
+
+    def remove_event_callback(self, cb):
+        if cb in self._event_notification_callbacks:
+            self._event_notification_callbacks.remove(cb)
+
+    def clear_event_callback(self, cb):
+        self._event_notification_callbacks = []
+
+
+    def add_disconnected_callback(self, cb):
+        if cb not in self._disconnected_callbacks:
+            self._disconnected_callbacks.append(cb)
+
+    def remove_disconnected_callback(self, cb):
+        if cb in self._disconnected_callbacks:
+            self._disconnected_callbacks.remove(cb)
+
+    def clear_disconnected_callback(self, cb):
+        self._disconnected_callbacks = []
+
+    def _connect_socket(self):
+        if self._socket:
+            raise ReaderConfigurationError('Already connected')
+        try:
+            self._socket = socket(AF_INET, SOCK_STREAM)
+            self._socket.connect((self._host, self._port))
+            # Sllurp original timeout is 3s
+            self._socket.settimeout(self._socktimeout)
+            self._socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
+            self._socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        except:
+            self._socket = None
+            raise
+        logger.info('connected to %s (:%s)', self._host, self._port)
+        return True
+
+    def connect(self, start_main_loop=True):
+        if self._socket_thread:
+            raise ReaderConfigurationError('Already connected')
+        self.disconnect_requested.clear()
+
+        self._connect_socket()
+
+        if not start_main_loop:
+            return
+
+        self._stop_main_loop.clear()
+        # then create thread that wait on read for this reader
+        self._socket_thread = Thread(target=self.main_loop)
+        self._socket_thread.start()
+
+    def disconnect(self):
+        """Clean the reader before disconnecting"""
+        if not self._socket_thread and not self._socket:
+            logger.warning('Reader not connected. Disconnect is not needed.')
+
+        self.disconnect_requested.set()
+
+        if not self._socket_thread:
+            # No polite stop as there would be no reply, just perfom cleanup
+            self.hard_disconnect()
+            self._on_disconnected()
+            return
+
+        def on_politely_stopped_cb(state, is_success, *args):
+            if is_success:
+                self.llrp.setState(LLRPReaderState.STATE_DISCONNECTED)
+            logger.info('disconnecting')
+            self.hard_disconnect()
+            self._on_disconnected()
+        logger.info('stopPolitely will disconnect when stopped')
+
+        self.llrp.stopPolitely(onCompletion=on_politely_stopped_cb,
+                               disconnect=True)
+
+    def hard_disconnect(self):
+        """Stop the recv worker, and close sockets"""
+        self._stop_main_loop.set()
+        # stop listening thread.
+        if self._socket:
+            try:
+                self._socket.shutdown(SHUT_RDWR)
+            except:
+                pass
+            self._socket.close()
+            self._socket = None
+
+    def on_lost_connection(self):
+        """ On lost connection, attempt retries if reconnect enabled
+        Return: True if the connection is definitively lost/interrupted.
+                False if it was somehow recovered (reconnected).
+        """
+        max_retry = 5
+        retry_delay = 60 # seconds
+
+        logger.info('Lost connection detected')
+        if self.disconnect_requested.is_set():
+            return True
+
+        try:
+            self.hard_disconnect()
+        except:
+            logger.exception("hard_disconnect error in lost connection")
+
+        if not self.config.reconnect:
+            self._on_disconnected()
+            return True
+
+        while max_retry:
+            max_retry -= 1
+            try:
+                self._connect_socket()
+                return False
+            except:
+                logger.warning('Reconnection attempt failed.')
+
+            if max_retry <= 0:
+                logger.info('Too many retries. Giving up...')
+                break
+
+            logger.info('Next connection attempt in %ds', retry_delay)
+            user_disconnected = self.disconnect_requested.wait(retry_delay)
+            if user_disconnected:
+                # Disconnection was requested by user
+                break
+
+        self._on_disconnected()
+        return True
+
+    def is_alive(self):
+        if self._socket_thread:
+            return self._socket_thread.is_alive()
+        return False
+
+    def join(self, timeout):
+        if self._socket_thread and self._socket_thread.is_alive():
+            return self._socket_thread.join(timeout)
+        return None
+
+    def main_loop(self):
+        if not self._socket:
+            self._socket_thread = None
+            raise ReaderConfigurationError('Not connected')
+
+        try:
+            while True:
+                lost_connection = False
+                socket_list = [self._socket]
+                # Get the list sockets which are readable
+                read_sockets, write_sockets, error_sockets = \
+                    select.select(socket_list, [], [])
+                for sock in read_sockets:
+                    #incoming message from remote server
+                    if sock == self._socket:
+                        try:
+                            data = sock.recv(4096)
+                            if data:
+                                self.rawDataReceived(data)
+                            else:
+                                # Zero byte received == disconnected
+                                logger.warning('\nDisconnected from server')
+                                lost_connection = True
+                        except SocketError:
+                            logger.exception('\nDisconnected from server')
+                            lost_connection = True
+
+                if self._stop_main_loop.is_set():
+                    break
+
+                if lost_connection:
+                    if self.on_lost_connection():
+                        break
+                    else:
+                        # Connection has been recovered
+                        # we can continue the loop with a socket that should
+                        # have been updated
+                        self._stop_main_loop.clear()
+        except:
+            logger.exception("Exception encountered in main loop, exiting...")
+
+        self._socket_thread = None
+
+
+    def send_data(self, data):
+        if not self._socket:
+            raise ReaderConfigurationError('Not connected')
+        self._socket.sendall(data)
+
+    def rawDataReceived(self, data):
+        data_len = len(data)
+        if is_general_debug_enabled():
+            logger.debugfast('got %d bytes from reader: %s', data_len,
+                             hexlify(data))
+
+        if self.expectingRemainingBytes:
+            if data_len >= self.expectingRemainingBytes:
+                data = self.partialData + data
+                data_len = len(data)
+                self.partialData = ''
+                self.expectingRemainingBytes -= data_len
+            else:
+                # still not enough; wait until next time
+                self.partialData += data
+                self.expectingRemainingBytes -= data_len
+                return
+
+        while data:
+            # parse the message header to grab its length
+            if data_len >= LLRPMessage.full_hdr_len:
+                msg_type, msg_len, message_id = \
+                    LLRPMessage.full_hdr_struct.unpack(
+                        data[:LLRPMessage.full_hdr_len])
+            else:
+                logger.warning('Too few bytes (%d) to unpack message header',
+                               data_len)
+                self.partialData = data
+                self.expectingRemainingBytes = \
+                    LLRPMessage.full_hdr_len - data_len
+                break
+
+            logger.debugfast('expect %d bytes (have %d)', msg_len, data_len)
+
+            if data_len < msg_len:
+                # got too few bytes
+                self.partialData = data
+                self.expectingRemainingBytes = msg_len - data_len
+                break
+            else:
+                # got at least the right number of bytes
+                self.expectingRemainingBytes = 0
+                try:
+                    lmsg = LLRPMessage(msgbytes=data[:msg_len])
+                    self._on_llrp_message_received(lmsg)
+                    self.llrp.handleMessage(lmsg)
+                    data = data[msg_len:]
+                    data_len = data_len - msg_len
+                except LLRPError:
+                    logger.exception('Failed to decode LLRPMessage; '
+                                     'will not decode %d remaining bytes',
+                                     data_len)
+                    break
+
+    def start_access_spec(self, op_spec, target_spec=None, stop_after_count=0,
+                          access_spec_id=1):
+        """Add and start a AccessOpSpec command
+
+        stop_after_count=N: (AccessSpecStopTriggerType) Stop the access spec
+            after N executions of the spec. N=0 to define no stop trigger.
+        """
+        if not isinstance(op_spec, C1G2OpSpec):
+            raise ValueError("op_spec needs to be a valid C1G2OpSpec object")
+
+        if target_spec and not isinstance(target_spec, C1G2TargetTag):
+            raise ValueError("target_spec needs to be a valid C1G2TargetTag "
+                             "object")
+
+        if stop_after_count < 0:
+            stop_after_count = 0
+
+        self.llrp.startAccess(opSpec=op_spec,
+                              targetSpec=target_spec,
+                              stopAfterCount=stop_after_count,
+                              accessSpecID=access_spec_id)
+
+
+    def _on_disconnected(self):
+        for fn in self._disconnected_callbacks:
+            try:
+                fn(self)
+            except:
+                logger.exception("Error during user on_disconnected callback."
+                                 "Continuing anyway...")
+
+    def _on_llrp_state_changed(self, newstate):
+        """Call user callbacks if needed"""
+        for fn in self._llrp_state_callbacks[newstate]:
+            try:
+                fn(self, newstate)
+            except:
+                logger.exception("Error during state change callback execution"
+                                 ". Continuing anyway...")
+
+    def _on_llrp_message_received(self, lmsg):
+        """Call user callbacks if needed"""
+        msgName = lmsg.getName()
+        # call per-message callbacks
+        logger.debugfast('starting message callbacks for %s', msgName)
+        for fn in self._llrp_message_callbacks[msgName]:
+            try:
+                fn(self, lmsg)
+            except:
+                logger.exception("Error during message callback execution. "
+                                 "Continuing anyway...")
+        logger.debugfast('done with message callbacks for %s', msgName)
+
+    def _on_llrp_tag_report(self, _, lmsg):
+        tags_report_dict = lmsg.msgdict['RO_ACCESS_REPORT']['TagReportData']
+        for fn in self._tag_report_callbacks:
+            try:
+                fn(self, tags_report_dict)
+            except:
+                logger.exception("Error during user on_llrp_tag_report "
+                                 "callback. Continuing anyway...")
+
+    def _on_llrp_event_notification(self, _, lmsg):
+        event_data_dict = lmsg.msgdict[
+            'READER_EVENT_NOTIFICATION']['ReaderEventNotificationData']
+        for fn in self._event_notification_callbacks:
+            try:
+                fn(self, event_data_dict)
+            except:
+                logger.exception("Error during user _on_llrp_event_notification"
+                                 "callback. Continuing anyway...")

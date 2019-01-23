@@ -32,6 +32,7 @@ from binascii import hexlify, unhexlify
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
 from .llrp_errors import LLRPError
+from .log import get_logger, is_general_debug_enabled
 
 #
 # Define exported symbols
@@ -46,7 +47,7 @@ __all__ = [
     "func",
 ]
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #
 # Local functions
@@ -66,18 +67,46 @@ def encode(data):
 #
 
 
-LLRP_PORT = 5084
-
 VER_PROTO_V1 = 1
 
 gen_header = '!HI'
 gen_header_len = struct.calcsize(gen_header)
+gen_header_unpack = struct.Struct(gen_header).unpack
 msg_header = '!HII'
+msg_header_unpack = struct.Struct(msg_header).unpack
 msg_header_len = struct.calcsize(msg_header)
 par_header = '!HH'
+par_header_unpack = struct.Struct(par_header).unpack
 par_header_len = struct.calcsize(par_header)
 tve_header = '!B'
+tve_header_unpack = struct.Struct(tve_header).unpack
 tve_header_len = struct.calcsize(tve_header)
+
+# Common types unpacks
+ubyte_size = struct.calcsize('!B')
+ushort_size = struct.calcsize('!H')
+uint_size = struct.calcsize('!I')
+ubyte_ushort_size = struct.calcsize('!BH')
+ushort_ubyte_size = struct.calcsize('!HB')
+ushort_ushort_size = struct.calcsize('!HH')
+uint_uint_size = struct.calcsize('!II')
+ubyte_ubyte_ushort_size = struct.calcsize('!BBH')
+ubyte_uint_ushort_size = struct.calcsize('!BIH')
+ubyte_uint_uint_size = struct.calcsize('!BII')
+ushort_ushort_ushort_size = struct.calcsize('!HHH')
+
+ubyte_unpack = struct.Struct('!B').unpack
+ushort_unpack = struct.Struct('!H').unpack
+uint_unpack = struct.Struct('!I').unpack
+ulonglong_unpack = struct.Struct('!Q').unpack
+ubyte_ushort_unpack = struct.Struct('!BH').unpack
+ushort_ubyte_unpack = struct.Struct('!HB').unpack
+ushort_ushort_unpack = struct.Struct('!HH').unpack
+uint_uint_unpack = struct.Struct('!II').unpack
+ubyte_ubyte_ushort_unpack = struct.Struct('!BBH').unpack
+ubyte_uint_ushort_unpack = struct.Struct('!BIH').unpack
+ubyte_uint_uint_unpack = struct.Struct('!BII').unpack
+ushort_ushort_ushort_unpack = struct.Struct('!HHH').unpack
 
 AirProtocol = {
     'UnspecifiedAirProtocol': 0,
@@ -243,7 +272,7 @@ Message_struct['GET_READER_CAPABILITIES'] = {
 # 16.1.2 GET_READER_CAPABILITIES_RESPONSE
 def decode_GetReaderCapabilitiesResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_GetReaderCapabilitiesResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -346,12 +375,12 @@ def decode_param(data):
         <decoded data>} and bytes is the remaining bytes trailing the bytes we
         could decode.
     """
-    logger.debug('decode_param data: %r', data)
+    logger.debugfast('decode_param data: %r', data)
     header_len = struct.calcsize('!HH')
     partype, parlen = struct.unpack('!HH', data[:header_len])
 
     pardata = data[header_len:parlen]
-    logger.debug('decode_param pardata: %r', pardata)
+    logger.debugfast('decode_param pardata: %r', pardata)
 
     ret = {
         'Type': partype,
@@ -371,7 +400,7 @@ def decode_param(data):
 
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_GetReaderConfigResponse')
 
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
@@ -390,9 +419,9 @@ def decode_GetReaderConfigResponse(data):
                          bodylen)
             break
         paridx += 1
-    logger.debug('decode_param ran %d times', paridx - 1)
+    logger.debugfast('decode_param ran %d times', paridx - 1)
 
-    logger.debug('GET_READER_CONFIG_RESPONSE: %s', msg)
+    logger.debugfast('GET_READER_CONFIG_RESPONSE: %s', msg)
     return msg
 
 
@@ -500,7 +529,7 @@ Message_struct['ADD_ROSPEC'] = {
 # 16.1.4 ADD_ROSPEC_RESPONSE
 def decode_AddROSpecResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_AddROSpecResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -546,7 +575,7 @@ Message_struct['DELETE_ROSPEC'] = {
 # 16.1.6 DELETE_ROSPEC_RESPONSE
 def decode_DeleteROSpecResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_DeleteROSpecResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -592,7 +621,7 @@ Message_struct['START_ROSPEC'] = {
 # 16.1.8 START_ROSPEC_RESPONSE
 def decode_StartROSpecResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_StartROSpecResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -638,7 +667,7 @@ Message_struct['STOP_ROSPEC'] = {
 # 16.1.10 STOP_ROSPEC_RESPONSE
 def decode_StopROSpecResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_StopROSpecResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -684,7 +713,7 @@ Message_struct['ENABLE_ROSPEC'] = {
 # 16.1.12 ENABLE_ROSPEC_RESPONSE
 def decode_EnableROSpecResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_EnableROSpecResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -730,7 +759,7 @@ Message_struct['DISABLE_ROSPEC'] = {
 # 16.1.14 DISABLE_ROSPEC_RESPONSE
 def decode_DisableROSpecResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_DisableROSpecResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -759,7 +788,7 @@ Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
 # 16.1.30 RO_ACCESS_REPORT
 def decode_ROAccessReport(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_ROAccessReport')
 
     # Decode parameters
     msg['TagReportData'] = []
@@ -820,7 +849,7 @@ Message_struct['KEEPALIVE_ACK'] = {
 # 16.1.33 READER_EVENT_NOTIFICATION
 def decode_ReaderEventNotification(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_ReaderEventNotification')
 
     # Decode parameters
     ret, body = decode('ReaderEventNotificationData')(data)
@@ -829,8 +858,8 @@ def decode_ReaderEventNotification(data):
 
     # Check the end of the message
     if len(body):
-        logger.debug('Unprocessed bytes in READER_EVENT_NOTIFICATION: %s',
-                     hexlify(body))
+        logger.debugfast('Unprocessed bytes in READER_EVENT_NOTIFICATION: %s',
+                         hexlify(body))
 
     return msg
 
@@ -862,7 +891,7 @@ Message_struct['CLOSE_CONNECTION'] = {
 # 16.1.41 CLOSE_CONNECTION_RESPONSE
 def decode_CloseConnectionResponse(data):
     msg = LLRPMessageDict()
-    logger.debug(func())
+    logger.debugfast('decode_CloseConnectionResponse')
 
     # Decode parameters
     ret, body = decode('LLRPStatus')(data)
@@ -888,25 +917,24 @@ Message_struct['CLOSE_CONNECTION_RESPONSE'] = {
     'decode': decode_CloseConnectionResponse
 }
 
-
 # 16.2.2.1 UTCTimestamp Parameter
 def decode_UTCTimestamp(data):
-    logger.debug(func())
+    logger.debugfast('decode_UTCTimestamp')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['UTCTimestamp']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_UTCTimestamp (len=%d)', length)
 
     # Decode fields
-    (par['Microseconds'], ) = struct.unpack('!Q', body)
+    par['Microseconds'] = ulonglong_unpack(body)[0]
 
     return par, data[length:]
 
@@ -931,27 +959,26 @@ Message_struct['UTCTimestamp'] = {
 
 
 def decode_RegulatoryCapabilities(data):
-    logger.debug(func())
+    logger.debugfast('decode_RegulatoryCapabilities')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['RegulatoryCapabilities']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('%s (type=%d len=%d)', 'decode_RegulatoryCapabilities',
+                     msgtype, length)
 
-    fmt = '!HH'
-    fmt_len = struct.calcsize(fmt)
     # Decode fields
-    (par['CountryCode'],
-     par['CommunicationsStandard']) = struct.unpack(fmt, body[:fmt_len])
+    par['CountryCode'], par['CommunicationsStandard'] = \
+         ushort_ushort_unpack(body[:ushort_ushort_size])
 
-    body = body[fmt_len:]
+    body = body[ushort_ushort_size:]
     ret, body = decode('UHFBandCapabilities')(body)
     if ret:
         par['UHFBandCapabilities'] = ret
@@ -972,17 +999,18 @@ Message_struct['RegulatoryCapabilities'] = {
 
 
 def decode_UHFBandCapabilities(data):
-    logger.debug(func())
+    logger.debugfast('decode_UHFBandCapabilities')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['UHFBandCapabilities']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('%s (type=%d len=%d)', 'decode_UHFBandCapabilities', msgtype,
+                     length)
 
     # Decode fields
     i = 0
@@ -1020,20 +1048,20 @@ Message_struct['UHFBandCapabilities'] = {
 
 
 def decode_TransmitPowerLevelTableEntry(data):
-    logger.debug(func())
+    logger.debugfast('decode_TransmitPowerLevelTableEntry')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['TransmitPowerLevelTableEntry']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_TransmitPowerLevelTableEntry (len=%d)', length)
 
     # Decode fields
-    par['Index'], par['TransmitPowerValue'] = struct.unpack('!HH', body)
+    par['Index'], par['TransmitPowerValue'] = ushort_ushort_unpack(body)
 
     return par, data[length:]
 
@@ -1050,23 +1078,22 @@ Message_struct['TransmitPowerLevelTableEntry'] = {
 
 
 def decode_FrequencyInformation(data):
-    logger.debug(func())
+    logger.debugfast('decode_FrequencyInformation')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['FrequencyInformation']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_FrequencyInformation (len=%d)', length)
 
-    fmt_len = struct.calcsize('!B')
     # Decode fields
-    (flags, ) = struct.unpack('!B', body[:fmt_len])
+    flags = ubyte_unpack(body[:ubyte_size])[0]
     par['Hopping'] = flags & BIT(7) == BIT(7)
-    body = body[fmt_len:]
+    body = body[ubyte_size:]
 
     i = 0
     ret, body = decode('FrequencyHopTable')(body)
@@ -1095,32 +1122,27 @@ Message_struct['FrequencyInformation'] = {
 
 
 def decode_FrequencyHopTable(data):
-    logger.debug(func())
+    logger.debugfast('decode_FrequencyHopTable')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['FrequencyHopTable']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_FrequencyHopTable (len=%d)', length)
 
-    fmt = '!BBH'
-    fmt_len = struct.calcsize(fmt)
-
-    id_fmt = '!I'
-    id_fmt_len = struct.calcsize(id_fmt)
     # Decode fields
-    (par['HopTableId'],
-     flags,
-     par['NumHops']) = struct.unpack(fmt, body[: fmt_len])
-    body = body[fmt_len:]
+    par['HopTableId'], flags, par['NumHops'] = \
+        ubyte_ubyte_ushort_unpack(body[:ubyte_ubyte_ushort_size])
+    body = body[ubyte_ubyte_ushort_size:]
+
     num = int(par['NumHops'])
     for x in range(1, num + 1):
-        (par['Frequency' + str(x)], ) = struct.unpack(id_fmt, body[: id_fmt_len])
-        body = body[id_fmt_len:]
+        par['Frequency' + str(x)] = uint_unpack(body[:uint_size])[0]
+        body = body[uint_size:]
 
     return par, data[length:]
 
@@ -1138,30 +1160,26 @@ Message_struct['FrequencyHopTable'] = {
 
 
 def decode_FixedFrequencyTable(data):
-    logger.debug(func())
+    logger.debugfast('decode_FixedFrequencyTable')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['FixedFrequencyTable']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_FixedFrequencyTable (len=%d)', length)
 
-    fmt = '!H'
-    fmt_len = struct.calcsize(fmt)
-
-    id_fmt = '!I'
-    id_fmt_len = struct.calcsize(id_fmt)
     # Decode fields
-    (par['NumFrequencies'], ) = struct.unpack(fmt, body[: fmt_len])
-    body = body[fmt_len:]
+    par['NumFrequencies'] = ushort_unpack(body[:ushort_size])[0]
+    body = body[ushort_size:]
+
     num = int(par['NumFrequencies'])
     for x in range(1, num + 1):
-        (par['Frequency' + str(x)], ) = struct.unpack(id_fmt, body[:id_fmt_len])
-        body = body[id_fmt_len:]
+        par['Frequency' + str(x)] = uint_unpack(body[:uint_size])[0]
+        body = body[uint_size:]
 
     return par, data[length:]
 
@@ -1178,20 +1196,20 @@ Message_struct['FixedFrequencyTable'] = {
 
 
 def decode_UHFRFModeTable(data):
-    logger.debug(func())
+    logger.debugfast('decode_UHFRFModeTable')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_UHFRFModeTable (type=%d len=%d)', msgtype, length)
 
     if msgtype != Message_struct['UHFRFModeTable']['type']:
         return (None, data)
 
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_UHFRFModeTable (len=%d)', length)
 
     # Decode fields
     i = 0
@@ -1213,16 +1231,18 @@ Message_struct['UHFRFModeTable'] = {
     'decode': decode_UHFRFModeTable
 }
 
+mode_table_entry_unpack = struct.Struct('!IBBBBIIIII').unpack
 
 def decode_UHFC1G2RFModeTableEntry(data):
-    logger.debug(func())
+    logger.debugfast('decode_UHFC1G2RFModeTableEntry')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_UHFC1G2RFModeTableEntry (type=%d len=%d)',
+                     msgtype, length)
 
     if msgtype != Message_struct['UHFC1G2RFModeTableEntry']['type']:
         return (None, data)
@@ -1239,7 +1259,7 @@ def decode_UHFC1G2RFModeTableEntry(data):
      par['PIE'],
      par['MinTari'],
      par['MaxTari'],
-     par['StepTari']) = struct.unpack('!IBBBBIIIII', body)
+     par['StepTari']) = mode_table_entry_unpack(body)
 
     # parse RC
     par['R'] = RC >> 7
@@ -1267,23 +1287,24 @@ Message_struct['UHFC1G2RFModeTableEntry'] = {
 
 
 def decode_RFSurveyFrequencyCapabilities(data):
-    logger.debug(func())
+    logger.debugfast('decode_RFSurveyFrequencyCapabilities')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
 
     if msgtype != Message_struct['RFSurveyFrequencyCapabilities']['type']:
         return (None, data)
 
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('%s (type=%d len=%d)', 'decode_RFSurveyFrequencyCapabilities',
+                     msgtype, length)
 
     # Decode fields
     (par['MinimumFrequency'],
-     par['MaximumFrequency']) = struct.unpack('!II', body)
+     par['MaximumFrequency']) = uint_uint_unpack(body)
 
     return par, data[length:]
 
@@ -1300,20 +1321,23 @@ Message_struct['RFSurveyFrequencyCapabilities'] = {
 
 
 # 16.2.3.2 LLRPCapabilities Parameter
+llrp_capabilities_unpack = struct.Struct('!BBHIIIII').unpack
+
 def decode_LLRPCapabilities(data):
-    logger.debug(func())
+    logger.debugfast('decode_LLRPCapabilities')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['LLRPCapabilities']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('%s (type=%d len=%d)', 'decode_LLRPCapabilities', msgtype,
+                     length)
 
     # Decode fields
     (flags,
@@ -1323,7 +1347,7 @@ def decode_LLRPCapabilities(data):
      par['MaxNumSpecsPerROSpec'],
      par['MaxNumInventoryParametersSpecsPerAISpec'],
      par['MaxNumAccessSpec'],
-     par['MaxNumOpSpecsPerAccessSpec']) = struct.unpack('!BBHIIIII', body)
+     par['MaxNumOpSpecsPerAccessSpec']) = llrp_capabilities_unpack(body)
 
     par['CanDoRFSurvey'] = (flags & BIT(7) == BIT(7))
     par['CanReportBufferFillWarning'] = (flags & BIT(6) == BIT(6))
@@ -1356,20 +1380,24 @@ Message_struct['LLRPCapabilities'] = {
 
 
 # 16.2.3.2 GeneralDeviceCapabilities Parameter
+general_dev_capa_begin_size = struct.calcsize('!HHIIH')
+general_dev_capa_begin_unpack = struct.Struct('!HHIIH').unpack
+
 def decode_GeneralDeviceCapabilities(data):
-    logger.debug(func())
+    logger.debugfast('decode_GeneralDeviceCapabilities')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['GeneralDeviceCapabilities']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('%s (type=%d len=%d)', 'decode_GeneralDeviceCapabilities',
+                     msgtype, length)
 
     fmt = '!HHIIH'
     fmt_len = struct.calcsize(fmt)
@@ -1378,13 +1406,14 @@ def decode_GeneralDeviceCapabilities(data):
      flags,
      par['DeviceManufacturerName'],
      par['ModelName'],
-     par['FirmwareVersionByteCount']) = struct.unpack(fmt, body[:fmt_len])
+     par['FirmwareVersionByteCount']) = \
+         general_dev_capa_begin_unpack(body[:general_dev_capa_begin_size])
 
     par['CanSetAntennaProperties'] = (flags & BIT(15) == BIT(15))
     par['HasUTCClockCapability'] = (flags & BIT(14) == BIT(14))
 
-    pastVer = fmt_len + par['FirmwareVersionByteCount']
-    par['ReaderFirmwareVersion'] = body[fmt_len:pastVer]
+    pastVer = general_dev_capa_begin_size + par['FirmwareVersionByteCount']
+    par['ReaderFirmwareVersion'] = body[general_dev_capa_begin_size:pastVer]
     body = body[pastVer:]
     ret, body = decode('ReceiveSensitivityTableEntry')(body)
     if ret:
@@ -1431,20 +1460,20 @@ Message_struct['GeneralDeviceCapabilities'] = {
 
 
 def decode_MaximumReceiveSensitivity(data):
-    logger.debug(func())
+    logger.debugfast('decode_MaximumReceiveSensitivity')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['MaximumReceiveSensitivity']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_MaximumReceiveSensitivity (len=%d)', length)
 
     # Decode fields
-    (par['MaximumSensitivityValue']) = struct.unpack('!H', body)
+    par['MaximumSensitivityValue'] = ushort_unpack(body)[0]
 
     return par, data[length:]
 
@@ -1460,21 +1489,21 @@ Message_struct['MaximumReceiveSensitivity'] = {
 
 
 def decode_ReceiveSensitivityTableEntry(data):
-    logger.debug(func())
+    logger.debugfast('decode_ReceiveSensitivityTableEntry')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ReceiveSensitivityTableEntry']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ReceiveSensitivityTableEntry (len=%d)', length)
 
     # Decode fields
     (par['Index'],
-     par['ReceiveSensitivityValue']) = struct.unpack('!HH', body)
+     par['ReceiveSensitivityValue']) = ushort_ushort_unpack(body)
 
     return par, data[length:]
 
@@ -1491,22 +1520,23 @@ Message_struct['ReceiveSensitivityTableEntry'] = {
 
 
 def decode_PerAntennaReceiveSensitivityRange(data):
-    logger.debug(func())
+    logger.debugfast('decode_PerAntennaReceiveSensitivityRange')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['PerAntennaReceiveSensitivityRange']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_PerAntennaReceiveSensitivityRange (len=%d)',
+                     length)
 
     # Decode fields
     (par['AntennaID'],
      par['ReceiveSensitivityIndexMin'],
-     par['ReceiveSensitivityIndexMax']) = struct.unpack('!HHH', body)
+     par['ReceiveSensitivityIndexMax']) = ushort_ushort_ushort_unpack(body)
 
     return par, data[length:]
 
@@ -1524,30 +1554,28 @@ Message_struct['PerAntennaReceiveSensitivityRange'] = {
 
 
 def decode_PerAntennaAirProtocol(data):
-    logger.debug(func())
+    logger.debugfast('decode_PerAntennaAirProtocol')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['PerAntennaAirProtocol']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
-
-    fmt = '!HH'
-    fmt_len = struct.calcsize(fmt)
+    logger.debugfast('%s (type=%d len=%d)', 'decode_PerAntennaAirProtocol',
+                     msgtype, length)
 
     # Decode fields
     (par['AntennaID'],
-     par['NumProtocols']) = struct.unpack(fmt, body[:fmt_len])
-    body = body[fmt_len:]
+     par['NumProtocols']) = ushort_ushort_unpack(body[:ushort_ushort_size])
+    body = body[ushort_ushort_size:]
+
     num = int(par['NumProtocols'])
-    id_fmt = '!B'
     for i in range(num):
         par['ProtocolID{}'.format(i + 1)] = \
-            struct.unpack(id_fmt, body[i:i+1])[0]
+            ubyte_unpack(body[i:i+ubyte_size])[0]
 
     return par, data[length:]
 
@@ -1565,21 +1593,21 @@ Message_struct['PerAntennaAirProtocol'] = {
 
 
 def decode_GPIOCapabilities(data):
-    logger.debug(func())
+    logger.debugfast('decode_GPIOCapabilities')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['GPIOCapabilities']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('%s (type=%d len=%d)', 'decode_GPIOCapabilities', msgtype,
+                     length)
 
     # Decode fields
-    (par['NumGPIs'],
-     par['NumGPIs']) = struct.unpack('!HH', body)
+    par['NumGPIs'], par['NumGPIs'] = ushort_ushort_unpack(body)
 
     return par, data[length:]
 
@@ -1596,8 +1624,8 @@ Message_struct['GPIOCapabilities'] = {
 
 
 def decode_ErrorMessage(data):
+    logger.debugfast('decode_ErrorMessage')
     msg = LLRPMessageDict()
-    logger.debug(func())
     ret, body = decode('LLRPStatus')(data)
     if ret:
         msg['LLRPStatus'] = ret
@@ -1893,7 +1921,7 @@ def encode_C1G2TagSpec(par):
     msg_header_len = struct.calcsize(msg_header)
 
     targets = par['C1G2TargetTag']
-    if type(targets) != list:
+    if not isinstance(targets, list):
         targets = (targets,)
     for target in targets:
         data = encode_C1G2TargetTag(target)
@@ -2251,7 +2279,7 @@ def encode_AISpec(par):
 
     antid = par['AntennaIDs']
     antennas = []
-    if type(antid) is str:
+    if isinstance(antid, str):
         antennas = antid.split()
     else:
         antennas.extend(antid)
@@ -2364,7 +2392,7 @@ def encode_InventoryParameterSpec(par):
     data += struct.pack('!B', par['ProtocolID'])
 
     for antconf in par['AntennaConfiguration']:
-        logger.debug('encoding AntennaConfiguration: %s', antconf)
+        logger.debugfast('encoding AntennaConfiguration: %s', antconf)
         data += encode('AntennaConfiguration')(antconf)
 
     data = struct.pack(msg_header, msgtype,
@@ -2474,6 +2502,9 @@ def encode_C1G2InventoryCommand(par):
     if 'ImpinjInventorySearchModeParameter' in par:
         data += encode('ImpinjInventorySearchModeParameter')(
             par['ImpinjInventorySearchModeParameter'])
+    if 'ImpinjIntelligentAntennaManagementParameter' in par:
+        data += encode('ImpinjIntelligentAntennaManagementParameter')(
+            par['ImpinjIntelligentAntennaManagementParameter'])
     if 'ImpinjFixedFrequencyListParameter' in par:
         data += encode('ImpinjFixedFrequencyListParameter')(
             par['ImpinjFixedFrequencyListParameter'])
@@ -2492,9 +2523,31 @@ Message_struct['C1G2InventoryCommand'] = {
         'C1G2SingulationControl',
         # XXX custom parameters
         'ImpinjInventorySearchModeParameter',
-        'ImpinjFixedFrequencyListParameter'
+        'ImpinjIntelligentAntennaManagementParameter',
+        'ImpinjFixedFrequencyListParameter',
     ],
     'encode': encode_C1G2InventoryCommand
+}
+
+
+def encode_ImpinjIntelligentAntennaManagementParameter(par):
+    msg_struct_param = Message_struct['ImpinjIntelligentAntennaManagementParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+    enabled_flags = (int(bool(par)) << 7) & 0xff
+    data = struct.pack('!B', enabled_flags)
+    custom_par['Payload'] = data
+
+    return encode('CustomParameter')(custom_par)
+
+
+Message_struct['ImpinjIntelligentAntennaManagementParameter'] = {
+    'vendorid': 25882,
+    'subtype': 1554,
+    'fields': [],
+    'encode': encode_ImpinjIntelligentAntennaManagementParameter
 }
 
 
@@ -2629,7 +2682,7 @@ def encode_ReaderEventNotificationSpec(par):
 
     data = b''
     for ev_type, flag in states.items():
-        if not ev_type in EventState_Name2Value:
+        if ev_type not in EventState_Name2Value:
             logger.warning('Unknown event name %s', ev_type)
             continue
         parlen = struct.calcsize('!HHHB')
@@ -2663,8 +2716,11 @@ def encode_TagReportContentSelector(par):
         if field in par and par[field]:
             flags = flags | (1 << i)
         i = i - 1
-
     data = struct.pack('!H', flags)
+
+    if 'C1G2EPCMemorySelector' in par:
+        data += encode('C1G2EPCMemorySelector')(par['C1G2EPCMemorySelector'])
+
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
 
@@ -2688,17 +2744,46 @@ Message_struct['TagReportContentSelector'] = {
     'encode': encode_TagReportContentSelector
 }
 
+# 15.2.1.5.1 C1G2EPCMemorySelector Parameter
+def encode_C1G2EPCMemorySelector(par):
+    msgtype = Message_struct['C1G2EPCMemorySelector']['type']
+    msg_header = '!HH'
+
+    flags = 0
+    i = 7
+    for field in Message_struct['C1G2EPCMemorySelector']['fields']:
+        if field in par and par[field]:
+            flags = flags | (1 << i)
+        i = i - 1
+
+    data = struct.pack('!B', flags)
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+
+    return data
+
+
+Message_struct['C1G2EPCMemorySelector'] = {
+    'type': 348,
+    'fields': [
+        'EnableCRC',
+        'EnablePCBits',
+        # New in protocol v2 (llrp 1_1)
+        #'EnableXPCBits'
+    ],
+    'encode': encode_C1G2EPCMemorySelector
+}
 
 # 16.2.7.3 TagReportData Parameter
 def decode_TagReportData(data):
     par = {}
-    logger.debug(func())
+    logger.debugfast('decode_TagReportData')
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['TagReportData']['type']:
         return (None, data)
@@ -2707,14 +2792,13 @@ def decode_TagReportData(data):
     # Decode parameters
     ret, body = decode('EPCData')(body)
     if ret:
-        logger.debug("got EPCData; won't try EPC-96")
+        #logger.debugfast("got EPCData; won't try EPC-96")
         par['EPCData'] = ret
     else:
-        logger.debug('failed to decode EPCData; trying EPC-96')
+        #logger.debugfast('failed to decode EPCData; trying EPC-96')
         ret, body = decode('EPC-96')(body)
         if ret:
             par['EPC-96'] = ret['EPC']
-            logger.debug('EPC-96: %s', ret['EPC'])
         else:
             raise LLRPError('missing or invalid EPCData parameter')
 
@@ -2731,7 +2815,7 @@ def decode_TagReportData(data):
     if ret:
         par['OpSpecResult'] = ret
 
-    logger.debug('par=%s', par)
+    logger.debugfast('par=%s', par)
     return par, data[length:]
 
 
@@ -2752,9 +2836,19 @@ Message_struct['TagReportData'] = {
         'LastSeenTimestampUTC',
         'LastSeenTimestampUptime',
         'TagSeenCount',
-        'AirProtocolTagData',
+        # AirProtocolTagDataParameter
+        'C1G2CRC',
+        'C1G2PC',
+        # protocol v2 (llrp 1_1)
+        'C1G2XPCW1',
+        'C1G2XPCW2',
+        # End of AirProtocolTagDataParameter
         'AccessSpecID',
         'OpSpecResult',
+        ## Custom parameters:
+        'ImpinjPhase',
+        'ImpinjPeakRSSI',
+        'ImpinjRFDopplerFrequency'
     ],
     'decode': decode_TagReportData
 }
@@ -2763,13 +2857,13 @@ Message_struct['TagReportData'] = {
 def decode_OpSpecResult(data):
     # handle any of the C1G2*OpSpecResult types
     par = {}
-    logger.debug(func())
+    logger.debugfast('decode_OpSpecResult')
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     c1g2opspecresults = ('C1G2ReadOpSpecResult',
                          'C1G2WriteOpSpecResult',
@@ -2786,25 +2880,26 @@ def decode_OpSpecResult(data):
     body = data[par_header_len:length]
 
     # all OpSpecResults begin with Result and OpSpecID
-    par['Result'], par['OpSpecID'] = struct.unpack('!BH', body[:3])
-    body = body[3:]
+    par['Result'], par['OpSpecID'] = \
+        ubyte_ushort_unpack(body[:ubyte_ushort_size])
+    body = body[ubyte_ushort_size:]
 
     if msgtype == Message_struct['C1G2ReadOpSpecResult']['type']:
-        wordcnt = struct.unpack('!H', body[:2])[0]
+        wordcnt = ushort_unpack(body[:ushort_size])[0]
         par['ReadDataWordCount'] = wordcnt
-        end = 2 + (wordcnt * 2)
-        par['ReadData'] = body[2:end]
+        end = ushort_size + (wordcnt * 2)
+        par['ReadData'] = body[ushort_size:end]
 
     elif msgtype in (Message_struct['C1G2WriteOpSpecResult']['type'],
                      Message_struct['C1G2BlockWriteOpSpecResult']['type']):
-        par['NumWordsWritten'] = struct.unpack('!H', body[:2])[0]
+        par['NumWordsWritten'] = ushort_unpack(body[:ushort_size])[0]
 
     psosr = Message_struct['C1G2GetBlockPermalockStatusOpSpecResult']
     if msgtype == psosr['type']:
-        wordcnt = struct.unpack('!H', body[:2])[0]
+        wordcnt = ushort_unpack(body[:ushort_size])[0]
         par['StatusWordCount'] = wordcnt
-        end = 2 + (wordcnt * 2)
-        par['PermalockStatus'] = body[2:end]
+        end = ushort_size + (wordcnt * 2)
+        par['PermalockStatus'] = body[ushort_size:end]
 
     return par, data[length:]
 
@@ -2929,17 +3024,16 @@ def decode_EPCData(data):
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['EPCData']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    #logger.debugfast('decode_EPCData (len=%d)', length)
 
     # Decode fields
-    (par['EPCLengthBits'], ) = struct.unpack('!H',
-                                             body[0:struct.calcsize('!H')])
-    par['EPC'] = hexlify(body[struct.calcsize('!H'):])
+    par['EPCLengthBits'] = ushort_unpack(body[0:ushort_size])[0]
+    par['EPC'] = hexlify(body[ushort_size:])
 
     return par, data[length:]
 
@@ -2963,13 +3057,14 @@ def decode_EPC96(data):
         return None, data
 
     header = data[0:tve_header_len]
-    (msgtype, ) = struct.unpack(tve_header, header)
+    msgtype = tve_header_unpack(header)[0]
     msgtype = msgtype & BITMASK(7)
     if msgtype != Message_struct['EPC-96']['type']:
         return (None, data)
-    length = tve_header_len + (96 // 8)
+    # (EPC-96 bits) (96 // 8) = 12 bytes
+    length = tve_header_len + 12
     body = data[tve_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    #logger.debugfast('decode_EPC96 (type=%d)', length)
 
     # Decode fields
     par['EPC'] = hexlify(body)
@@ -2996,15 +3091,15 @@ def decode_ROSpecID(data):
         return None, data
 
     header = data[0:tve_header_len]
-    (msgtype, ), length = struct.unpack(tve_header, header), 1 + 4
+    msgtype, length = tve_header_unpack(header)[0], 1 + 4
     msgtype = msgtype & BITMASK(7)
     if msgtype != Message_struct['ROSpecID']['type']:
         return (None, data)
     body = data[tve_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ROSpecID (len=%d)', length)
 
     # Decode fields
-    (par['ROSpecID'], ) = struct.unpack('!I', body)
+    par['ROSpecID'] = uint_unpack(body)[0]
 
     return par, data[length:]
 
@@ -3021,19 +3116,19 @@ Message_struct['ROSpecID'] = {
 
 # 16.2.7.6.1 HoppingEvent Parameter
 def decode_HoppingEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_HoppingEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['HoppingEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_HoppingEvent (len=%d)', length)
 
     # Decode fields
-    (par['HopTableID'], par['NextChannelIndex']) = struct.unpack('!HH', body)
+    par['HopTableID'], par['NextChannelIndex'] = ushort_ushort_unpack(body)
 
     return par, data[length:]
 
@@ -3049,19 +3144,19 @@ Message_struct['HoppingEvent'] = {
 
 # 16.2.7.6.2 GPIEvent Parameter
 def decode_GPIEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_GPIEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['GPIEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_GPIEvent (len=%d)', length)
 
     # Decode fields
-    (par['GPIPortNumber'], flags) = struct.unpack('!HB', body)
+    par['GPIPortNumber'], flags = ushort_ubyte_unpack(body)
     par['GPIEvent'] = flags & BIT(7) == BIT(7)
 
     return par, data[length:]
@@ -3078,21 +3173,21 @@ Message_struct['GPIEvent'] = {
 
 # 16.2.7.6.3 ROSpecEvent Parameter
 def decode_ROSpecEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_ROSpecEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ROSpecEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ROSpecEvent (len=%d)', length)
 
     # Decode fields
     (event_type,
      par['ROSpecID'],
-     par['PreemptingROSpecID']) = struct.unpack('!BII', body)
+     par['PreemptingROSpecID']) = ubyte_uint_uint_unpack(body)
 
     if event_type == 0:
         par['EventType'] = 'Start_of_ROSpec'
@@ -3117,18 +3212,18 @@ Message_struct['ROSpecEvent'] = {
 
 
 def decode_ReportBufferLevelWarning(data):
-    logger.debug(func())
+    logger.debugfast('decode_ReportBufferLevelWarning')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ReportBufferLevelWarning']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ReportBufferLevelWarning (len=%d)', length)
 
-    par['ReportBufferPercentageFull'] = struct.unpack('!B', body)[0]
+    par['ReportBufferPercentageFull'] = ubyte_unpack(body)[0]
 
     return par, data[length:]
 
@@ -3144,16 +3239,16 @@ Message_struct['ReportBufferLevelWarning'] = {
 
 
 def decode_ReportBufferOverflowErrorEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_ReportBufferOverflowErrorEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ReportBufferOverflowErrorEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ReportBufferOverflowErrorEvent (len=%d)', length)
 
     return par, data[length:]
 
@@ -3168,19 +3263,19 @@ Message_struct['ReportBufferOverflowErrorEvent'] = {
 
 
 def decode_ReaderExceptionEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_ReaderExceptionEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ReaderExceptionEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ReaderExceptionEvent (len=%d)', length)
 
-    offset = struct.calcsize('!H')
-    msg_bytecount = struct.unpack('!H', body[:offset])
+    offset = ushort_size
+    msg_bytecount = ushort_unpack(body[:offset])[0]
     par['Message'] = body[offset:offset + msg_bytecount]
     body = body[offset + msg_bytecount:]
 
@@ -3215,21 +3310,21 @@ Message_struct['ReaderExceptionEvent'] = {
 
 
 def decode_RFSurveyEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_RFSurveyEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['RFSurveyEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_RFSurveyEvent (len=%d)', length)
 
     # Decode fields
     (event_type,
      par['ROSpecID'],
-     par['SpecIndex']) = struct.unpack('!BIH', body)
+     par['SpecIndex']) = ubyte_uint_ushort_unpack(body)
 
     if event_type == 0:
         par['EventType'] = 'Start_of_RFSurvey'
@@ -3252,28 +3347,35 @@ Message_struct['RFSurveyEvent'] = {
 
 
 def decode_AISpecEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_AISpecEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['AISpecEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_AISpecEvent (len=%d)', length)
 
     # Decode fields
     (_,
      par['ROSpecID'],
-     par['SpecIndex']) = struct.unpack('!BIH', body)
+     par['SpecIndex']) = ubyte_uint_ushort_unpack(body)
+    offset = ubyte_uint_ushort_size
+    body = body[offset:]
 
     # first parameter (event_type) is ignored as just a single value is
     # possible.
-    par ['EventType'] = 'End_of_AISpec'
+    par['EventType'] = 'End_of_AISpec'
 
-    # Ignoring AirProtocolSingulationDetailsParameter additionnal parameter
-    # for the moment
+    # Optionnal AirProtocolSingulationDetailsParameter parameter:
+    # C1G2SingulationDetails that is a tve
+    if body:
+        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        if ret:
+            par.update(ret)
+            body = body[nbytes:]
 
     return par, data[length:]
 
@@ -3284,29 +3386,30 @@ Message_struct['AISpecEvent'] = {
         'Type',
         'EventType',
         'ROSpecID',
-        'PreemptingROSpecID'
+        'SpecIndex',
+        'C1G2SingulationDetails'
     ],
     'decode': decode_AISpecEvent
 }
 
 # 16.2.7.6.9 AntennaEvent Parameter
 def decode_AntennaEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_AntennaEvent')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['AntennaEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_AntennaEvent (len=%d)', length)
 
     # Decode fields
-    (event_type, antenna_id) = struct.unpack('!BH', body)
+    event_type, antenna_id = ubyte_ushort_unpack(body)
     par['EventType'] = event_type and 'Connected' or 'Disconnected'
     par['AntennaID'] = antenna_id
 
@@ -3325,22 +3428,22 @@ Message_struct['AntennaEvent'] = {
 
 # 16.2.7.6.10 ConnectionAttemptEvent Parameter
 def decode_ConnectionAttemptEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_ConnectionAttemptEvent')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ConnectionAttemptEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ConnectionAttemptEvent (len=%d)', length)
 
     # Decode fields
-    (status, ) = struct.unpack('!H', body)
+    status = ushort_unpack(body)[0]
     par['Status'] = ConnEvent_Type2Name[status]
 
     return par, data[length:]
@@ -3357,16 +3460,16 @@ Message_struct['ConnectionAttemptEvent'] = {
 
 
 def decode_ConnectionCloseEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_ConnectionCloseEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ConnectionCloseEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ConnectionCloseEvent (len=%d)', length)
 
     return par, data[length:]
 
@@ -3381,20 +3484,20 @@ Message_struct['ConnectionCloseEvent'] = {
 
 
 def decode_SpecLoopEvent(data):
-    logger.debug(func())
+    logger.debugfast('decode_SpecLoopEvent')
     par = {}
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['SpecLoopEvent']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_SpecLoopEvent (len=%d)', length)
 
     # Decode fields
     (par['ROSpecID'],
-     par['LoopCount']) = struct.unpack('!II', body)
+     par['LoopCount']) = uint_uint_unpack(body)
 
     return par, data[length:]
 
@@ -3419,10 +3522,12 @@ def decode_ReaderEventNotificationData(data):
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ReaderEventNotificationData']['type']:
+        return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_ReaderEventNotificationData (len=%d)', length)
 
     # Decode parameters
     ret, body = decode('UTCTimestamp')(body)
@@ -3433,15 +3538,15 @@ def decode_ReaderEventNotificationData(data):
 
     while len(body):
         evt_header = body[0:par_header_len]
-        evt_msgtype, evt_length = struct.unpack(par_header, evt_header)
+        evt_msgtype, evt_length = par_header_unpack(evt_header)
         evt_msgtype = evt_msgtype & BITMASK(10)
 
         event_name = Event_Type2Name.get(evt_msgtype)
         if not event_name:
             logger.warning('skipping unsupported event (type: %d)',
                            evt_msgtype)
-            logger.debug('Unprocessed bytes of unsupported reader EVENT: %s',
-                         hexlify(body[:evt_length]))
+            logger.debugfast('Unprocessed bytes of unsupported reader EVENT: %s',
+                             hexlify(body[:evt_length]))
             body = body[evt_length:]
             continue
 
@@ -3466,6 +3571,7 @@ Message_struct['ReaderEventNotificationData'] = {
     'type': 246,
     'fields': [
         'Type',
+        'UTCTimestamp',
         'HoppingEvent',
         'GPIEvent',
         'ROSpecEvent',
@@ -3486,7 +3592,7 @@ Message_struct['ReaderEventNotificationData'] = {
 # 13.2.6 ReaderEventNotificationData events list
 Event_Type2Name = {}
 for field_name in Message_struct['ReaderEventNotificationData']['fields']:
-    if field_name == 'Type':
+    if field_name in ['Type', 'UTCTimestamp']:
         continue
     event_type_id = Message_struct.get(field_name, {}).get('type')
     if event_type_id:
@@ -3495,27 +3601,27 @@ for field_name in Message_struct['ReaderEventNotificationData']['fields']:
 
 # 16.2.8.1 LLRPStatus Parameter
 def decode_LLRPStatus(data):
-    logger.debug(func())
+    if is_general_debug_enabled():
+        logger.debugfast('decode_LLRPStatus: %s', hexlify(data))
     par = {}
-    logger.debug('decode_LLRPStatus: %s', hexlify(data))
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     ls = Message_struct['LLRPStatus']
     if msgtype != ls['type']:
-        logger.debug('got msgtype=%s, expected %s', msgtype, ls['type'])
-        logger.debug('note length=%d', length)
+        logger.debugfast('got msgtype=%s, expected %s', msgtype, ls['type'])
+        logger.debugfast('note length=%d', length)
         return None, data
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+    logger.debugfast('decode_LLRPStatus (len=%d)', length)
 
     # Decode fields
-    offset = struct.calcsize('!HH')
-    (code, n) = struct.unpack('!HH', body[:offset])
+    offset = ushort_ushort_size
+    code, n = ushort_ushort_unpack(body[:offset])
     try:
         par['StatusCode'] = Error_Type2Name[code]
     except KeyError:
@@ -3527,13 +3633,13 @@ def decode_LLRPStatus(data):
     if ret:
         par['FieldError'] = ret
     else:
-        logger.debug('no FieldError')
+        logger.debugfast('no FieldError')
 
     ret, body = decode('ParameterError')(body)
     if ret:
         par['ParameterError'] = ret
     else:
-        logger.debug('no ParameterError')
+        logger.debugfast('no ParameterError')
 
     # Check the end of the message
     if len(body) > 0:
@@ -3557,24 +3663,25 @@ Message_struct['LLRPStatus'] = {
 
 # 16.2.8.1.1 FieldError Parameter
 def decode_FieldError(data):
-    logger.debug(func())
+    logger.debugfast('decode_FieldError')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['FieldError']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d data=%s)', func(), msgtype, length,
-                 repr(body))
+    if is_general_debug_enabled():
+        logger.debugfast('decode_FieldError (len=%d data=%s)', length,
+                         repr(body))
 
     # Decode fields
-    offset = struct.calcsize('!H')
-    (par['FieldNum'], ) = struct.unpack('!H', body[:offset])
+    offset = ushort_size
+    par['FieldNum'] = ushort_unpack(body[:offset])[0]
 
     return par, data[length:]
 
@@ -3592,25 +3699,26 @@ Message_struct['FieldError'] = {
 
 # 16.2.8.1.2 ParameterError Parameter
 def decode_ParameterError(data):
-    logger.debug(func())
+    logger.debugfast('decode_ParameterError')
     par = {}
 
     if len(data) == 0:
         return None, data
 
     header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
+    msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['ParameterError']['type']:
         return (None, data)
     body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d data=%s)', func(), msgtype, length,
-                 repr(body))
+    if is_general_debug_enabled():
+        logger.debugfast('decode_ParameterError (len=%d data=%s)', length,
+                         repr(body))
 
     # Decode fields
-    offset = struct.calcsize('!HH')
-    par['ParameterType'], par['ErrorCode'] = struct.unpack('!HH',
-                                                           body[:offset])
+    offset = ushort_ushort_size
+    (par['ParameterType'],
+     par['ErrorCode']) = ushort_ushort_unpack(body[:offset])
 
     # Decode parameters
     ret, body = decode('FieldError')(body[offset:])
@@ -3645,13 +3753,14 @@ def encode_CustomMessage(msg):
     subtype = msg['Subtype']
     payload = msg.get('Payload', struct.pack('!I', 0))
     data = struct.pack('!IB', vendor_id, subtype) + payload
-    # logger.debug('data: %s', hexlify(data))
+    if is_general_debug_enabled():
+        logger.debugfast('Encoding custom message data: %s', hexlify(data))
     return data
 
 
 def decode_CustomMessageResponse(data):
+    logger.debugfast('decode_CustomMessageResponse')
     msg = LLRPMessageDict()
-    logger.debug(func())
 
     skip_len = struct.calcsize('!IB')  # skip vendor ID + subtype
     ret, body = decode('LLRPStatus')(data[skip_len:])
@@ -3700,19 +3809,14 @@ Message_struct['CustomParameter'] = {
 # Vendor custom parameters and messages
 #
 
-
-def encode_ImpinjCustomParameter(subtype, value):
+def encode_ImpinjInventorySearchModeParameter(par):
+    msg_struct_param = Message_struct['ImpinjInventorySearchModeParameter']
     custom_par = {
-        'VendorID': 25882,
-        'Subtype': subtype,
-        'Payload': struct.pack('!H', value)
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
     }
     return encode('CustomParameter')(custom_par)
-
-
-def encode_ImpinjInventorySearchModeParameter(par):
-    return encode_ImpinjCustomParameter(23, par)
-
 
 Message_struct['ImpinjInventorySearchModeParameter'] = {
     'vendorid': 25882,
@@ -3835,7 +3939,8 @@ def llrp_data2xml(msg):
         if name.startswith('Parameter '):
             ret = '{tabs}<Parameter>\n'.format(tabs=tabs)
             for k in ('Type', 'Data', 'Vendor', 'Subtype'):
-                if k not in msg: continue
+                if k not in msg:
+                    continue
                 ret += '{tabs1}<{k}>{data}</{k}>\n'.format(
                     k=k, tabs1=tabs + '\t', data=msg[k])
             ret += '{tabs}</Parameter>\n'.format(tabs=tabs, **msg)
@@ -3848,9 +3953,9 @@ def llrp_data2xml(msg):
             except KeyError:
                 continue
 
-            if type(sub) is dict:
+            if isinstance(sub, dict):
                 ret += __llrp_data2xml(sub, p, level + 1)
-            elif type(sub) is list and sub and type(sub[0]) is dict:
+            elif isinstance(sub, list) and sub and isinstance(sub[0], dict):
                 for e in sub:
                     ret += __llrp_data2xml(e, p, level + 1)
             else:
@@ -3870,20 +3975,20 @@ class LLRPROSpec(dict):
     def __init__(self, reader_mode, rospecid, priority=0, state='Disabled',
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
-                 tag_content_selector={}, tari=None,
+                 tag_content_selector=None, tari=None,
                  session=2, tag_population=4, tag_filter_mask=None,
                  impinj_search_mode=None, impinj_tag_content_selector=None,
                  impinj_fixed_frequency_param=None):
         # Sanity checks
         if rospecid <= 0:
-            raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
-                            rospecid))
+            raise LLRPError('invalid ROSpec message ID {} (need >0)'\
+                .format(rospecid))
         if priority < 0 or priority > 7:
-            raise LLRPError('invalid ROSpec priority {} (need [0-7])'.format(
-                            priority))
+            raise LLRPError('invalid ROSpec priority {} (need [0-7])'\
+                .format(priority))
         if state not in ROSpecState_Name2Type:
-            raise LLRPError('invalid ROSpec state {} (need [{}])'.format(
-                            state, ','.join(ROSpecState_Name2Type.keys())))
+            raise LLRPError('invalid ROSpec state {} (need [{}])'\
+                .format(state, ','.join(ROSpecState_Name2Type.keys())))
         # backward compatibility: allow integer tx_power
         if isinstance(tx_power, int):
             tx_power = {antenna: tx_power for antenna in antennas}
@@ -3917,6 +4022,10 @@ class LLRPROSpec(dict):
             'EnableLastSeenTimestamp': True,
             'EnableTagSeenCount': True,
             'EnableAccessSpecID': False,
+            'C1G2EPCMemorySelector': {
+                'EnableCRC': False,
+                'EnablePCBits': False,
+            }
         }
         if tag_content_selector:
             tagReportContentSelector.update(tag_content_selector)
@@ -3954,17 +4063,15 @@ class LLRPROSpec(dict):
         }
 
         if impinj_tag_content_selector:
-            self['ROSpec']['ROReportSpec'][
-                'ImpinjTagReportContentSelectorParameter'] = {
-                'VendorID': 25882,
-                'Subtype': 50,
-                'ImpinjEnableRFPhaseAngleParameter':
-                    impinj_tag_content_selector['EnableRFPhaseAngle'],
-                'ImpinjEnablePeakRSSIParameter':
-                    impinj_tag_content_selector['EnablePeakRSSI'],
-                'ImpinjEnableRFDopplerParameter':
-                    impinj_tag_content_selector['EnableRFDopplerFrequency']
-            }
+            self['ROSpec']['ROReportSpec']\
+                ['ImpinjTagReportContentSelectorParameter'] = {
+                    'ImpinjEnableRFPhaseAngleParameter':
+                        impinj_tag_content_selector['EnableRFPhaseAngle'],
+                    'ImpinjEnablePeakRSSIParameter':
+                        impinj_tag_content_selector['EnablePeakRSSI'],
+                    'ImpinjEnableRFDopplerParameter':
+                        impinj_tag_content_selector['EnableRFDopplerFrequency']
+                }
 
         # patch up per-antenna config
         for antid in antennas:
@@ -4010,9 +4117,9 @@ class LLRPROSpec(dict):
             if impinj_fixed_frequency_param is not None:
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjFixedFrequencyListParameter'] = {
-                        'FixedFrequencyMode': 
+                        'FixedFrequencyMode':
                             impinj_fixed_frequency_param['FixedFrequencyMode'],
-                        'ChannelListIndex': 
+                        'ChannelListIndex':
                             impinj_fixed_frequency_param['ChannelListIndex']
                     }
 
@@ -4065,8 +4172,8 @@ for msgname, msgstruct in iteritems(Message_struct):
     try:
         ty = msgstruct['type']
     except KeyError:
-        logging.debug('Pseudo-warning: Message_struct type {} '
-                      'lacks "type" field'.format(m))
+        logging.debug('Pseudo-warning: Message_struct type %s lacks "type" '
+                      'field', msgname)
         continue
 
     try:

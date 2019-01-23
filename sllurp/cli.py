@@ -16,7 +16,7 @@ from .llrp_proto import Modulation_Name2Type
 # Disable Click unicode warning since we use unicode string exclusively
 click.disable_unicode_literals_warning = True
 
-logger = logging.getLogger(__name__)
+logger = loggie.get_logger(__name__)
 mods = sorted(Modulation_Name2Type.keys())
 
 
@@ -47,7 +47,7 @@ def cli(debug, logfile):
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
-@click.option('--tag-filter-mask', type=str, default=None, 
+@click.option('--tag-filter-mask', type=str, default=None,
               help=('Filter inventory on EPC ID (or part of ID)'))
 @click.option('--impinj-extended-configuration', is_flag=True, default=False,
               help=('Get Impinj extended configuration values'))
@@ -73,7 +73,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'reconnect', 'tag_filter_mask',
                                'impinj_extended_configuration',
                                'impinj_search_mode',
-                               'impinj_reports', 
+                               'impinj_reports',
                                'impinj_fixed_freq'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power,
@@ -90,14 +90,22 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
 
 @cli.command()
 @click.argument('host', type=str, nargs=-1)
+@click.option('-p', '--port', type=int, default=5084)
 @click.option('-o', '--outfile', type=click.File('w'), default='-')
 @click.option('-a', '--antennas', type=str, default='0',
               help='comma-separated list of antennas to use (default 0=all)')
+@click.option('-X', '--tx-power', type=int, default=0,
+              help='transmit power (default 0=max power)')
 @click.option('-e', '--epc', type=str, help='log only a specific EPC')
 @click.option('-r', '--reader-timestamp', is_flag=True, default=False,
               help='Use reader-provided timestamps instead of our own')
-def log(host, outfile, antennas, epc, reader_timestamp):
-    _log.main(host, outfile, antennas, epc, reader_timestamp)
+def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp):
+    Args = namedtuple('Args', ['host', 'port', 'outfile', 'antennas',
+                               'tx_power', 'epc', 'reader_timestamp'])
+    args = Args(host=host, port=port, outfile=outfile, tx_power=tx_power,
+                antennas=antennas, epc=epc, reader_timestamp=reader_timestamp)
+    logger.debug('log args: %s', args)
+    _log.main(args)
 
 
 @cli.command()
@@ -106,12 +114,15 @@ def log(host, outfile, antennas, epc, reader_timestamp):
 @click.option('-t', '--time', type=float, help='seconds to inventory')
 @click.option('-n', '--report-every-n-tags', type=int,
               help='issue a TagReport every N tags')
+@click.option('-a', '--antennas', type=str, default='0',
+              help='comma-separated list of antennas to use (default 0=all)')
 @click.option('-X', '--tx-power', type=int, default=0,
               help='transmit power (default 0=max power)')
 @click.option('-T', '--tari', type=int, default=0,
               help='Tari value (default 0=auto)')
 @click.option('-s', '--session', type=int, default=2,
               help='Gen2 session (default 2)')
+@click.option('--mode-identifier', type=int, help='ModeIdentifier value')
 @click.option('-P', '--tag-population', type=int, default=4,
               help='Tag Population value (default 4)')
 @click.option('-r', '--read-words', type=int,
@@ -127,19 +138,21 @@ def log(host, outfile, antennas, epc, reader_timestamp):
               help='Word addresss of the first word to read/write')
 @click.option('-ap', '--access-password', type=int, default=0,
               help='Access password for secure state if R/W locked')
-def access(host, port, time, report_every_n_tags, tx_power, tari,
-           session, tag_population, read_words, write_words, count,
-           memory_bank, word_ptr, access_password):
-    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n',
+def access(host, port, time, report_every_n_tags, antennas, tx_power,
+           tari, session, mode_identifier, tag_population,
+           read_words, write_words, count, memory_bank, word_ptr,
+           access_password):
+    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'tari', 'session',
-                               'population', 'read_words', 'write_words',
-                               'count', 'mb', 'word_ptr', 'access_password'])
+                               'mode_identifier', 'population', 'read_words',
+                               'write_words', 'count', 'mb', 'word_ptr',
+                               'access_password'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
-                tx_power=tx_power, tari=tari,
-                session=session, population=tag_population,
-                read_words=read_words, write_words=write_words, count=count,
-                mb=memory_bank, word_ptr=word_ptr,
-                access_password=access_password)
+                antennas=antennas, tx_power=tx_power, tari=tari,
+                session=session, mode_identifier=mode_identifier,
+                population=tag_population, read_words=read_words,
+                write_words=write_words, count=count, mb=memory_bank,
+                word_ptr=word_ptr, access_password=access_password)
     logger.debug('access args: %s', args)
     _access.main(args)
 
@@ -153,4 +166,6 @@ def version():
 @click.argument('host', type=str, nargs=-1)
 @click.option('-p', '--port', type=int, default=5084)
 def reset(host, port):
-    _reset.main(host, port)
+    Args = namedtuple('Args', ['host', 'port'])
+    args = Args(host=host, port=port)
+    _reset.main(args)
