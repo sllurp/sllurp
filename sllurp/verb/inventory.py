@@ -174,7 +174,6 @@ def main(args):
         global topic
         client = mqtt.Client()
         if args.mqtt_password and args.mqtt_username:
-            print("Starting secure mqtt: " + args.mqtt_password + " " + args.mqtt_username)
             client.username_pw_set(args.mqtt_username, args.mqtt_password)
         client.connect(args.mqtt_broker, args.mqtt_port, 60)
         client.loop_start()
