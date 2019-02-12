@@ -27,7 +27,7 @@ from __future__ import unicode_literals
 import logging
 import struct
 from collections import defaultdict
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
@@ -142,9 +142,6 @@ ConnEvent_Name2Type = {
 }
 
 ConnEvent_Type2Name = reverse_dict(ConnEvent_Name2Type)
-for m in ConnEvent_Name2Type:
-    i = ConnEvent_Name2Type[m]
-    ConnEvent_Type2Name[i] = m
 
 # http://www.gs1.org/gsmp/kc/epcglobal/llrp/llrp_1_0_1-standard-20070813.pdf
 # Section 14.1.1 Error messages
@@ -178,9 +175,23 @@ Error_Name2Type = {
 }
 
 Error_Type2Name = reverse_dict(Error_Name2Type)
-for m in Error_Name2Type:
-    i = Error_Name2Type[m]
-    Error_Type2Name[i] = m
+
+# 13.2.5.1 EventNotificationState events list
+EventState_Name2Value = {
+    'HoppingEvent': 0,
+    'GPIEvent': 1,
+    'ROSpecEvent': 2,
+    'ReportBufferFillWarning': 3,
+    'ReaderExceptionEvent': 4,
+    'RFSurveyEvent': 5,
+    'AISpecEvent': 6,
+    'AISpecEventWithSingulation': 7,
+    'AntennaEvent': 8,
+    # New event only available in llrp v.2:
+    #'SpecLoopEvent': 9,
+}
+
+EventState_Value2Name = reverse_dict(EventState_Name2Value)
 
 # 13.2.1 ROReportTrigger
 ROReportTrigger_Name2Type = {
@@ -205,11 +216,6 @@ Modulation_Name2Type = {
     'WISP5pre': 0,
     'WISP5': 0,
 }
-Modulation_DefaultTari = {
-    'WISP5pre': 12500,
-    'WISP5': 6250,
-}
-DEFAULT_MODULATION = 'M4'
 
 #
 # LLRP Messages
@@ -284,7 +290,13 @@ def encode_GetReaderConfig(msg):
     ant = msg.get('AntennaID', 0)
     gpipn = msg.get('GPIPortNum', 0)
     gpopn = msg.get('GPOPortNum', 0)
-    return struct.pack('!BHHH', req, ant, gpipn, gpopn)
+    data = struct.pack('!BHHH', req, ant, gpipn, gpopn)
+
+    params = msg.get('CustomParameters', [])
+    for param in params:
+        data += encode('CustomParameter')(param)
+
+    return data
 
 
 Message_struct['GET_READER_CONFIG'] = {
@@ -300,6 +312,63 @@ Message_struct['GET_READER_CONFIG'] = {
 }
 
 
+def decode_Identification(data):
+    """Identification parameter (LLRP 1.1 Section 13.2.2)"""
+    header_len = struct.calcsize('!HHBH')
+    msgtype, msglen, idtype, bytecount = struct.unpack(
+        '!HHBH', data[:header_len])
+    ret = {}
+
+    idtypes = ['MAC Address', 'EPC']
+    try:
+        ret['IDType'] = idtypes[idtype]
+    except IndexError:
+        return {'IDType': b''}, data[msglen:]
+
+    # the remainder is ID value
+    ret['ReaderID'] = data[header_len:(header_len+bytecount)]
+
+    return ret, data[msglen:]
+
+
+Message_struct['Identification'] = {
+    'type': 218,
+    'fields': ['IDType', 'ByteCount', 'ReaderID'],
+    'decode': decode_Identification,
+}
+
+
+def decode_param(data):
+    """Decode any parameter to a byte sequence.
+
+    :param data: byte sequence representing an LLRP parameter.
+    :returns dict, bytes: where dict is {'Type': <decoded type>, 'Data':
+        <decoded data>} and bytes is the remaining bytes trailing the bytes we
+        could decode.
+    """
+    logger.debug('decode_param data: %r', data)
+    header_len = struct.calcsize('!HH')
+    partype, parlen = struct.unpack('!HH', data[:header_len])
+
+    pardata = data[header_len:parlen]
+    logger.debug('decode_param pardata: %r', pardata)
+
+    ret = {
+        'Type': partype,
+    }
+
+    if partype == 1023:
+        vsfmt = '!II'
+        vendor, subtype = struct.unpack(vsfmt, pardata[:struct.calcsize(vsfmt)])
+        ret['Vendor'] = vendor
+        ret['Subtype'] = subtype
+        ret['Data'] = pardata[struct.calcsize(vsfmt):]
+    else:
+        ret['Data'] = pardata,
+
+    return ret, data[parlen:]
+
+
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debug(func())
@@ -307,7 +376,23 @@ def decode_GetReaderConfigResponse(data):
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
 
-    logger.debug('TODO: decode rest of GET_READER_CONFIG_RESPONSE')
+    ret, body = decode('Identification')(body)
+    msg['Identification'] = ret
+
+    paridx = 1
+    prev_bodylen = len(body)
+    while body:
+        ret, body = decode_param(body)
+        bodylen = len(body)
+        msg['Parameter {}'.format(paridx)] = ret
+        if bodylen >= prev_bodylen:
+            logger.error('Loop in parameter body decoding (%d bytes left)',
+                         bodylen)
+            break
+        paridx += 1
+    logger.debug('decode_param ran %d times', paridx - 1)
+
+    logger.debug('GET_READER_CONFIG_RESPONSE: %s', msg)
     return msg
 
 
@@ -2386,8 +2471,12 @@ def encode_C1G2InventoryCommand(par):
         data += encode('C1G2RFControl')(par['C1G2RFControl'])
     if 'C1G2SingulationControl' in par:
         data += encode('C1G2SingulationControl')(par['C1G2SingulationControl'])
-    if 'CustomParameter' in par:
-        data += encode('CustomParameter')(par['CustomParameter'])
+    if 'ImpinjInventorySearchModeParameter' in par:
+        data += encode('ImpinjInventorySearchModeParameter')(
+            par['ImpinjInventorySearchModeParameter'])
+    if 'ImpinjFixedFrequencyListParameter' in par:
+        data += encode('ImpinjFixedFrequencyListParameter')(
+            par['ImpinjFixedFrequencyListParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -2400,8 +2489,10 @@ Message_struct['C1G2InventoryCommand'] = {
         'TagInventoryStateAware',
         'C1G2Filter',
         'C1G2RFControl',
-        'C1G2SingulationControl'
+        'C1G2SingulationControl',
         # XXX custom parameters
+        'ImpinjInventorySearchModeParameter',
+        'ImpinjFixedFrequencyListParameter'
     ],
     'encode': encode_C1G2InventoryCommand
 }
@@ -2409,15 +2500,51 @@ Message_struct['C1G2InventoryCommand'] = {
 
 # 16.3.1.2.1.1 C1G2Filter Parameter
 def encode_C1G2Filter(par):
-    raise NotImplementedError
+    msgtype = Message_struct['C1G2Filter']['type']
+    msg_header = '!HH'
+    data = struct.pack('!B', Message_struct['C1G2Filter']['T'] << 6) # XXX: hardcoded trucation for now
+    if 'C1G2TagInventoryMask' in par:
+        data += encode('C1G2TagInventoryMask')(
+            par['C1G2TagInventoryMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
 
 
 Message_struct['C1G2Filter'] = {
     'type': 331,
-    'fields': [],
-    'encode': lambda: None
+    'T': 0,
+    'fields': [
+        'C1G2TagInventoryMask'
+    ],
+    'encode': encode_C1G2Filter
 }
 
+# 16.3.1.2.1.1.1 C1G2TagInventoryMask Parameter
+def encode_C1G2TagInventoryMask(par):
+    msgtype = Message_struct['C1G2TagInventoryMask']['type']
+    msg_header = '!HH'
+    maskbitcount = len(par['TagMask'])*4
+    if len(par['TagMask']) % 2 != 0:    # check for odd numbered length hexstring
+        par['TagMask'] += '0'           # pad with zero
+    data = struct.pack('!B', par['MB'] << 6)
+    data += struct.pack('!H', par['Pointer'])
+    if maskbitcount:
+        data += struct.pack('!H', maskbitcount)
+        data += unhexlify(par['TagMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['C1G2TagInventoryMask'] = {
+    'type': 332,
+    'fields': [
+        'MB',
+        'Pointer',
+        'TagMask'
+    ],
+    'encode': encode_C1G2TagInventoryMask
+}
 
 # 16.3.1.2.1.2 C1G2RFControl Parameter
 def encode_C1G2RFControl(par):
@@ -2502,8 +2629,12 @@ def encode_ReaderEventNotificationSpec(par):
 
     data = b''
     for ev_type, flag in states.items():
+        if not ev_type in EventState_Name2Value:
+            logger.warning('Unknown event name %s', ev_type)
+            continue
         parlen = struct.calcsize('!HHHB')
-        data += struct.pack('!HHHB', 245, parlen, ev_type,
+        data += struct.pack('!HHHB', 245, parlen,
+                            EventState_Name2Value[ev_type],
                             (int(bool(flag)) << 7) & 0xff)
 
     data = struct.pack('!HH', msgtype,
@@ -2888,57 +3019,275 @@ Message_struct['ROSpecID'] = {
     'tv_encoded': True,
 }
 
-
-# 16.2.7.6 ReaderEventNotificationData Parameter
-def decode_ReaderEventNotificationData(data):
+# 16.2.7.6.1 HoppingEvent Parameter
+def decode_HoppingEvent(data):
+    logger.debug(func())
     par = {}
-
-    if len(data) == 0:
-        return None, data
 
     header = data[0:par_header_len]
     msgtype, length = struct.unpack(par_header, header)
     msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['HoppingEvent']['type']:
+        return (None, data)
     body = data[par_header_len:length]
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
-    # Decode parameters
-    ret, body = decode('UTCTimestamp')(body)
-    if ret:
-        par['UTCTimestamp'] = ret
-    else:
-        raise LLRPError('missing or invalid UTCTimestamp parameter')
+    # Decode fields
+    (par['HopTableID'], par['NextChannelIndex']) = struct.unpack('!HH', body)
 
-    ret, body = decode('ConnectionAttemptEvent')(body)
-    if ret:
-        par['ConnectionAttemptEvent'] = ret
+    return par, data[length:]
 
-    ret, body = decode('AntennaEvent')(body)
-    if ret:
-        par['AntennaEvent'] = ret
-
-    return par, body
-
-
-Message_struct['ReaderEventNotificationData'] = {
-    'type': 246,
+Message_struct['HoppingEvent'] = {
+    'type': 247,
     'fields': [
         'Type',
-        'HoppingEvent',
-        'GPIEvent',
-        'ROSpecEvent',
-        'ReportBufferLevelWarningEvent',
-        'ReportBufferOverflowErrorEvent',
-        'ReaderExceptionEvent',
-        'RFSurveyEvent',
-        'AISpecEvent',
-        'AntennaEvent',
-        'ConnectionAttemptEvent',
-        'ConnectionCloseEvent'
+        'HopTableID',
+        'NextChannelIndex'
     ],
-    'decode': decode_ReaderEventNotificationData
+    'decode': decode_HoppingEvent
 }
 
+# 16.2.7.6.2 GPIEvent Parameter
+def decode_GPIEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['GPIEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (par['GPIPortNumber'], flags) = struct.unpack('!HB', body)
+    par['GPIEvent'] = flags & BIT(7) == BIT(7)
+
+    return par, data[length:]
+
+Message_struct['GPIEvent'] = {
+    'type': 248,
+    'fields': [
+        'Type',
+        'GPIPortNumber',
+        'GPIEvent'
+    ],
+    'decode': decode_GPIEvent
+}
+
+# 16.2.7.6.3 ROSpecEvent Parameter
+def decode_ROSpecEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ROSpecEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (event_type,
+     par['ROSpecID'],
+     par['PreemptingROSpecID']) = struct.unpack('!BII', body)
+
+    if event_type == 0:
+        par['EventType'] = 'Start_of_ROSpec'
+    elif event_type == 1:
+        par['EventType'] = 'End_of_ROSpec'
+    else:
+        par['EventType'] = 'Preemption_of_ROSpec'
+
+    return par, data[length:]
+
+
+Message_struct['ROSpecEvent'] = {
+    'type': 249,
+    'fields': [
+        'Type',
+        'EventType',
+        'ROSpecID',
+        'PreemptingROSpecID'
+    ],
+    'decode': decode_ROSpecEvent
+}
+
+
+def decode_ReportBufferLevelWarning(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ReportBufferLevelWarning']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    par['ReportBufferPercentageFull'] = struct.unpack('!B', body)[0]
+
+    return par, data[length:]
+
+
+Message_struct['ReportBufferLevelWarning'] = {
+    'type': 250,
+    'fields': [
+        'Type',
+        'ReportBufferPercentageFull'
+    ],
+    'decode': decode_ReportBufferLevelWarning
+}
+
+
+def decode_ReportBufferOverflowErrorEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ReportBufferOverflowErrorEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    return par, data[length:]
+
+
+Message_struct['ReportBufferOverflowErrorEvent'] = {
+    'type': 251,
+    'fields': [
+        'Type',
+    ],
+    'decode': decode_ReportBufferOverflowErrorEvent
+}
+
+
+def decode_ReaderExceptionEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ReaderExceptionEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    offset = struct.calcsize('!H')
+    msg_bytecount = struct.unpack('!H', body[:offset])
+    par['Message'] = body[offset:offset + msg_bytecount]
+    body = body[offset + msg_bytecount:]
+
+    # grab TV-encoded parameters
+    while body:
+        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        if ret:
+            par.update(ret)
+            body = body[nbytes:]
+        else:
+            break
+
+    return par, data[length:]
+
+
+Message_struct['ReaderExceptionEvent'] = {
+    'type': 252,
+    'fields': [
+        'Type',
+        'MessageByteCount',
+        'Message',
+        'ROSpecID',
+        'SpecIndex',
+        'InventoryParameterSpec',
+        'AntennaID',
+        'AccessSpecID',
+        'OpSpecID',
+        # Optional N custom parameters after
+    ],
+    'decode': decode_ReaderExceptionEvent
+}
+
+
+def decode_RFSurveyEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['RFSurveyEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (event_type,
+     par['ROSpecID'],
+     par['SpecIndex']) = struct.unpack('!BIH', body)
+
+    if event_type == 0:
+        par['EventType'] = 'Start_of_RFSurvey'
+    else:
+        par['EventType'] = 'End_of_RFSurvey'
+
+
+    return par, data[length:]
+
+Message_struct['RFSurveyEvent'] = {
+    'type': 253,
+    'fields': [
+        'Type',
+        'EventType',
+        'ROSpecID',
+        'SpecIndex'
+    ],
+    'decode': decode_RFSurveyEvent
+}
+
+
+def decode_AISpecEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['AISpecEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (_,
+     par['ROSpecID'],
+     par['SpecIndex']) = struct.unpack('!BIH', body)
+
+    # first parameter (event_type) is ignored as just a single value is
+    # possible.
+    par ['EventType'] = 'End_of_AISpec'
+
+    # Ignoring AirProtocolSingulationDetailsParameter additionnal parameter
+    # for the moment
+
+    return par, data[length:]
+
+
+Message_struct['AISpecEvent'] = {
+    'type': 254,
+    'fields': [
+        'Type',
+        'EventType',
+        'ROSpecID',
+        'PreemptingROSpecID'
+    ],
+    'decode': decode_AISpecEvent
+}
 
 # 16.2.7.6.9 AntennaEvent Parameter
 def decode_AntennaEvent(data):
@@ -2974,7 +3323,6 @@ Message_struct['AntennaEvent'] = {
     'decode': decode_AntennaEvent
 }
 
-
 # 16.2.7.6.10 ConnectionAttemptEvent Parameter
 def decode_ConnectionAttemptEvent(data):
     logger.debug(func())
@@ -3006,6 +3354,143 @@ Message_struct['ConnectionAttemptEvent'] = {
     ],
     'decode': decode_ConnectionAttemptEvent
 }
+
+
+def decode_ConnectionCloseEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['ConnectionCloseEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    return par, data[length:]
+
+
+Message_struct['ConnectionCloseEvent'] = {
+    'type': 257,
+    'fields': [
+        'Type'
+    ],
+    'decode': decode_ConnectionCloseEvent
+}
+
+
+def decode_SpecLoopEvent(data):
+    logger.debug(func())
+    par = {}
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    if msgtype != Message_struct['SpecLoopEvent']['type']:
+        return (None, data)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode fields
+    (par['ROSpecID'],
+     par['LoopCount']) = struct.unpack('!II', body)
+
+    return par, data[length:]
+
+
+# Only available with protocol v2 (llrp 1_1)
+Message_struct['SpecLoopEvent'] = {
+    'type': 356,
+    'fields': [
+        'Type',
+        'ROSpecID',
+        'LoopCount'
+    ],
+    'decode': decode_SpecLoopEvent
+}
+
+
+# 16.2.7.6 ReaderEventNotificationData Parameter
+def decode_ReaderEventNotificationData(data):
+    par = {}
+
+    if len(data) == 0:
+        return None, data
+
+    header = data[0:par_header_len]
+    msgtype, length = struct.unpack(par_header, header)
+    msgtype = msgtype & BITMASK(10)
+    body = data[par_header_len:length]
+    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
+
+    # Decode parameters
+    ret, body = decode('UTCTimestamp')(body)
+    if ret:
+        par['UTCTimestamp'] = ret
+    else:
+        raise LLRPError('missing or invalid UTCTimestamp parameter')
+
+    while len(body):
+        evt_header = body[0:par_header_len]
+        evt_msgtype, evt_length = struct.unpack(par_header, evt_header)
+        evt_msgtype = evt_msgtype & BITMASK(10)
+
+        event_name = Event_Type2Name.get(evt_msgtype)
+        if not event_name:
+            logger.warning('skipping unsupported event (type: %d)',
+                           evt_msgtype)
+            logger.debug('Unprocessed bytes of unsupported reader EVENT: %s',
+                         hexlify(body[:evt_length]))
+            body = body[evt_length:]
+            continue
+
+        if event_name not in Message_struct:
+            logger.warning('No decoder available for event: %s . Skipping...',
+                           event_name)
+            body = body[evt_length:]
+            continue
+
+        ret, body = decode(event_name)(body)
+        if ret:
+            par[event_name] = ret
+        else:
+            logger.warning('error decoding event %s', )
+            body = body[evt_length:]
+            continue
+
+    return par, body
+
+
+Message_struct['ReaderEventNotificationData'] = {
+    'type': 246,
+    'fields': [
+        'Type',
+        'HoppingEvent',
+        'GPIEvent',
+        'ROSpecEvent',
+        'ReportBufferLevelWarningEvent',
+        'ReportBufferOverflowErrorEvent',
+        'ReaderExceptionEvent',
+        'RFSurveyEvent',
+        'AISpecEvent',
+        'AntennaEvent',
+        'ConnectionAttemptEvent',
+        'ConnectionCloseEvent',
+        'SpecLoopEvent'
+    ],
+    'decode': decode_ReaderEventNotificationData
+}
+
+
+# 13.2.6 ReaderEventNotificationData events list
+Event_Type2Name = {}
+for field_name in Message_struct['ReaderEventNotificationData']['fields']:
+    if field_name == 'Type':
+        continue
+    event_type_id = Message_struct.get(field_name, {}).get('type')
+    if event_type_id:
+        Event_Type2Name[event_type_id] = field_name
 
 
 # 16.2.8.1 LLRPStatus Parameter
@@ -3155,43 +3640,12 @@ Message_struct['ParameterError'] = {
     'decode': decode_ParameterError
 }
 
-
-def encode_ImpinjTagReportContentSelectorParameter(par):
-    msgtype = Message_struct['ImpinjTagReportContentSelectorParameter']['type']
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-
-    data = struct.pack('!I', par['VendorID'])
-    data += struct.pack('!I', par['Subtype'])
-
-    data += encode('CustomParameter')(par.get('EnableRFPhaseAngle', False))
-    data += encode('CustomParameter')(par.get('EnablePeakRSSI', False))
-    data += encode('CustomParameter')(
-        par.get('EnableRFDopplerFrequency', False))
-
-    header = struct.pack(msg_header, msgtype, msg_header_len + len(data))
-    return header + data
-
-
-Message_struct['ImpinjTagReportContentSelectorParameter'] = {
-    'type': 1023,
-    'fields': [
-        'VendorID',
-        'Subtype',
-        'EnableRFPhaseAngle',
-        'EnablePeakRSSI',
-        'EnableRFDopplerFrequency'
-    ],
-    'encode': encode_ImpinjTagReportContentSelectorParameter
-}
-
-
 def encode_CustomMessage(msg):
     vendor_id = msg['VendorID']
     subtype = msg['Subtype']
     payload = msg.get('Payload', struct.pack('!I', 0))
     data = struct.pack('!IB', vendor_id, subtype) + payload
-    logger.info('data: %s', data.hex())
+    # logger.debug('data: %s', hexlify(data))
     return data
 
 
@@ -3242,12 +3696,150 @@ Message_struct['CustomParameter'] = {
     'encode': encode_CustomParameter
 }
 
+#
+# Vendor custom parameters and messages
+#
+
+
+def encode_ImpinjCustomParameter(subtype, value):
+    custom_par = {
+        'VendorID': 25882,
+        'Subtype': subtype,
+        'Payload': struct.pack('!H', value)
+    }
+    return encode('CustomParameter')(custom_par)
+
+
+def encode_ImpinjInventorySearchModeParameter(par):
+    return encode_ImpinjCustomParameter(23, par)
+
+
+Message_struct['ImpinjInventorySearchModeParameter'] = {
+    'vendorid': 25882,
+    'subtype': 23,
+    'fields': [],
+    'encode': encode_ImpinjInventorySearchModeParameter
+}
+
+def encode_ImpinjFixedFrequencyListParameter(par):
+    msg_struct_param = Message_struct['ImpinjFixedFrequencyListParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype']
+    }
+    channellist = par.get('ChannelListIndex')
+    payload = struct.pack('!H', par.get('FixedFrequencyMode'))
+    payload += struct.pack('!H', 0) # Reserved space
+    payload += struct.pack('!H', len(channellist))
+    for index in channellist:
+        payload += struct.pack('!H', index)
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjFixedFrequencyListParameter'] = {
+    'vendorid': 25882,
+    'subtype': 26,
+    'fields': [
+        'FixedFrequencyMode',
+        'Reserved',
+        'ChannelListCount',
+        'ChannelListIndex'
+    ],
+    'encode': encode_ImpinjFixedFrequencyListParameter
+}
+
+def encode_ImpinjTagReportContentSelectorParameter(par):
+    msg_struct_param = Message_struct['ImpinjTagReportContentSelectorParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+
+    payload = encode('ImpinjEnableRFPhaseAngleParameter')(
+        par.get('ImpinjEnableRFPhaseAngleParameter', False))
+    payload += encode('ImpinjEnablePeakRSSIParameter')(
+        par.get('ImpinjEnablePeakRSSIParameter', False))
+    payload += encode('ImpinjEnableRFDopplerParameter')(
+        par.get('ImpinjEnableRFDopplerParameter', False))
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjTagReportContentSelectorParameter'] = {
+    'vendorid': 25882,
+    'subtype': 50,
+    'fields': [
+        'ImpinjEnableRFPhaseAngleParameter',
+        'ImpinjEnablePeakRSSIParameter',
+        'ImpinjEnableRFDopplerParameter'
+    ],
+    'encode': encode_ImpinjTagReportContentSelectorParameter
+}
+
+def encode_ImpinjEnableRFPhaseAngleParameter(par):
+    msg_struct_param = Message_struct['ImpinjEnableRFPhaseAngleParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjEnableRFPhaseAngleParameter'] = {
+    'vendorid': 25882,
+    'subtype': 52,
+    'fields': [],
+    'encode': encode_ImpinjEnableRFPhaseAngleParameter
+}
+
+def encode_ImpinjEnablePeakRSSIParameter(par):
+    msg_struct_param = Message_struct['ImpinjEnablePeakRSSIParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjEnablePeakRSSIParameter'] = {
+    'vendorid': 25882,
+    'subtype': 53,
+    'fields': [],
+    'encode': encode_ImpinjEnablePeakRSSIParameter
+}
+
+def encode_ImpinjEnableRFDopplerParameter(par):
+    msg_struct_param = Message_struct['ImpinjEnableRFDopplerParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+        'Payload': struct.pack('!H', par)
+    }
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjEnableRFDopplerParameter'] = {
+    'vendorid': 25882,
+    'subtype': 67,
+    'fields': [],
+    'encode': encode_ImpinjEnableRFDopplerParameter
+}
+
 
 def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
 
-        str = tabs + '<%s>\n' % name
+        ret = tabs + '<%s>\n' % name
+
+        if name.startswith('Parameter '):
+            ret = '{tabs}<Parameter>\n'.format(tabs=tabs)
+            for k in ('Type', 'Data', 'Vendor', 'Subtype'):
+                if k not in msg: continue
+                ret += '{tabs1}<{k}>{data}</{k}>\n'.format(
+                    k=k, tabs1=tabs + '\t', data=msg[k])
+            ret += '{tabs}</Parameter>\n'.format(tabs=tabs, **msg)
+            return ret
 
         fields = Message_struct[name]['fields']
         for p in fields:
@@ -3257,16 +3849,16 @@ def llrp_data2xml(msg):
                 continue
 
             if type(sub) is dict:
-                str += __llrp_data2xml(sub, p, level + 1)
+                ret += __llrp_data2xml(sub, p, level + 1)
             elif type(sub) is list and sub and type(sub[0]) is dict:
                 for e in sub:
-                    str += __llrp_data2xml(e, p, level + 1)
+                    ret += __llrp_data2xml(e, p, level + 1)
             else:
-                str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
+                ret += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
-        str += tabs + '</%s>\n' % name
+        ret += tabs + '</%s>\n' % name
 
-        return str
+        return ret
 
     ans = ''
     for p in msg:
@@ -3279,8 +3871,9 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
-                 session=2, tag_population=4,
-                 impinj_search_mode=None, impinj_tag_content_selector=None):
+                 session=2, tag_population=4, tag_filter_mask=None,
+                 impinj_search_mode=None, impinj_tag_content_selector=None,
+                 impinj_fixed_frequency_param=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -3365,26 +3958,12 @@ class LLRPROSpec(dict):
                 'ImpinjTagReportContentSelectorParameter'] = {
                 'VendorID': 25882,
                 'Subtype': 50,
-                'EnableRFPhaseAngle': {
-                    'VendorID': 25882,
-                    'Subtype': 52,
-                    'Payload': struct.pack(
-                        '!H', impinj_tag_content_selector[
-                            'EnableRFPhaseAngle'])
-                },
-                'EnablePeakRSSI': {
-                    'VendorID': 25882,
-                    'Subtype': 53,
-                    'Payload': struct.pack(
-                        '!H', impinj_tag_content_selector['EnablePeakRSSI'])
-                },
-                'EnableRFDopplerFrequency': {
-                    'VendorID': 25882,
-                    'Subtype': 67,
-                    'Payload': struct.pack(
-                        '!H', impinj_tag_content_selector[
-                            'EnableRFDopplerFrequency'])
-                }
+                'ImpinjEnableRFPhaseAngleParameter':
+                    impinj_tag_content_selector['EnableRFPhaseAngle'],
+                'ImpinjEnablePeakRSSIParameter':
+                    impinj_tag_content_selector['EnablePeakRSSI'],
+                'ImpinjEnableRFDopplerParameter':
+                    impinj_tag_content_selector['EnableRFDopplerFrequency']
             }
 
         # patch up per-antenna config
@@ -3407,6 +3986,14 @@ class LLRPROSpec(dict):
                     },
                 }
             }
+            if tag_filter_mask:
+                antconf['C1G2InventoryCommand']['C1G2Filter'] = {
+                    'C1G2TagInventoryMask': {
+                        'MB': 1,    # EPC bank
+                        'Pointer': 0x20,    # Third word starts the EPC ID
+                        'TagMask': tag_filter_mask
+                    }
+                }
             if reader_mode:
                 rfcont = {
                     'ModeIndex': mode_index,
@@ -3417,11 +4004,17 @@ class LLRPROSpec(dict):
             # impinj extension: single mode or dual mode (XXX others?)
             if impinj_search_mode is not None:
                 logger.info('impinj_search_mode: %s', impinj_search_mode)
-                antconf['C1G2InventoryCommand']['CustomParameter'] = {
-                    'VendorID': 25882,  # impinj
-                    'Subtype': 23,  # inventory search mode
-                    'Payload': struct.pack('!H', int(impinj_search_mode)),
-                }
+                antconf['C1G2InventoryCommand']\
+                    ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
+
+            if impinj_fixed_frequency_param is not None:
+                antconf['C1G2InventoryCommand']\
+                    ['ImpinjFixedFrequencyListParameter'] = {
+                        'FixedFrequencyMode': 
+                            impinj_fixed_frequency_param['FixedFrequencyMode'],
+                        'ChannelListIndex': 
+                            impinj_fixed_frequency_param['ChannelListIndex']
+                    }
 
             ips['AntennaConfiguration'].append(antconf)
 

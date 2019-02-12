@@ -5,8 +5,7 @@ import pprint
 import struct
 from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
-    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
-    DEFAULT_MODULATION
+    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type
 from .llrp_errors import ReaderConfigurationError
 from binascii import hexlify
 from .util import BITMASK, natural_keys, iterkeys
@@ -89,6 +88,9 @@ class LLRPMessage(object):
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
             logger.debug('done deserializing %s command', name)
+        except ValueError:
+            logger.exception('Unable to decode body %s, %s', body,
+                    decoder(body))
         except LLRPError:
             logger.exception('Problem with %s message format', name)
             return ''
@@ -161,21 +163,25 @@ class LLRPClient(LineReceiver):
             raise LLRPError('unknown state {}'.format(state))
 
     def __init__(self, factory, duration=None, report_every_n_tags=None,
-                 antennas=(1,), tx_power=0, modulation=DEFAULT_MODULATION,
+                 antennas=(1,), tx_power=0,
                  tari=0, start_inventory=True, reset_on_connect=True,
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
+                 tag_filter_mask=None,
+                 impinj_extended_configuration=False,
                  impinj_search_mode=None,
-                 impinj_tag_content_selector=None):
+                 impinj_tag_content_selector=None,
+                 impinj_fixed_frequency_param=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
         self.report_every_n_tags = report_every_n_tags
         self.report_timeout_ms = report_timeout_ms
         self.capabilities = {}
+        self.configuration = {}
         self.reader_mode = None
         if isinstance(tx_power, int):
             self.tx_power = {ant: tx_power for ant in antennas}
@@ -185,11 +191,11 @@ class LLRPClient(LineReceiver):
             self.tx_power = tx_power.copy()
         else:
             raise LLRPError('tx_power must be dict or int')
-        self.modulation = modulation
         self.tari = tari
         self.session = session
         self.tag_population = tag_population
         self.mode_identifier = mode_identifier
+        self.tag_filter_mask = tag_filter_mask
         self.antennas = antennas
         self.duration = duration
         self.peername = None
@@ -203,10 +209,13 @@ class LLRPClient(LineReceiver):
         if self.start_inventory:
             logger.info('will start inventory on connect')
         if (impinj_search_mode is not None or
-                impinj_tag_content_selector is not None):
+                impinj_tag_content_selector is not None or
+                impinj_fixed_frequency_param is not None):
             logger.info('Enabling Impinj extensions')
+        self.impinj_extended_configuration = impinj_extended_configuration
         self.impinj_search_mode = impinj_search_mode
         self.impinj_tag_content_selector = impinj_tag_content_selector
+        self.impinj_fixed_frequency_param = impinj_fixed_frequency_param
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -229,6 +238,8 @@ class LLRPClient(LineReceiver):
 
         self.disconnecting = False
         self.rospec = None
+
+        self.last_msg_id = 0
 
     def addStateCallback(self, state, cb):
         """Add a callback to run upon a state transition.
@@ -277,16 +288,60 @@ class LLRPClient(LineReceiver):
     def connectionLost(self, reason):
         self.factory.protocols.remove(self)
 
+    def parseReaderConfig(self, confdict):
+        """Parse a reader configuration dictionary.
+
+        Examples:
+        {
+            Type: 23,
+            Data: b'\x00'
+        }
+        {
+            Type: 1023,
+            Vendor: 25882,
+            Subtype: 21,
+            Data: b'\x00'
+        }
+        """
+        logger.debug('parseReaderConfig input: %s', confdict)
+        conf = {}
+        for k, v in confdict.items():
+            if not k.startswith('Parameter'):
+                continue
+            ty = v['Type']
+            data = v['Data']
+            vendor = None
+            subtype = None
+            try:
+                vendor, subtype = v['Vendor'], v['Subtype']
+            except KeyError:
+                pass
+
+            if ty == 1023:
+                if vendor == 25882 and subtype == 37:
+                    tempc = struct.unpack('!H', data)[0]
+                    conf.update(temperature=tempc)
+            else:
+                conf[ty] = data
+        return conf
+
     def parseCapabilities(self, capdict):
-        """Parse a capabilities dictionary and adjust instance settings
+        """Parse a capabilities dictionary and adjust instance settings.
 
-           Sets the following instance variables:
-           - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
-           - self.tx_power_table (list of dBm values)
-           - self.reader_mode (dictionary of mode settings, e.g., Tari)
+        At the time this function is called, the user has requested some
+        settings (e.g., mode identifier), but we haven't yet asked the reader
+        whether those requested settings are within its capabilities. This
+        function's job is to parse the reader's capabilities, compare them
+        against any requested settings, and raise an error if there are any
+        incompatibilities.
 
-           Raises ReaderConfigurationError if requested settings are not within
-           reader's capabilities.
+        Sets the following instance variables:
+        - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
+        - self.tx_power_table (list of dBm values)
+        - self.reader_mode (dictionary of mode settings, e.g., Tari)
+
+        Raises ReaderConfigurationError if the requested settings are not
+        within the reader's capabilities.
         """
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
@@ -306,13 +361,12 @@ class LLRPClient(LineReceiver):
         logger.debug('tx_power_table: %s', self.tx_power_table)
         self.setTxPower(self.tx_power)
 
-        # fill UHFC1G2RFModeTable & check requested modulation & Tari
+        # parse list of reader's supported mode identifiers
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
         mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
 
-        # select a mode by matching available modes to requested parameters:
-        # favor mode_identifier over modulation
+        # select a mode by matching available modes to requested parameters
         if self.mode_identifier is not None:
             logger.debug('Setting mode from mode_identifier=%s',
                          self.mode_identifier)
@@ -326,24 +380,15 @@ class LLRPClient(LineReceiver):
                           ' are {}'.format(valid_modes))
                 raise ReaderConfigurationError(errstr)
 
-        elif self.modulation is not None:
-            logger.debug('Setting mode from modulation=%s',
-                         self.modulation)
-            try:
-                mo = [mo for mo in mode_list
-                      if mo['Mod'] == Modulation_Name2Type[self.modulation]][0]
-                self.reader_mode = mo
-            except IndexError:
-                raise ReaderConfigurationError('Invalid modulation')
-
-        if self.tari:
-            if not self.reader_mode:
-                errstr = 'Cannot set Tari without choosing a reader mode'
-                raise ReaderConfigurationError(errstr)
-            if self.tari > self.reader_mode['MaxTari']:
-                errstr = ('Requested Tari is greater than MaxTari for selected'
-                          'mode {}'.format(self.reader_mode))
-                raise ReaderConfigurationError(errstr)
+        # if we're trying to set Tari explicitly, but the selected mode doesn't
+        # support the requested Tari, that's a configuration error.
+        if self.reader_mode and self.tari:
+            if self.reader_mode['MinTari'] < self.tari < self.reader_mode['MaxTari']:
+                logger.debug('Overriding mode Tari %s with requested Tari %s',
+                             self.reader_mode['MaxTari'], self.tari)
+            else:
+                errstr = ('Requested Tari {} is incompatible with selected '
+                          'mode {}'.format(self.tari, self.reader_mode))
 
         logger.info('using reader mode: %s', self.reader_mode)
 
@@ -422,7 +467,9 @@ class LLRPClient(LineReceiver):
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
             if (self.impinj_search_mode is not None or
-                    self.impinj_tag_content_selector is not None):
+                    self.impinj_tag_content_selector is not None or
+                    self.impinj_extended_configuration is not None or
+                    self.impinj_fixed_frequency_param is not None):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -492,6 +539,11 @@ class LLRPClient(LineReceiver):
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s getting reader config: %s', status, err)
                 return
+
+            if msgName == 'GET_READER_CONFIG_RESPONSE':
+                config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
+                self.configuration = self.parseReaderConfig(config)
+                logger.debug('Reader configuration: %s', self.configuration)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -705,15 +757,15 @@ class LLRPClient(LineReceiver):
         logger.warn('complain(): %s', args)
 
     def send_KEEPALIVE_ACK(self):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'KEEPALIVE_ACK': {
                 'Ver':  1,
                 'Type': 72,
                 'ID':   0,
-            }}))
+            }})
 
     def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'CUSTOM_MESSAGE': {
                 'Ver': 1,
                 'Type': 1023,
@@ -721,50 +773,77 @@ class LLRPClient(LineReceiver):
                 'VendorID': 25882,
                 'Subtype': 21,
                 # skip payload
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS)
         self._deferreds['CUSTOM_MESSAGE'].append(onCompletion)
 
     def send_GET_READER_CAPABILITIES(self, _, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'GET_READER_CAPABILITIES': {
                 'Ver':  1,
                 'Type': 1,
                 'ID':   0,
                 'RequestedData': Capability_Name2Type['All']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_GET_CAPABILITIES)
         self._deferreds['GET_READER_CAPABILITIES_RESPONSE'].append(
             onCompletion)
 
     def send_GET_READER_CONFIG(self, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
-            'GET_READER_CONFIG': {
-                'Ver':  1,
-                'Type': 2,
-                'ID':   0,
-                'RequestedData': Capability_Name2Type['All']
-            }}))
+        cfg = {
+            'Ver':  1,
+            'Type': 2,
+            'ID':   0,
+            'RequestedData': Capability_Name2Type['All']
+        }
+        if self.impinj_extended_configuration:
+            cfg['CustomParameters'] = [
+                {
+                    'VendorID': 25882,
+                    # per Octane LLRP guide:
+                    # 21 = ImpinjRequestedData
+                    # 2000 = All configuration params
+                    'Subtype': 21,
+                    'Payload': struct.pack('!I', 2000)
+                }
+            ]
+        self.sendMessage({'GET_READER_CONFIG': cfg})
         self.setState(LLRPClient.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
     def send_ENABLE_EVENTS_AND_REPORTS(self):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ENABLE_EVENTS_AND_REPORTS': {
                 'Ver': 1,
                 'Type': 64,
                 'ID': 0,
-            }}))
+            }})
 
     def send_SET_READER_CONFIG(self, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'SET_READER_CONFIG': {
                 'Ver':  1,
                 'Type': 3,
                 'ID':   0,
                 'ResetToFactoryDefaults': False,
-            }}))
+                'ReaderEventNotificationSpec': {
+                    'EventNotificationState': {
+                            'HoppingEvent': False,
+                            'GPIEvent': False,
+                            'ROSpecEvent': False,
+                            'ReportBufferFillWarning': False,
+                            'ReaderExceptionEvent': False,
+                            'RFSurveyEvent': False,
+                            'AISpecEvent': False,
+                            'AISpecEventWithSingulation': False,
+                            'AntennaEvent': False,
+                            ## Next one will only be available
+                            ## with llrp v2 (spec 1_1)
+                            #'SpecLoopEvent': True,
+                    },
+                }
+            }})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
@@ -772,74 +851,72 @@ class LLRPClient(LineReceiver):
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         logger.debug('about to send_ADD_ROSPEC')
         try:
-            add_rospec = LLRPMessage(msgdict={
+            self.sendMessage({
                 'ADD_ROSPEC': {
                     'Ver':  1,
                     'Type': 20,
                     'ID':   0,
                     'ROSpecID': rospec['ROSpecID'],
                     'ROSpec': rospec,
-                }})
+            }})
         except Exception as ex:
             logger.exception(ex)
-        else:
-            self.sendLLRPMessage(add_rospec)
         logger.debug('sent ADD_ROSPEC')
         self.setState(LLRPClient.STATE_SENT_ADD_ROSPEC)
         self._deferreds['ADD_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ENABLE_ROSPEC(self, _, rospec, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ENABLE_ROSPEC': {
                 'Ver':  1,
                 'Type': 24,
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_ENABLE_ROSPEC)
         self._deferreds['ENABLE_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_START_ROSPEC(self, _, rospec, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'START_ROSPEC': {
                 'Ver':  1,
                 'Type': 22,
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_START_ROSPEC)
         self._deferreds['START_ROSPEC_RESPONSE'].append(onCompletion)
 
     def send_ADD_ACCESSSPEC(self, accessSpec, onCompletion):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ADD_ACCESSSPEC': {
                 'Ver':  1,
                 'Type': 40,
                 'ID':   0,
                 'AccessSpec': accessSpec,
-            }}))
+            }})
         self._deferreds['ADD_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
     def send_DISABLE_ACCESSSPEC(self, accessSpecID=1, onCompletion=None):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DISABLE_ACCESSSPEC': {
                 'Ver':  1,
                 'Type': 43,
                 'ID':   0,
                 'AccessSpecID': accessSpecID,
-            }}))
+            }})
 
         if onCompletion:
             self._deferreds['DISABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
 
     def send_ENABLE_ACCESSSPEC(self, _, accessSpecID, onCompletion=None):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'ENABLE_ACCESSSPEC': {
                 'Ver':  1,
                 'Type': 42,
                 'ID':   0,
                 'AccessSpecID': accessSpecID,
-            }}))
+            }})
 
         if onCompletion:
             self._deferreds['ENABLE_ACCESSSPEC_RESPONSE'].append(onCompletion)
@@ -848,13 +925,13 @@ class LLRPClient(LineReceiver):
                                writeSpecParam, stopParam, accessSpecID=1,
                                onCompletion=None):
         # logger.info('Deleting current accessSpec.')
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DELETE_ACCESSSPEC': {
                 'Ver': 1,
                 'Type': 41,
                 'ID': 0,
                 'AccessSpecID': accessSpecID  # ONE AccessSpec
-            }}))
+            }})
 
         # Hackfix to chain startAccess to send_DELETE, since appending a
         # deferred doesn't seem to work...
@@ -1007,12 +1084,17 @@ class LLRPClient(LineReceiver):
             tari=self.tari,
             tag_population=self.tag_population
         )
+        if self.tag_filter_mask is not None:
+            rospec_kwargs['tag_filter_mask'] = self.tag_filter_mask
         logger.info('Impinj search mode? %s', self.impinj_search_mode)
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
         if self.impinj_tag_content_selector is not None:
             rospec_kwargs['impinj_tag_content_selector'] = \
                 self.impinj_tag_content_selector
+        if self.impinj_fixed_frequency_param is not None:
+            rospec_kwargs['impinj_fixed_frequency_param'] = \
+                self.impinj_fixed_frequency_param
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)
@@ -1025,13 +1107,13 @@ class LLRPClient(LineReceiver):
         if disconnect:
             logger.info('will disconnect when stopped')
             self.disconnecting = True
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DELETE_ACCESSSPEC': {
                 'Ver': 1,
                 'Type': 41,
                 'ID': 0,
                 'AccessSpecID': 0  # all AccessSpecs
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_DELETE_ACCESSSPEC)
 
         d = defer.Deferred()
@@ -1042,13 +1124,13 @@ class LLRPClient(LineReceiver):
         return d
 
     def stopAllROSpecs(self, *args):
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DELETE_ROSPEC': {
                 'Ver':  1,
                 'Type': 21,
                 'ID':   0,
                 'ROSpecID': 0
-            }}))
+            }})
         self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
 
         d = defer.Deferred()
@@ -1153,13 +1235,13 @@ class LLRPClient(LineReceiver):
 
         rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
 
-        self.sendLLRPMessage(LLRPMessage(msgdict={
+        self.sendMessage({
             'DISABLE_ROSPEC': {
                 'Ver':  1,
                 'Type': 25,
                 'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
-            }}))
+            }})
         self.setState(LLRPClient.STATE_PAUSING)
 
         d = defer.Deferred()
@@ -1198,11 +1280,23 @@ class LLRPClient(LineReceiver):
         d.addErrback(self.panic, 'resume() failed')
         self.send_ENABLE_ROSPEC(None, self.rospec['ROSpec'], onCompletion=d)
 
-    def sendLLRPMessage(self, llrp_msg):
-        assert isinstance(llrp_msg, LLRPMessage)
+    def sendMessage(self, msg_dict):
+        """Serialize and send a dict LLRP Message
+
+        Note: IDs should be modified in original msg_dict as it is a reference.
+        That should be ok.
+        """
+        sent_ids = []
+        for name in msg_dict:
+            self.last_msg_id += 1
+            msg_dict[name]['ID'] = self.last_msg_id
+            sent_ids.append((name, self.last_msg_id))
+        llrp_msg = LLRPMessage(msgdict=msg_dict)
+
         assert llrp_msg.msgbytes, "LLRPMessage is empty"
         self.transport.write(llrp_msg.msgbytes)
 
+        return sent_ids
 
 class LLRPClientFactory(ReconnectingClientFactory):
     maxDelay = 60  # seconds

@@ -22,7 +22,8 @@ tve_param_formats = {
     10: ('InventoryParameterSpecID', '!H'),
     14: ('SpecIndex', '!H'),
     15: ('ClientRequestOpSpecResult', '!H'),
-    16: ('AccessSpecID', '!I')
+    16: ('AccessSpecID', '!I'),
+    17: ('OpSpecID', '!H')
 }
 
 ext_param_formats = {
