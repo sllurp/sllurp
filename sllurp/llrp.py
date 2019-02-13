@@ -466,10 +466,10 @@ class LLRPClient(LineReceiver):
             d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
 
-            if (self.impinj_search_mode is not None or
-                    self.impinj_tag_content_selector is not None or
-                    self.impinj_extended_configuration is not None or
-                    self.impinj_fixed_frequency_param is not None):
+            if (self.impinj_search_mode or
+                    self.impinj_tag_content_selector or
+                    self.impinj_extended_configuration or
+                    self.impinj_fixed_frequency_param):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
