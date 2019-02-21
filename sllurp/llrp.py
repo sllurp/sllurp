@@ -517,10 +517,10 @@ class LLRPClient(object):
                 else:
                     self.panic(None, 'GET_READER_CAPABILITIES failed')
 
-            if self.config.impinj_search_mode is not None \
-               or self.config.impinj_tag_content_selector is not None \
+            if self.config.impinj_search_mode \
+               or self.config.impinj_tag_content_selector \
                or self.config.impinj_extended_configuration \
-               or self.config.impinj_fixed_frequency_param is not None:
+               or self.config.impinj_fixed_frequency_param:
 
                 def enable_impinj_ext_cb(state, is_success, *args):
                     if is_success:
