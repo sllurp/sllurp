@@ -1663,6 +1663,7 @@ class LLRPReaderClient(object):
 
     def on_lost_connection(self):
         """ On lost connection, attempt retries if reconnect enabled
+
         Return: True if the connection is definitively lost/interrupted.
                 False if it was somehow recovered (reconnected).
         """
@@ -1704,11 +1705,24 @@ class LLRPReaderClient(object):
         return True
 
     def is_alive(self):
+        """ Return whether the reader connection thread is alive.
+
+        Similar API as the threading module is_alive function.
+        """
         if self._socket_thread:
             return self._socket_thread.is_alive()
         return False
 
-    def join(self, timeout):
+    def join(self, timeout=None):
+        """ Wait until the reader connection thread terminates.
+
+        Similar API as the threading module is_alive function.
+        When the timeout argument is present and not None, it should be a
+        floating point number specifying a timeout for the operation in seconds
+        (or fractions thereof).
+        When the timeout argument is not present or None, the operation will
+        block until the reader connection thread terminates.
+        """
         if self._socket_thread and self._socket_thread.is_alive():
             return self._socket_thread.join(timeout)
         return None
