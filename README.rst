@@ -57,48 +57,71 @@ state by running ``sllurp reset ip.add.re.ss``.
 Reader API
 ----------
 
-sllurp relies on Twisted_ for network interaction with the reader.  To make a
-connection, create an `LLRPClientFactory` and hand it to Twisted:
+sllurp spawn his own "thread" to manage network interaction with the reader.
+To make a connection, create a ``LLRPReaderClient`` and ``connect()`` it:
 
 .. code:: python
 
-    # Minimal example; see inventory.py for more.
+    # Minimal example; see sllurp/verb/inventory.py for more.
     from sllurp import llrp
-    from twisted.internet import reactor
+    from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRP_DEFAULT_PORT
     import logging
     logging.getLogger().setLevel(logging.INFO)
 
-    def cb (tagReport):
-        tags = tagReport.msgdict['RO_ACCESS_REPORT']['TagReportData']
-        print 'tags:', tags
+    def tag_report_cb (reader, tag_reports):
+        for tag in tag_reports:
+            print('tag: %r' % tag)
 
     factory = llrp.LLRPClientFactory()
     factory.addTagReportCallback(cb)
     reactor.connectTCP('myreader', llrp.LLRP_PORT, factory)
     reactor.run()
 
-.. _Twisted: http://twistedmatrix.com/
+    config = LLRPReaderConfig()
+    reader = LLRPReaderClient(host, LLRP_DEFAULT_PORT, config)
+    reader.add_tag_report_callback(tag_report_cb)
+
+    reader.connect()
+    # We are now connected to the reader and inventory is running.
+
+    try:
+        # Block forever or until a disconnection of the reader
+        reader.join(None)
+    except (KeyboardInterrupt, SystemExit):
+        # catch ctrl-C and stop inventory before disconnecting
+        reader.disconnect()
+
+.. note::
+    Sllurp used to depend on python twisted and was using its mainloop.
+    This is not the case anymore.
+    Once connected to a reader, Sllurp will spawn his own "thread" to process
+    the received messages and to call user defined callbacks.
+    ``is_alive()`` and ``join(timeout)`` thread api are exposed by the
+    ``LLRPReaderClient`` instance.
+
 
 Getting More Information From Tag Reports
 -----------------------------------------
 
-When initializing ``LLRPClientFactory``, set flags in the
+When initializing ``LLRPReaderConfig``, set flags in the
 ``tag_content_selector`` dictionary argument:
 
 .. code:: python
 
-    llrp.LLRPClientFactory(tag_content_selector={
-        'EnableROSpecID': False,
-        'EnableSpecIndex': False,
-        'EnableInventoryParameterSpecID': False,
-        'EnableAntennaID': True,
-        'EnableChannelIndex': False,
-        'EnablePeakRSSI': True,
-        'EnableFirstSeenTimestamp': False,
-        'EnableLastSeenTimestamp': True,
-        'EnableTagSeenCount': True,
-        'EnableAccessSpecID': False,
-    }, ...)
+    llrp.LLRPReaderConfig({
+        'tag_content_selector': {
+            'EnableROSpecID': False,
+            'EnableSpecIndex': False,
+            'EnableInventoryParameterSpecID': False,
+            'EnableAntennaID': True,
+            'EnableChannelIndex': False,
+            'EnablePeakRSSI': True,
+            'EnableFirstSeenTimestamp': False,
+            'EnableLastSeenTimestamp': True,
+            'EnableTagSeenCount': True,
+            'EnableAccessSpecID': False,
+        }
+    })
 
 
 Logging
