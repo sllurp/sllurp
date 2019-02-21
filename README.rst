@@ -72,11 +72,6 @@ To make a connection, create a ``LLRPReaderClient`` and ``connect()`` it:
         for tag in tag_reports:
             print('tag: %r' % tag)
 
-    factory = llrp.LLRPClientFactory()
-    factory.addTagReportCallback(cb)
-    reactor.connectTCP('myreader', llrp.LLRP_PORT, factory)
-    reactor.run()
-
     config = LLRPReaderConfig()
     reader = LLRPReaderClient(host, LLRP_DEFAULT_PORT, config)
     reader.add_tag_report_callback(tag_report_cb)
@@ -92,6 +87,7 @@ To make a connection, create a ``LLRPReaderClient`` and ``connect()`` it:
         reader.disconnect()
 
 .. note::
+
     Sllurp used to depend on python twisted and was using its mainloop.
     This is not the case anymore.
     Once connected to a reader, Sllurp will spawn his own "thread" to process
