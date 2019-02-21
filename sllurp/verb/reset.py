@@ -65,4 +65,3 @@ def main(args):
                     reader.disconnect()
                 except:
                     logger.exception("Error during disconnect. Ignoring...")
-                    pass
