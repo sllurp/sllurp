@@ -1,4 +1,5 @@
 python-polylabel
+dash==0.30.0
 dash_core_components
 dash_html_components
 numpy
