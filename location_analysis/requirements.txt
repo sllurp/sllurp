@@ -6,4 +6,4 @@ numpy
 plotly
 requests
 scikit-learn
-pandas
+pandas=0.24
