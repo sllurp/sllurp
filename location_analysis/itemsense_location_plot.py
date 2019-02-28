@@ -18,6 +18,7 @@ from polylabel import polylabel
 import math
 from sklearn.ensemble import IsolationForest
 import pandas as pd
+import sys
 tags = [] # [{'epc':epc,'x':[], 'y':[],'zone':'zone1'},{'epc':epc,'x':[], 'y':[],'zone':'[zone1,zone2,],'avg_x' = x, 'avg_y' = y}...]
 outlier_tags = {'x':[0],'y':[0]}
 ip = ""
@@ -35,11 +36,13 @@ plot = []
 mapName = ""
 zonesCoords = [] # has the following structure [{"name" : name , "x":[],"y":[]},{"x":[],"y":[]}...] each dict is a zone
 zonesMid = [] #[{"name": name, "x": x ,"y": y},{"name": name, "x": x ,"y": y}...] mid coords of each zone
-graphUpdateInterval = 2
+graphUpdateInterval = 200
 waitingStatus = ["WAITING","STARTING","INITIALIZING"]
 username = "admin"
 password = "mofasexy"
 lock = threading.Lock()
+
+
 
 
 #Isolation Forest Settings
@@ -136,6 +139,10 @@ def getCurrentZoneItemSense(itemsenseIP, zoneName):
     yZonesPoints = []
     request  = 'http://' + urlParse(itemsenseIP) + '/itemsense/configuration/v1/zoneMaps/show/' + urlParse(zoneName)
     jsonResults = requests.get(request,auth=(username, password)).json()
+    if(jsonResults.get("status") == "FAILURE"):
+        res = {"success":False , "status": jsonResults.get("message")}
+        print(json.dumps(res))
+        sys.exit()
     return getCurrentZoneHelper(jsonResults)
 
 def getCurrentZoneHelper(jsonResults):
@@ -200,6 +207,10 @@ def getHistoryTagsJson(filename):
     with open(filename) as f:
         jsonResults = json.load(f)
     history = jsonResults.get("history")
+    if not history:
+        res = {"success": False, "status" : "no tags found" }
+        print(json.dumps(res))
+        sys.exit()
     for historic_tag in history:
         if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
@@ -230,6 +241,10 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
     print(request)
     jsonResults = requests.get(request,auth=(username, password)).json()
     history = jsonResults.get("history")
+    if not history:
+        res = {"success": False, "status" : "no tags found" }
+        print(json.dumps(res))
+        sys.exit()
     for historic_tag in history:
         if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
@@ -318,7 +333,11 @@ def getTagColor(epc):
         epcColor.update({epc:color})
         return color
 
+
 app = dash.Dash()
+
+app.css.config.serve_locally = True
+app.scripts.config.serve_locally = True
 
 app.layout = html.Div(
     html.Div([
@@ -399,7 +418,21 @@ def update_graph_live(n):
         name="Bad Detection"
     )
     plot.append(traceOutliers)
-    #print(plot)
+
+    centroids = go.Scatter(
+        x = [zone['x'] for zone in zonesMid],
+        y = [zone['y'] for zone in zonesMid],
+        text="centroid",
+        hoverinfo="x+y+text",
+        mode='markers',
+        marker=dict(
+            size = 5,
+            color = 'rgb(0, 0, 0)',
+            opacity = 1,
+        ),
+        name="Centroids"
+    )
+    plot.append(centroids)
     lock.release()
     data = plot
     layout = go.Layout(autosize=True,title='Tag Location with Isolation Forest with Contamination of ' +  str(contamination) + " Sample Size " + str(max_samples), 
@@ -420,7 +453,6 @@ def update_graph_live(n):
         tickcolor='#000'
         )
     )
-    
     return go.Figure(data=data,layout=layout)
 
 if __name__ == '__main__':
