@@ -18,6 +18,7 @@ from polylabel import polylabel
 import math
 from sklearn.ensemble import IsolationForest
 import pandas as pd
+import sys
 tags = [] # [{'epc':epc,'x':[], 'y':[],'zone':'zone1'},{'epc':epc,'x':[], 'y':[],'zone':'[zone1,zone2,],'avg_x' = x, 'avg_y' = y}...]
 outlier_tags = {'x':[0],'y':[0]}
 ip = ""
@@ -138,6 +139,10 @@ def getCurrentZoneItemSense(itemsenseIP, zoneName):
     yZonesPoints = []
     request  = 'http://' + urlParse(itemsenseIP) + '/itemsense/configuration/v1/zoneMaps/show/' + urlParse(zoneName)
     jsonResults = requests.get(request,auth=(username, password)).json()
+    if(jsonResults.get("status") == "FAILURE"):
+        res = {"success":False , "status": jsonResults.get("message")}
+        print(json.dumps(res))
+        sys.exit()
     return getCurrentZoneHelper(jsonResults)
 
 def getCurrentZoneHelper(jsonResults):
@@ -202,6 +207,10 @@ def getHistoryTagsJson(filename):
     with open(filename) as f:
         jsonResults = json.load(f)
     history = jsonResults.get("history")
+    if not history:
+        res = {"success": False, "status" : "no tags found" }
+        print(json.dumps(res))
+        sys.exit()
     for historic_tag in history:
         if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
@@ -232,6 +241,10 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
     print(request)
     jsonResults = requests.get(request,auth=(username, password)).json()
     history = jsonResults.get("history")
+    if not history:
+        res = {"success": False, "status" : "no tags found" }
+        print(json.dumps(res))
+        sys.exit()
     for historic_tag in history:
         if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))

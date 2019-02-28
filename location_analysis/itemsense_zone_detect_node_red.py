@@ -67,6 +67,10 @@ def getCurrentZoneItemSense(itemsenseIP, zoneName):
     yZonesPoints = []
     request  = 'http://' + urlParse(itemsenseIP) + '/itemsense/configuration/v1/zoneMaps/show/' + urlParse(zoneName)
     jsonResults = requests.get(request,auth=(username, password)).json()
+    if(jsonResults.get("status") == "FAILURE"):
+        res = {"success":False , "status": jsonResults.get("message")}
+        print(json.dumps(res))
+        sys.exit()
     return getCurrentZoneHelper(jsonResults)
 
 def getCurrentZoneHelper(jsonResults):
@@ -128,6 +132,10 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
     request = "http://" + urlParse(itemsenseIP) + "/itemsense/data/v1/items/show/history?jobId=" + urlParse(jobID) + "&zoneTransitionsOnly=false"
     jsonResults = requests.get(request,auth=(username, password)).json()
     history = jsonResults.get("history")
+    if not history:
+        res = {"success": False, "status" : "no tags found" }
+        print(json.dumps(res))
+        sys.exit()
     for historic_tag in history:
         if not _tags:
             zone = getTagZone(historic_tag.get("toX"),historic_tag.get("toY"))
@@ -214,6 +222,8 @@ if __name__ == '__main__':
         for tag in tags:
             for key in del_keys:
                 tag.pop(key)
+        d = {"success" : True}
+        tags.append(d)
         print(json.dumps(tags,indent=2))
     elif status == "RUNNING":
         print("Error job is still running")
