@@ -3,7 +3,7 @@
     "facility": "UniversalStudio23",
     "zones": [
       {
-        "name": "zone1",
+        "name": "1",
         "floor": "1",
         "points": [
           {
@@ -29,7 +29,7 @@
         ]
       },
       {
-        "name": "zone2",
+        "name": "2",
         "floor": "1",
         "points": [
           {
@@ -55,7 +55,7 @@
         ]
       },
       {
-        "name": "zone3",
+        "name": "3",
         "floor": "1",
         "points": [
           {
@@ -81,7 +81,7 @@
         ]
       },
       {
-        "name": "zone4",
+        "name": "4",
         "floor": "1",
         "points": [
           {
@@ -107,7 +107,7 @@
         ]
       },
       {
-        "name": "zone5",
+        "name": "5",
         "floor": "1",
         "points": [
           {
@@ -133,7 +133,7 @@
         ]
       },
       {
-        "name": "zone6",
+        "name": "6",
         "floor": "1",
         "points": [
           {
@@ -159,7 +159,7 @@
         ]
       },
       {
-        "name": "zone7",
+        "name": "7",
         "floor": "1",
         "points": [
           {
@@ -185,7 +185,7 @@
         ]
       },
       {
-        "name": "zone8",
+        "name": "8",
         "floor": "1",
         "points": [
           {
@@ -211,7 +211,7 @@
         ]
       },
       {
-        "name": "zone9",
+        "name": "9",
         "floor": "1",
         "points": [
           {
@@ -237,7 +237,7 @@
         ]
       },
       {
-        "name": "zone10",
+        "name": "10",
         "floor": "1",
         "points": [
           {
@@ -263,7 +263,7 @@
         ]
       },
       {
-        "name": "zone11",
+        "name": "11",
         "floor": "1",
         "points": [
           {
@@ -289,7 +289,7 @@
         ]
       },
       {
-        "name": "zone12",
+        "name": "12",
         "floor": "1",
         "points": [
           {
