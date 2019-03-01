@@ -52,7 +52,7 @@ def getJobStatus(itemsenseIP,jobID):
     jsonResults = requests.get(request,auth=(username, password)).json()
     return jsonResults.get("status")
 
-def getTagZone(x,y):
+def getTagZone(x,y,toPrint=False):
     currentZone = "none"
     minDist = 99999
     for zone in zonesMid:
@@ -103,7 +103,7 @@ def getCurrentZoneHelper(jsonResults):
         tempList = list(zip(x_coords,y_coords))
         coords = [list(elem) for elem in tempList]
         middleCoords = polylabel([coords])
-        mid.append({"name": zone.get("name"), "x" : middleCoords[0] / 100, "y": middleCoords[1] / 100})
+        mid.append({"name": zone.get("name"), "x" : middleCoords[0] / 100.0, "y": middleCoords[1] / 100.0})
 
     return xZonesPoints, yZonesPoints, mid, mapName
 
@@ -183,7 +183,7 @@ def isolationForestProcessing(raw_data):
             data["y"] = y
         data["avg_x"] = np.median(data["x"])
         data["avg_y"] = np.median(data["y"])
-        data["avg_zone"] = getTagZone(data["avg_x"],data["avg_y"])
+        data["avg_zone"] = getTagZone(data["avg_x"],data["avg_y"],True)
 
     return raw_data, inaccurate_tags
 
