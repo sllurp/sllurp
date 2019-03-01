@@ -4000,7 +4000,7 @@ class LLRPROSpec(dict):
                     'C1G2TagInventoryMask': {
                         'MB': 1,    # EPC bank
                         'Pointer': 0x20,    # Third word starts the EPC ID
-                        'TagMask': tag_filter_mask
+                        'TagMask': tfm
                     }
                 })
             if tag_filters:

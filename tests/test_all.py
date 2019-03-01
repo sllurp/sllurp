@@ -78,6 +78,16 @@ class TestROSpec(unittest.TestCase):
         rospec_str = repr(rospec)
         self.assertNotEqual(rospec_str, '')
 
+    def test_multi_tag_mask(self):
+        fx = FauxClient()
+        rospec = sllurp.llrp.LLRPROSpec(
+            fx.reader_mode, 1,
+            tag_filter_mask=['0123', '4567'])
+        rospec_str = repr(rospec)
+        print(rospec_str)
+        self.assertIn("<TagMask>'0123'</TagMask>", rospec_str)
+        self.assertIn("<TagMask>'4567'</TagMask>", rospec_str)
+
 
 class TestReaderEventNotification(unittest.TestCase):
     def test_decode(self):
