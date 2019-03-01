@@ -125,7 +125,7 @@
         "z": "cc3e3a3e.943628",
         "name": "",
         "jobStatus": "STOPPED",
-        "timeout": 10,
+        "timeout": "15",
         "interval": 1,
         "x": 720,
         "y": 480,
@@ -142,10 +142,10 @@
         "z": "cc3e3a3e.943628",
         "name": "",
         "itemsense": "b5e8b3a.d92c15",
-        "recipe": "BossBattle_Location",
-        "runLength": "90",
+        "recipe": "BossBattle",
+        "runLength": "70",
         "startDelay": "PT0S",
-        "facility": "MF-TEST",
+        "facility": "MF-Dungeons",
         "readerGroups": "",
         "x": 720,
         "y": 240,
@@ -166,7 +166,7 @@
         "z": "cc3e3a3e.943628",
         "name": "",
         "jobStatus": "RUNNING",
-        "timeout": 10,
+        "timeout": "120",
         "interval": 1,
         "x": 960,
         "y": 160,
@@ -227,8 +227,8 @@
         "console": false,
         "tostatus": false,
         "complete": "payload.id",
-        "x": 1220,
-        "y": 140,
+        "x": 1160,
+        "y": 160,
         "wires": []
     },
     {
@@ -238,7 +238,7 @@
         "name": "",
         "jobStatus": "STOPPED",
         "timeout": "120",
-        "interval": 1,
+        "interval": "2",
         "x": 976,
         "y": 100,
         "wires": [
@@ -258,14 +258,15 @@
         "fieldType": "msg",
         "format": "handlebars",
         "syntax": "mustache",
-        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"127.0.0.1\",\n    \"zoneName\" : \"test map\",\n    \"jobID\" : \"{{payload.id}}\"\n}",
+        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"172.16.80.169\",\n    \"zoneName\" : \"dungeons\",\n    \"jobID\" : \"ddb277a6-5819-4d76-8f22-cf10a82502b3\"\n}",
         "output": "str",
         "x": 1200,
         "y": 80,
         "wires": [
             [
                 "b3973fcc.cecda",
-                "f8554576.b95428"
+                "f8554576.b95428",
+                "3cf0d9db.0088d6"
             ]
         ]
     },
@@ -288,12 +289,12 @@
         "type": "pythonshell in",
         "z": "cc3e3a3e.943628",
         "name": "zone detect",
-        "pyfile": "/home/hanz/itemsense_zone_detect_node_red.py",
+        "pyfile": "/home/hanz/supermario/sllurp/location_analysis/itemsense_zone_detect_node_red.py",
         "virtualenv": "",
         "continuous": true,
         "stdInData": false,
-        "x": 1390,
-        "y": 100,
+        "x": 1410,
+        "y": 80,
         "wires": [
             [
                 "61652a78.c58994"
@@ -315,10 +316,47 @@
         "wires": []
     },
     {
+        "id": "3cf0d9db.0088d6",
+        "type": "pythonshell in",
+        "z": "cc3e3a3e.943628",
+        "name": "",
+        "pyfile": "/home/hanz/supermario/sllurp/location_analysis/sandbox/annoy/annoy-itemsense.py",
+        "virtualenv": "",
+        "continuous": true,
+        "stdInData": false,
+        "x": 1420,
+        "y": 120,
+        "wires": [
+            [
+                "61652a78.c58994"
+            ]
+        ]
+    },
+    {
+        "id": "28244db6.5dcd02",
+        "type": "inject",
+        "z": "cc3e3a3e.943628",
+        "name": "",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 1000,
+        "y": 60,
+        "wires": [
+            [
+                "7aee6e26.630f5"
+            ]
+        ]
+    },
+    {
         "id": "b5e8b3a.d92c15",
         "type": "itemsense-instance",
         "z": "",
-        "url": "http://127.0.0.1/itemsense",
+        "url": "http://172.16.80.169/itemsense",
         "user": "admin",
         "password": "mofasexy"
     }
