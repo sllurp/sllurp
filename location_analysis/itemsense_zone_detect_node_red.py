@@ -43,7 +43,7 @@ password = "mofasexy"
 del_keys = ['x','y','zone']
 
 #Isolation Forest Settings
-contamination = 0.5
+contamination = 0.4
 max_samples=100
 behaviour='new'
 

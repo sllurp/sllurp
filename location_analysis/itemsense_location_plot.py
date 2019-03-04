@@ -46,7 +46,7 @@ lock = threading.Lock()
 
 
 #Isolation Forest Settings
-contamination = 0.5
+contamination = 0.4
 max_samples=100
 behaviour='new'
 
@@ -385,7 +385,7 @@ def update_graph_live(n):
             marker=dict(
                 size = 7,
                 color = getTagColor(tag.get("epc")),
-                opacity = 0.6,
+                opacity = 0.4,
             ),
             name=tag.get("epc")
         )
@@ -435,7 +435,7 @@ def update_graph_live(n):
     plot.append(centroids)
     lock.release()
     data = plot
-    layout = go.Layout(autosize=True,title='Tag Location with Isolation Forest with Contamination of ' +  str(contamination) + " Sample Size " + str(max_samples), 
+    layout = go.Layout(autosize=True,title='Tag Location with Isolation Forest with Contamination of ' +  str(contamination) + " Sample Size " + str(max_samples) + " " + jobID,
         xaxis=dict(range=[min(x_zones) - 2, max(x_zones) + 2],
         title='X Distance m',
         tick0=0,
@@ -483,6 +483,7 @@ if __name__ == '__main__':
     else:
         username = args.username
         password = args.password
+        jobID = args.jobID
         x_zones, y_zones, zonesMid, mapName = getCurrentZoneItemSense(args.itemsenseIP,args.zoneName)
         status = getJobStatus(args.itemsenseIP,args.jobID)
         while status in waitingStatus:
