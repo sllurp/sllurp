@@ -5,7 +5,7 @@ from annoy import AnnoyIndex
 Process zones file to build decision tree
 '''
 # Read json file as Pandas Series
-zones = pd.read_json('zone.json')['zones']
+zones = pd.read_json('bowserJrZone.json')['zones']
 
 # Map as tuple
 tuples = zones.map(lambda x: (x['name'], x['points']))

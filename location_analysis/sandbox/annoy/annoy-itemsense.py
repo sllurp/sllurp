@@ -17,6 +17,7 @@ itemsenseIP = "172.16.80.169"
 jobID = "0f4076db-7b9c-4e8b-afdb-5e2babf4541e"
 username = "admin"
 password = "mofasexy"
+numZones = 12
 
 
 def detect():
@@ -44,7 +45,7 @@ def detect():
   for id in device_ids:
     results[id] = {'pts':{}}
 
-    for i in range(1, 4):
+    for i in range(1, numZones + 1):
       results[id]['pts']['zone' + str(i)] = []
 
 
