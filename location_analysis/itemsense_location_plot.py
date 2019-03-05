@@ -47,6 +47,7 @@ lock = threading.Lock()
 
 #Isolation Forest Settings
 contamination = 0.4
+max_distance_from_zone = 1
 max_samples=100
 behaviour='new'
 
@@ -124,7 +125,7 @@ def getTagZone(x,y):
     minDist = 99999
     for zone in zonesMid:
         dist = math.hypot(x - zone.get("x"), y - zone.get("y"))
-        if dist < minDist:
+        if dist < minDist and dist < max_distance_from_zone:
             minDist = dist
             currentZone = zone.get("name")
     return currentZone
@@ -175,7 +176,7 @@ def getCurrentZoneHelper(jsonResults):
         tempList = list(zip(x_coords,y_coords))
         coords = [list(elem) for elem in tempList]
         middleCoords = polylabel([coords])
-        mid.append({"name": zone.get("name"), "x" : middleCoords[0] / 100, "y": middleCoords[1] / 100})
+        mid.append({"name": zone.get("name"), "x" : middleCoords[0] / 100.0, "y": middleCoords[1] / 100.0})
 
     return xZonesPoints, yZonesPoints, mid, mapName
 

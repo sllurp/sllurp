@@ -44,6 +44,7 @@ del_keys = ['x','y','zone']
 
 #Isolation Forest Settings
 contamination = 0.4
+max_distance_from_zone = 1
 max_samples=100
 behaviour='new'
 
@@ -57,7 +58,7 @@ def getTagZone(x,y,toPrint=False):
     minDist = 99999
     for zone in zonesMid:
         dist = math.hypot(x - zone.get("x"), y - zone.get("y"))
-        if dist < minDist:
+        if dist < minDist and dist < max_distance_from_zone:
             minDist = dist
             currentZone = zone.get("name")
     return currentZone
