@@ -47,8 +47,9 @@ def cli(debug, logfile):
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
-@click.option('--tag-filter-mask', type=str, default=None, 
-              help=('Filter inventory on EPC ID (or part of ID)'))
+@click.option('--tag-filter-mask', type=str, default=[], multiple=True,
+              help=('Filter inventory on EPC (or prefix of EPC); multiple'
+                    ' args allowed'))
 @click.option('--impinj-extended-configuration', is_flag=True, default=False,
               help=('Get Impinj extended configuration values'))
 @click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
@@ -73,7 +74,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'reconnect', 'tag_filter_mask',
                                'impinj_extended_configuration',
                                'impinj_search_mode',
-                               'impinj_reports', 
+                               'impinj_reports',
                                'impinj_fixed_freq'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power,
