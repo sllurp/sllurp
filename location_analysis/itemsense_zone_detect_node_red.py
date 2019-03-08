@@ -44,7 +44,7 @@ del_keys = ['x','y','zone']
 
 #Isolation Forest Settings
 contamination = 0.4
-max_distance_from_zone = 1
+max_distance_from_zone = 2
 max_samples=100
 behaviour='new'
 
@@ -182,8 +182,8 @@ def isolationForestProcessing(raw_data):
         else:
             data["x"] = x
             data["y"] = y
-        data["avg_x"] = np.median(data["x"])
-        data["avg_y"] = np.median(data["y"])
+        data["avg_x"] = np.average(data["x"])
+        data["avg_y"] = np.average(data["y"])
         data["avg_zone"] = getTagZone(data["avg_x"],data["avg_y"],True)
 
     return raw_data, inaccurate_tags
