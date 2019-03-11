@@ -1,0 +1,42 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/sllurp
+    docker:
+      - image: circleci/python:3.7
+      - image: circleci/python:2.7
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "setup.py" }}
+            - v1-dependencies-
+      - run:
+          name: install python2 dependencies
+          command: |
+            sudo apt-get install python-pip
+            sudo python2.7 -m pip install virtualenv
+            python2.7 -m virtualenv .venv2
+            . .venv2/bin/activate
+            pip install -e .[test]
+      - run:
+          name: install python3 dependencies
+          command: |
+            python3 -m venv .venv3
+            . .venv3/bin/activate
+            pip3 install -e .[test]
+      - save_cache:
+          paths:
+            - ".venv2"
+            - ".venv3"
+          key: v1-dependencies-{{ checksum "setup.py" }}
+      - run:
+          name: run python2 tests
+          command: |
+            . .venv2/bin/activate
+            python2.7 setup.py test
+      - run:
+          name: run python3 tests
+          command: |
+            . .venv3/bin/activate
+            python3 setup.py test
