@@ -41,6 +41,8 @@ waitingStatus = ["WAITING","STARTING","INITIALIZING"]
 username = "admin"
 password = "mofasexy"
 del_keys = ['x','y','zone']
+total_zones = 12
+
 
 #Isolation Forest Settings
 contamination = 0.4
@@ -75,10 +77,12 @@ def getCurrentZoneItemSense(itemsenseIP, zoneName):
     return getCurrentZoneHelper(jsonResults)
 
 def getCurrentZoneHelper(jsonResults):
+    global total_zones
     xZonesPoints = []
     yZonesPoints = []
     zones = jsonResults.get("zones")
     mapName = jsonResults.get("name")
+    total_zones = len(zones)
     for zone in zones:
         zonePoints = zone.get("points")
         for point in zonePoints:
@@ -185,8 +189,69 @@ def isolationForestProcessing(raw_data):
         data["avg_x"] = np.average(data["x"])
         data["avg_y"] = np.average(data["y"])
         data["avg_zone"] = getTagZone(data["avg_x"],data["avg_y"],True)
+        del data["zone"]
+
+    #Find two or more tags in the same zone and re-calculate their zone using their x/y position
+    occupiedZones = []
+    for tag in raw_data:
+        if tag["avg_zone"] not in occupiedZones:
+            occupiedZones.append(int(tag["avg_zone"]))
+    for i in range(1,total_zones+1):
+        if ((3, 0) <= sys.version_info <= (3, 9)):
+            conflictingTags = list(filter(lambda tag: tag["avg_zone"] == str(i),raw_data))
+        elif ((2, 0) <= sys.version_info <= (2, 9)):
+            conflictingTags = filter(lambda tag: tag["avg_zone"] == str(i),raw_data)
+        if len(conflictingTags) == 2:
+            newTags = processDuplicatetags(occupiedZones,conflictingTags,total_zones)
+            if newTags:
+                for tag in raw_data:
+                    if(newTags[0]["epc"] == tag["epc"]):
+                        tag["avg_zone"] = newTags[0]["zone"]
 
     return raw_data, inaccurate_tags
+
+
+def processDuplicatetags(occupiedZones,conflictingTags,total_zones):
+    if(len(conflictingTags) > 3):
+        print("warning, more than 3 tags in the same zone, will not process conflicting tags")
+        return []
+    if(len(conflictingTags) == 3):
+        #if we have 3 tags in the same zone and both adjecent zones are empty
+        if (int(conflictingTags[0]["avg_zone"]) - 1 not in occupiedZones and int(conflictingTags[0]["avg_zone"]) > 0 and int(conflictingTags[0]["avg_zone"]) + 1 not in occupiedZones and int(conflictingTags[0]["avg_zone"]) <= total_zones):
+            min_y = min(conflictingTags,key=lambda x:x["avg_y"])
+            max_y = max(conflictingTags,key=lambda x:x["avg_y"])
+            #finish stuff here
+            if(int(conflictingTags["avg_zone"]) <= total_zones / 2):
+                print(min_y)
+    if(int(conflictingTags[0]["avg_zone"]) <= total_zones / 2): #left half of the zones
+        #if left zone is empty and right zone occupied
+        if(int(conflictingTags[0]["avg_zone"]) - 1 not in occupiedZones and int(conflictingTags[0]["avg_zone"]) > 0 and int(conflictingTags[0]["avg_zone"]) + 1 in occupiedZones):
+            if(conflictingTags[0]["avg_y"] >= conflictingTags[1]["avg_y"]):
+                return [{"epc": conflictingTags[1]["epc"],"zone":int(conflictingTags[1]["avg_zone"]) - 1 }]
+            else:
+                return [{"epc": conflictingTags[0]["epc"],"zone":int(conflictingTags[0]["avg_zone"]) - 1 }]
+        #left zone occupied and right zone empty
+        if(int(conflictingTags[0]["avg_zone"]) + 1 not in occupiedZones and int(conflictingTags[0]["avg_zone"]) > 0 and int(conflictingTags[0]["avg_zone"]) - 1 in occupiedZones):
+            if(conflictingTags[0]["avg_y"] >= conflictingTags[1]["avg_y"]):
+                return [{"epc": conflictingTags[0]["epc"],"zone":int(conflictingTags[1]["avg_zone"]) + 1 }]
+            else:
+                return [{"epc": conflictingTags[1]["epc"],"zone":int(conflictingTags[1]["avg_zone"]) + 1 }]
+
+    # right half of zones
+    else:
+        #left zone empty and right zone occupied
+        if(int(conflictingTags[0]["avg_zone"]) - 1 not in occupiedZones and int(conflictingTags[0]["avg_zone"]) + 1 <= total_zones and int(conflictingTags[0]["avg_zone"]) + 1 in occupiedZones):
+            #if y1 < y2 , then y1 is zone - 1
+            if(conflictingTags[0]["avg_y"] >= conflictingTags[1]["avg_y"]):
+                return [{"epc": conflictingTags[0]["epc"],"zone":int(conflictingTags[1]["avg_zone"]) - 1 }]
+            else:
+                return [{"epc": conflictingTags[1]["epc"],"zone":int(conflictingTags[0]["avg_zone"]) - 1 }]
+        #left zone occupied and right zone empty
+        if(int(conflictingTags[0]["avg_zone"]) + 1 not in occupiedZones and int(conflictingTags[0]["avg_zone"]) + 1 <= total_zones and int(conflictingTags[0]["avg_zone"]) - 1 in occupiedZones):
+            if(conflictingTags[0]["avg_y"] >= conflictingTags[1]["avg_y"]):
+                return [{"epc": conflictingTags[1]["epc"],"zone":int(conflictingTags[1]["avg_zone"]) + 1 }]
+            else:
+                return [{"epc": conflictingTags[0]["epc"],"zone":int(conflictingTags[1]["avg_zone"]) + 1 }]
 
 def getTagColor(epc):
     if epc in epcColor:
