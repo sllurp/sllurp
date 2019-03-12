@@ -314,7 +314,7 @@ def isolationForestProcessing(raw_data):
         #Remove the outliers from the original dataset
         x = [e for e in data.get("x") if e not in inaccurate_tags.get('x')]
         y = [e for e in data.get("y") if e not in inaccurate_tags.get('y')]
-        if contamination >= 0.4:
+        if contamination > 0.4:
             if x:
                 data["x"] = x
             if y:
@@ -357,7 +357,7 @@ def processDuplicatetags(occupiedZones,conflictingTags,total_zones):
             #finish stuff here
             if(int(conflictingTags["avg_zone"]) <= total_zones - 1 / 2):
                 print(min_y)
-    if(current_zone <= total_zones - 1 / 2): #left half of the zones
+    if(current_zone <= (total_zones - 1) / 2): #left half of the zones
         print("left")
         #if left zone is empty and right zone occupied
         if(current_zone - 1 not in occupiedZones and current_zone - 1 > 0 and current_zone + 1 in occupiedZones):
