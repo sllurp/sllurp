@@ -258,7 +258,7 @@
         "fieldType": "msg",
         "format": "handlebars",
         "syntax": "mustache",
-        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"172.16.80.169\",\n    \"zoneName\" : \"dungeons\",\n    \"jobID\" : \"ddb277a6-5819-4d76-8f22-cf10a82502b3\"\n}",
+        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"172.16.80.169\",\n    \"zoneName\" : \"dungeons\",\n    \"jobID\" : \"{{payload.id}}\"\n}",
         "output": "str",
         "x": 1200,
         "y": 80,
@@ -329,26 +329,6 @@
         "wires": [
             [
                 "61652a78.c58994"
-            ]
-        ]
-    },
-    {
-        "id": "28244db6.5dcd02",
-        "type": "inject",
-        "z": "cc3e3a3e.943628",
-        "name": "",
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "x": 1000,
-        "y": 60,
-        "wires": [
-            [
-                "7aee6e26.630f5"
             ]
         ]
     },
