@@ -53,7 +53,11 @@ behaviour='new'
 def getJobStatus(itemsenseIP,jobID):
     request = 'http://' + urlParse(itemsenseIP) + '/itemsense/control/v1/jobs/show/' + urlParse(jobID)
     jsonResults = requests.get(request,auth=(username, password)).json()
-    return jsonResults.get("status")
+    if "message" in jsonResults:
+        msg = jsonResults.get("message")
+        return jsonResults.get("status") , msg
+    else:
+        return jsonResults.get("status") , ""
 
 def getTagZone(x,y,toPrint=False):
     currentZone = "none"
@@ -276,7 +280,7 @@ if __name__ == '__main__':
     jobID = j.get("jobID")
 
     x_zones, y_zones, zonesMid, mapName = getCurrentZoneItemSense(itemsenseIP,zoneName)
-    status = getJobStatus(itemsenseIP,jobID)
+    status , msg = getJobStatus(itemsenseIP,jobID)
     while status in waitingStatus:
         status = getJobStatus(itemsenseIP,jobID)
         time.sleep(1)
@@ -291,8 +295,8 @@ if __name__ == '__main__':
         tags.append(d)
         print(json.dumps(tags,indent=2))
     elif status == "RUNNING":
-        print("Error job is still running")
+        print(json.dumps({"success" : False, "msg" : "Error, job still running"}))
         exit
-    if status == "ERROR":
-        print("invalid jobID")
+    if status == "ERROR" or status == "FAILURE":
+        print(json.dumps({"success" : False, "msg" : msg}))
         exit
