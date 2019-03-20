@@ -329,7 +329,7 @@ def isolationForestProcessing(raw_data):
     #Find two or more tags in the same zone and re-calculate their zone using their x/y position
     occupiedZones = []
     for tag in raw_data:
-        if tag["avg_zone"] not in occupiedZones:
+        if tag["avg_zone"] not in occupiedZones and tag["avg_zone"] is not "none":
             occupiedZones.append(int(tag["avg_zone"]))
     for i in range(1,total_zones):
         if ((3, 0) <= sys.version_info <= (3, 9)):
