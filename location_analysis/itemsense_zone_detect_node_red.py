@@ -317,8 +317,8 @@ if __name__ == '__main__':
         tags.append(d)
         print(json.dumps(tags,indent=2))
     elif status == "RUNNING":
-        print(json.dumps({"success" : False, "msg" : "Error, job still running"}))
+        print(json.dumps({"success" : False, "status" : "Error, job still running"}))
         sys.exit()
     elif status == "ERROR" or status == "FAILURE":
-        print(json.dumps({"success" : False, "msg" : msg}))
+        print(json.dumps({"success" : False, "status" : msg}))
         sys.exit()
