@@ -51,8 +51,17 @@ max_samples=100
 behaviour='new'
 
 def getJobStatus(itemsenseIP,jobID):
-    request = 'http://' + urlParse(itemsenseIP) + '/itemsense/control/v1/jobs/show/' + urlParse(jobID)
-    jsonResults = requests.get(request,auth=(username, password)).json()
+    request = 'http://' + urlParse(itemsenseIP) + '/control/v1/jobs/show/' + urlParse(jobID)
+    try:
+        r = requests.get(request,auth=(username, password),timeout=10)
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        return "ERROR", "HTTP Error " + str(err.response.status_code)
+    except requests.exceptions.Timeout as errt:
+        return "ERROR", errt
+    except requests.exceptions.RequestException as e:
+        return "ERROR", e
+    jsonResults = r.json()
     if "message" in jsonResults:
         msg = jsonResults.get("message")
         return jsonResults.get("status") , msg
@@ -72,8 +81,20 @@ def getTagZone(x,y,toPrint=False):
 def getCurrentZoneItemSense(itemsenseIP, zoneName):
     xZonesPoints = []
     yZonesPoints = []
-    request  = 'http://' + urlParse(itemsenseIP) + '/itemsense/configuration/v1/zoneMaps/show/' + urlParse(zoneName)
-    jsonResults = requests.get(request,auth=(username, password)).json()
+    request  = 'http://' + urlParse(itemsenseIP) + '/configuration/v1/zoneMaps/show/' + urlParse(zoneName)
+    try:
+        r = requests.get(request,auth=(username, password),timeout=1)
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        print ({"success": False, "status": "HTTP Error " + str(err.response.status_code)})
+        sys.exit()
+    except requests.exceptions.Timeout as errt:
+        print ({"success": False, "status": errt})
+        sys.exit()
+    except requests.exceptions.RequestException as e:
+        print({"success": False, "status": e})
+        sys.exit()
+    jsonResults = r.json()
     if(jsonResults.get("status") == "FAILURE"):
         res = {"success":False , "status": jsonResults.get("message")}
         print(json.dumps(res))
@@ -121,7 +142,7 @@ def getCurrentTagsItemsense(itemsenseIP,jobID):
     global y_locations
     global tags
     while(True):
-        request = 'http://' + urlParse(itemsenseIP) + '/itemsense/data/v1/items/show'
+        request = 'http://' + urlParse(itemsenseIP) + '/data/v1/items/show'
         r = requests.get(request,auth=(username, password))
         jsonResults = r.json()
         items = jsonResults.get("items")
@@ -138,7 +159,7 @@ def getHistoryTagsItemsense(itemsenseIP,jobID):
     global tags
     global outlier_tags
     _tags = []
-    request = "http://" + urlParse(itemsenseIP) + "/itemsense/data/v1/items/show/history?jobId=" + urlParse(jobID) + "&zoneTransitionsOnly=false"
+    request = "http://" + urlParse(itemsenseIP) + "/data/v1/items/show/history?jobId=" + urlParse(jobID) + "&zoneTransitionsOnly=false"
     jsonResults = requests.get(request,auth=(username, password)).json()
     history = jsonResults.get("history")
     if not history:
@@ -279,12 +300,13 @@ if __name__ == '__main__':
     zoneName = j.get("zoneName")
     jobID = j.get("jobID")
 
+    itemsenseIP = itemsenseIP.replace('http://', "")
+
     x_zones, y_zones, zonesMid, mapName = getCurrentZoneItemSense(itemsenseIP,zoneName)
     status , msg = getJobStatus(itemsenseIP,jobID)
     while status in waitingStatus:
         status = getJobStatus(itemsenseIP,jobID)
         time.sleep(1)
-        print(status)
     if status == "STOPPED":
         #print("Getting Historical Data")
         getHistoryTagsItemsense(itemsenseIP,jobID)
@@ -296,7 +318,7 @@ if __name__ == '__main__':
         print(json.dumps(tags,indent=2))
     elif status == "RUNNING":
         print(json.dumps({"success" : False, "msg" : "Error, job still running"}))
-        exit
-    if status == "ERROR" or status == "FAILURE":
+        sys.exit()
+    elif status == "ERROR" or status == "FAILURE":
         print(json.dumps({"success" : False, "msg" : msg}))
-        exit
+        sys.exit()

@@ -143,7 +143,7 @@
         "name": "",
         "itemsense": "b5e8b3a.d92c15",
         "recipe": "BossBattle",
-        "runLength": "70",
+        "runLength": "90",
         "startDelay": "PT0S",
         "facility": "MF-Dungeons",
         "readerGroups": "",
@@ -228,7 +228,7 @@
         "tostatus": false,
         "complete": "payload.id",
         "x": 1160,
-        "y": 140,
+        "y": 160,
         "wires": []
     },
     {
@@ -258,7 +258,7 @@
         "fieldType": "msg",
         "format": "handlebars",
         "syntax": "mustache",
-        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"172.16.80.169\",\n    \"zoneName\" : \"dungeons\",\n    \"jobID\" : \"{{payload.id}}\"\n}",
+        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"http://172.16.80.169/itemsense\",\n    \"zoneName\" : \"dungeons\",\n    \"jobID\" : \"{{payload.id}}\"\n}",
         "output": "json",
         "x": 1200,
         "y": 80,
@@ -292,10 +292,10 @@
         "fieldType": "msg",
         "format": "handlebars",
         "syntax": "mustache",
-        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"172.16.80.169\",\n    \"zoneName\" : \"dungeons\",\n    \"jobID\" : \"be6cb69d-075f-4d71-9699-d56c7e71de2a\"\n}",
+        "template": "{\n    \"username\" : \"admin\",\n    \"password\" : \"mofasexy\",\n    \"itemsenseIP\" : \"http://172.16.80.169/itemsense\",\n    \"zoneName\" : \"dungeons\",\n    \"jobID\" : \"be6cb69d-075f-4d71-9699-d56c7e71de2a\"\n}",
         "output": "json",
-        "x": 1300,
-        "y": 300,
+        "x": 1260,
+        "y": 380,
         "wires": [
             [
                 "992e25fe.47f5b8"
@@ -314,8 +314,8 @@
         "crontab": "",
         "once": false,
         "onceDelay": 0.1,
-        "x": 1140,
-        "y": 320,
+        "x": 1100,
+        "y": 400,
         "wires": [
             [
                 "80a32790.7885e8"
@@ -326,15 +326,15 @@
         "id": "4b2bb105.84691",
         "type": "exec",
         "z": "cc3e3a3e.943628",
-        "command": "python /home/hanz/supermario/sllurp/location_analysis/itemsense_zone_detect_node_red.py",
+        "command": "python3 /home/hanz/supermario/sllurp/location_analysis/itemsense_zone_detect_node_red.py",
         "addpay": true,
         "append": "",
         "useSpawn": "false",
         "timer": "",
         "oldrc": false,
         "name": "isolation forest",
-        "x": 1460,
-        "y": 200,
+        "x": 1740,
+        "y": 280,
         "wires": [
             [
                 "ff852009.03a61"
@@ -353,8 +353,8 @@
         "func": "msg.payload = `'${msg.payload}'`\nreturn msg;",
         "outputs": 1,
         "noerr": 0,
-        "x": 1570,
-        "y": 300,
+        "x": 1530,
+        "y": 380,
         "wires": [
             [
                 "4b2bb105.84691"
@@ -369,8 +369,8 @@
         "property": "payload",
         "action": "",
         "pretty": false,
-        "x": 1440,
-        "y": 300,
+        "x": 1400,
+        "y": 380,
         "wires": [
             [
                 "311e6142.0ceb8e"
@@ -387,8 +387,22 @@
         "console": false,
         "tostatus": false,
         "complete": "false",
-        "x": 1670,
-        "y": 200,
+        "x": 2030,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "b0c68381.aa6ff",
+        "type": "debug",
+        "z": "cc3e3a3e.943628",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "x": 2030,
+        "y": 340,
         "wires": []
     },
     {
