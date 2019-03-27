@@ -231,8 +231,15 @@ def isolationForestProcessing(raw_data):
                 for tag in raw_data:
                     if(newTags[0]["epc"] == tag["epc"]):
                         tag["avg_zone"] = newTags[0]["zone"]
-
-    return raw_data, inaccurate_tags
+    processedTags = {}
+    for i in range(total_zones):
+        if i > 0:
+            taglist = []
+            for tag in raw_data:
+                if tag["avg_zone"] == str(i):
+                    taglist.append(tag["epc"])
+            processedTags["playerslot" + str(i)] = taglist
+    return processedTags, inaccurate_tags
 
 def processDuplicatetags(occupiedZones,conflictingTags,total_zones):
     if(len(conflictingTags) > 3):
@@ -310,11 +317,11 @@ if __name__ == '__main__':
     if status == "STOPPED":
         #print("Getting Historical Data")
         getHistoryTagsItemsense(itemsenseIP,jobID)
-        for tag in tags:
-            for key in del_keys:
-                tag.pop(key)
-        d = {"success" : True}
-        tags.append(d)
+        # for tag in tags:
+        #     for key in del_keys:
+        #         tag.pop(key)
+        #d = {"success" : True}
+        tags["success"] = True
         print(json.dumps(tags,indent=2))
     elif status == "RUNNING":
         print(json.dumps({"success" : False, "status" : "Error, job still running"}))
