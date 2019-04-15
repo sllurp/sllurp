@@ -194,7 +194,7 @@ class LLRPClient(LineReceiver):
                  mqtt_status=None,
                  mqtt_client=None,
                  mqtt_status_topic=None,
-                 mqtt_status_interval=None):
+                 mqtt_status_interval=0):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -516,7 +516,7 @@ class LLRPClient(LineReceiver):
 
             if (self.impinj_search_mode is not None or
                     self.impinj_tag_content_selector is not None or
-                    self.impinj_extended_configuration is not None or 
+                    self.impinj_extended_configuration is True or 
                     self.start_mode != "inventory"):
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
@@ -1022,10 +1022,10 @@ class LLRPClient(LineReceiver):
                             #'SpecLoopEvent': True,
                     },
                 },
-                'ImpinjLinkMonitorConfiguration':{
-                    'LinkMonitorMode' : 0,
-                    'LinkDownThreshold' : 10
-                },
+                # 'ImpinjLinkMonitorConfiguration':{
+                #     'LinkMonitorMode' : 0,
+                #     'LinkDownThreshold' : 10
+                # },
                 'KeepaliveSpec': {
                     'KeepaliveTriggerType' : 1,
                     'TimeInterval' : keepalive_interval

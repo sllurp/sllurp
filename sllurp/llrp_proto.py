@@ -1454,19 +1454,18 @@ def decode_GeneralDeviceCapabilities(data):
     body = data[par_header_len:length]
     logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
 
-    fmt = '!HHIIH'
+    fmt = '!HHII'
     fmt_len = struct.calcsize(fmt)
     # Decode fields
     (par['MaxNumberOfAntennaSupported'],
      flags,
      par['DeviceManufacturerName'],
-     par['ModelName'],
-     par['FirmwareVersionByteCount']) = struct.unpack(fmt, body[:fmt_len])
+     par['ModelName']) = struct.unpack(fmt, body[:fmt_len])
 
     par['CanSetAntennaProperties'] = (flags & BIT(15) == BIT(15))
     par['HasUTCClockCapability'] = (flags & BIT(14) == BIT(14))
 
-    pastVer = fmt_len + par['FirmwareVersionByteCount']
+    pastVer = fmt_len + 12
     par['ReaderFirmwareVersion'] = body[fmt_len:pastVer]
     body = body[pastVer:]
     ret, body = decode('ReceiveSensitivityTableEntry')(body)
