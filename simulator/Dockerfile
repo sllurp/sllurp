@@ -1,7 +1,7 @@
 FROM golang:1.12-alpine 
 
-COPY tags.csv /
-COPY tags.gob / 
+#COPY tags.csv /
+#COPY tags.gob / 
 
 RUN apk add curl
 RUN apk add git 
@@ -14,6 +14,6 @@ RUN go get github.com/hanyangzhao/golemu
 WORKDIR $GOPATH/src/github.com/hanyangzhao/golemu
 RUN dep ensure 
 RUN go install
-WORKDIR /
+#WORKDIR /
 
 CMD golemu server --reportInterval $REPORT_INTERVAL
