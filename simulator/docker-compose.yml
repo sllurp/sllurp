@@ -1,0 +1,11 @@
+version: '2'
+services:
+
+  xarray-simulator:
+    container_name: xarray-simulator
+    image: xarray-simulator:latest
+    hostname: xarray-simulator
+    ports:
+      - 5087:5087
+    environment:
+      - REPORT_INTERVAL=2000
