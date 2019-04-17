@@ -47,22 +47,19 @@ def tag_report_cb(llrp_msg):
         tags = pprint.pformat(payload).replace('\'','\"')
         tags = tags.replace('b\"','\"')
         logger.debug('saw tag(s): %s', payload)
-        epc = []
+        epc = ""
         if http:
-            for x in payload.get('EPC-96',[]):
-                epc.append(x.decode('ascii'))
-
-            for x in payload.get('EPCData',[]):
-                if (x.get('EPC-96')):
-                    epc.append(x.get('EPC-96').decode('ascii'))
-                elif(x.get('EPC')):
-                    epc.append(x.get('EPC').decode('ascii'))
-            if epc: 
-                tag = {
-                    'id' : epc,
-                    'timestamp': payload['LastSeenTimestampUTC'][0]
-                }
-                addToTagList(tag)
+            for x in payload:
+                if (x.get('EPCData').get('EPC-96')) is not None:
+                    epc = x.get('EPCData').get('EPC-96').decode('ascii')
+                elif (x.get('EPCData').get('EPC')) is not None:
+                    epc = x.get('EPCData').get('EPC').decode('ascii')
+                if epc:
+                    tag = {
+                        'id' : epc,
+                        'timestamp': x['LastSeenTimestampUTC'][0]
+                    }
+                    addToTagList(tag)
         # for tag in tags:
         #     numtags += tag['TagSeenCount'][0]
         if (client and topic ):

@@ -836,20 +836,22 @@ Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
 def decode_ROAccessReport(data):
     msg = LLRPMessageDict()
     logger.debug(func())
-    tag_report = {}
+    tag_report = []
     extended_tag = {}
     # Decode parameters
     msg['TagReportData'] = []
     msg['ImpinjExtendedTagInformation'] = []
-    try:
-        tag_report, _ = decode('TagReportData')(data)
-    except TypeError as e:  # XXX
-        logger.error('Unable to decode TagReportData becasue %s',e)
+    while data:
+        try:
+            report, data = decode('TagReportData')(data)
+            if report:
+                tag_report.append(report)
+        except TypeError as e:  # XXX
+            logger.error('Unable to decode TagReportData becasue %s',e)
     if not tag_report:
         try:
             extended_tag = list(decode('ImpinjExtendedTagInformation')(data))
             extended_tag = extended_tag[0]
-            
         except Exception as e:
             logger.error('Unable to decode ImpinjExtendedTagInformation becaue %s',e)
     # print('len(ret) = {}'.format(len(ret)))
@@ -2765,38 +2767,23 @@ def decode_TagReportData(data):
     msgtype = msgtype & BITMASK(10)
     if msgtype != Message_struct['TagReportData']['type']:
         return (None, data)
-    body = copy.copy(data[par_header_len:length])
-    tmpBody = copy.copy(data[par_header_len:length])
+    body = data[par_header_len:length]
+
     # Decode parameters
-    while body:
-        ret, tmpBody = decode('EPCData')(body)
+    ret, body = decode('EPCData')(body)
+    if ret:
+        logger.debug("got EPCData; won't try EPC-96")
+        par['EPCData'] = ret
+    else:
+        logger.debug('failed to decode EPCData; trying EPC-96')
+        ret, body = decode('EPC-96')(body)
         if ret:
-            logger.debug("got EPCData; won't try EPC-96")
-            if par.get('EPCData', False):
-                par['EPCData'].append(ret)
-                body = copy.copy(tmpBody)
-                logger.debug(par)
-            else:
-                par['EPCData'] = [ret]
-                body = copy.copy(tmpBody)
+            par['EPC-96'] = ret['EPC']
+            logger.debug('EPC-96: %s', ret['EPC'])
         else:
-            logger.debug('failed to decode EPCData; trying EPC-96')
-            ret, tmpBody = decode('EPC-96')(body)
-            if ret:
-                if par.get('EPC-96', False):
-                    par['EPC-96'].append(ret['EPC'])
-                    logger.debug('EPC-96: %s', ret['EPC'])
-                    body = copy.copy(tmpBody)
-                else:
-                    par['EPC-96'] = [ret['EPC']]
-                    body = copy.copy(tmpBody)
-            else:
-                break;
-    if not par:
-        raise LLRPError('missing or invalid EPCData parameter')
+            raise LLRPError('missing or invalid EPCData parameter')
 
     # grab TV-encoded parameters
-
     while body:
         ret, nbytes = llrp_decoder.decode_tve_parameter(body)
         if ret:
