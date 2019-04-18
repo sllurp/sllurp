@@ -840,6 +840,8 @@ def decode_ROAccessReport(data):
             report, data = decode('TagReportData')(data)
             if report:
                 tag_report.append(report)
+            else:
+                break
         except TypeError as e:  # XXX
             logger.error('Unable to decode TagReportData becasue %s',e)
     if not tag_report:
@@ -2548,7 +2550,12 @@ def encode_C1G2InventoryCommand(par):
     msg_header = '!HH'
     data = struct.pack('!B', (par['TagInventoryStateAware'] and 1 or 0) << 7)
     if 'C1G2Filter' in par:
-        data += encode('C1G2Filter')(par['C1G2Filter'])
+        filters = par['C1G2Filter']
+        if isinstance(filters, list):
+            for filt in filters:
+                data += encode('C1G2Filter')(filt)
+        else: # only one filter
+            data += encode('C1G2Filter')(filters)
     if 'C1G2RFControl' in par:
         data += encode('C1G2RFControl')(par['C1G2RFControl'])
     if 'C1G2SingulationControl' in par:
@@ -4491,10 +4498,10 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
-                 session=2, tag_population=4,
+                 session=2, tag_population=4, tag_filter_mask=[],
                  impinj_search_mode=None, impinj_tag_content_selector=None,
-                update_interval=20, compute_window=5, tag_age_interval=2, enable_sector_id=[2,2,6], field_of_view=2
-                ,impinj_fixed_frequency_param=None,tag_filter_mask=None):
+                 update_interval=20, compute_window=5, tag_age_interval=2, enable_sector_id=[2,2,6], field_of_view=2,
+                 impinj_fixed_frequency_param=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(

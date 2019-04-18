@@ -64,15 +64,6 @@ def main(args):
 
     # special case default Tari values
     tari = args.tari
-    if args.modulation in Modulation_DefaultTari:
-        t_suggested = Modulation_DefaultTari[args.modulation]
-        if args.tari:
-            logger.warn('recommended Tari for %s is %d', args.modulation,
-                        t_suggested)
-        else:
-            tari = t_suggested
-            logger.info('selected recommended Tari of %d for %s', args.tari,
-                        args.modulation)
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
     antmap = {
@@ -92,7 +83,6 @@ def main(args):
         duration=args.time,
         antenna_dict=antmap,
         tx_power=args.tx_power,
-        modulation=args.modulation,
         tari=tari,
         mode_identifier=args.mode_identifier,
         start_mode="direction",
