@@ -6,8 +6,7 @@ import struct
 import time
 from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
-    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
-    DEFAULT_MODULATION
+    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type
 from .llrp_errors import ReaderConfigurationError
 from binascii import hexlify
 from .util import BITMASK, natural_keys, iterkeys
@@ -171,13 +170,14 @@ class LLRPClient(LineReceiver):
             raise LLRPError('unknown state {}'.format(state))
 
     def __init__(self, factory, duration=None, report_every_n_tags=None,
-                 antennas=(1,), tx_power=0, modulation=DEFAULT_MODULATION,
+                 antennas=(1,), tx_power=0,
                  tari=0, start_mode="inventory",reset_on_connect=True,
                  disconnect_when_done=True,
                  report_timeout_ms=0,
                  tag_content_selector={},
                  mode_identifier=None,
                  session=2, tag_population=4,
+                 tag_filter_mask=None,
                  impinj_extended_configuration=False,
                  impinj_search_mode=None,
                  impinj_tag_content_selector=None,
@@ -194,7 +194,8 @@ class LLRPClient(LineReceiver):
                  mqtt_status=None,
                  mqtt_client=None,
                  mqtt_status_topic=None,
-                 mqtt_status_interval=0):
+                 mqtt_status_interval=10,
+                 impinj_fixed_frequency_param=None):
         self.factory = factory
         self.setRawMode()
         self.state = LLRPClient.STATE_DISCONNECTED
@@ -211,11 +212,11 @@ class LLRPClient(LineReceiver):
             self.tx_power = tx_power.copy()
         else:
             raise LLRPError('tx_power must be dict or int')
-        self.modulation = modulation
         self.tari = tari
         self.session = session
         self.tag_population = tag_population
         self.mode_identifier = mode_identifier
+        self.tag_filter_mask = tag_filter_mask
         self.antennas = antennas
         self.duration = duration
         self.peername = None
@@ -233,7 +234,8 @@ class LLRPClient(LineReceiver):
         if self.start_mode == "direction":
             logger.info('will start direction on connect')
         if (impinj_search_mode is not None or
-                impinj_tag_content_selector is not None):
+                impinj_tag_content_selector is not None or
+                impinj_fixed_frequency_param is not None):
             logger.info('Enabling Impinj extensions')
         self.impinj_extended_configuration = impinj_extended_configuration
         self.impinj_search_mode = impinj_search_mode
@@ -251,6 +253,8 @@ class LLRPClient(LineReceiver):
         self.mqtt_status = mqtt_status
         self.mqtt_client = mqtt_client
         self.keepalive_interval = int(mqtt_status_interval)
+        self.impinj_fixed_frequency_param = impinj_fixed_frequency_param
+
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
 
@@ -368,15 +372,22 @@ class LLRPClient(LineReceiver):
         return conf
 
     def parseCapabilities(self, capdict):
-        """Parse a capabilities dictionary and adjust instance settings
+        """Parse a capabilities dictionary and adjust instance settings.
 
-           Sets the following instance variables:
-           - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
-           - self.tx_power_table (list of dBm values)
-           - self.reader_mode (dictionary of mode settings, e.g., Tari)
+        At the time this function is called, the user has requested some
+        settings (e.g., mode identifier), but we haven't yet asked the reader
+        whether those requested settings are within its capabilities. This
+        function's job is to parse the reader's capabilities, compare them
+        against any requested settings, and raise an error if there are any
+        incompatibilities.
 
-           Raises ReaderConfigurationError if requested settings are not within
-           reader's capabilities.
+        Sets the following instance variables:
+        - self.antennas (list of antenna numbers, e.g., [1] or [1, 2])
+        - self.tx_power_table (list of dBm values)
+        - self.reader_mode (dictionary of mode settings, e.g., Tari)
+
+        Raises ReaderConfigurationError if the requested settings are not
+        within the reader's capabilities.
         """
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
@@ -396,13 +407,12 @@ class LLRPClient(LineReceiver):
         logger.debug('tx_power_table: %s', self.tx_power_table)
         self.setTxPower(self.tx_power)
 
-        # fill UHFC1G2RFModeTable & check requested modulation & Tari
+        # parse list of reader's supported mode identifiers
         regcap = capdict['RegulatoryCapabilities']
         modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
         mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
 
-        # select a mode by matching available modes to requested parameters:
-        # favor mode_identifier over modulation
+        # select a mode by matching available modes to requested parameters
         if self.mode_identifier is not None:
             logger.debug('Setting mode from mode_identifier=%s',
                          self.mode_identifier)
@@ -416,24 +426,15 @@ class LLRPClient(LineReceiver):
                           ' are {}'.format(valid_modes))
                 raise ReaderConfigurationError(errstr)
 
-        elif self.modulation is not None:
-            logger.debug('Setting mode from modulation=%s',
-                         self.modulation)
-            try:
-                mo = [mo for mo in mode_list
-                      if mo['Mod'] == Modulation_Name2Type[self.modulation]][0]
-                self.reader_mode = mo
-            except IndexError:
-                raise ReaderConfigurationError('Invalid modulation')
-
-        if self.tari:
-            if not self.reader_mode:
-                errstr = 'Cannot set Tari without choosing a reader mode'
-                raise ReaderConfigurationError(errstr)
-            if self.tari > self.reader_mode['MaxTari']:
-                errstr = ('Requested Tari is greater than MaxTari for selected'
-                          'mode {}'.format(self.reader_mode))
-                raise ReaderConfigurationError(errstr)
+        # if we're trying to set Tari explicitly, but the selected mode doesn't
+        # support the requested Tari, that's a configuration error.
+        if self.reader_mode and self.tari:
+            if self.reader_mode['MinTari'] < self.tari < self.reader_mode['MaxTari']:
+                logger.debug('Overriding mode Tari %s with requested Tari %s',
+                             self.reader_mode['MaxTari'], self.tari)
+            else:
+                errstr = ('Requested Tari {} is incompatible with selected '
+                          'mode {}'.format(self.tari, self.reader_mode))
 
         logger.info('using reader mode: %s', self.reader_mode)
 
@@ -517,7 +518,9 @@ class LLRPClient(LineReceiver):
             if (self.impinj_search_mode is not None or
                     self.impinj_tag_content_selector is not None or
                     self.impinj_extended_configuration is True or 
-                    self.start_mode != "inventory"):
+                    self.start_mode != "inventory" or
+                    self.impinj_fixed_frequency_param):
+
                 caps = defer.Deferred()
                 caps.addCallback(self.send_GET_READER_CAPABILITIES,
                                  onCompletion=d)
@@ -1364,11 +1367,17 @@ class LLRPClient(LineReceiver):
         )
         logger.info(start_mode)
         rospec_kwargs['start_mode'] = start_mode
+        if self.tag_filter_mask is not None:
+            rospec_kwargs['tag_filter_mask'] = self.tag_filter_mask
         if self.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = self.impinj_search_mode
+            logger.info('Impinj search mode? %s', self.impinj_search_mode)
         if self.impinj_tag_content_selector is not None:
             rospec_kwargs['impinj_tag_content_selector'] = \
                 self.impinj_tag_content_selector
+        if self.impinj_fixed_frequency_param is not None:
+            rospec_kwargs['impinj_fixed_frequency_param'] = \
+                self.impinj_fixed_frequency_param
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
         logger.debug('ROSpec: %s', self.rospec)

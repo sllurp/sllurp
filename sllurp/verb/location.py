@@ -11,7 +11,6 @@ import json
 
 from sllurp.util import monotonic
 from sllurp.llrp import LLRPClientFactory
-from sllurp.llrp_proto import Modulation_DefaultTari
 
 start_time = None
 

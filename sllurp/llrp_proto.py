@@ -27,7 +27,7 @@ from __future__ import unicode_literals
 import logging
 import struct
 from collections import defaultdict
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
 from . import llrp_decoder
@@ -217,11 +217,6 @@ Modulation_Name2Type = {
     'WISP5pre': 0,
     'WISP5': 0,
 }
-Modulation_DefaultTari = {
-    'WISP5pre': 12500,
-    'WISP5': 6250,
-}
-DEFAULT_MODULATION = 'M4'
 
 #
 # LLRP Messages
@@ -403,7 +398,6 @@ def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debug(func())
 
-    logger.warning('first two bytes of LLRP_STATUS are %r', data[:2])
     ret, body = decode('LLRPStatus')(data)
     msg['LLRPStatus'] = ret
 
@@ -2562,6 +2556,9 @@ def encode_C1G2InventoryCommand(par):
     if 'ImpinjInventorySearchModeParameter' in par:
         data += encode('ImpinjInventorySearchModeParameter')(
             par['ImpinjInventorySearchModeParameter'])
+    if 'ImpinjFixedFrequencyListParameter' in par:
+        data += encode('ImpinjFixedFrequencyListParameter')(
+            par['ImpinjFixedFrequencyListParameter'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
@@ -2576,7 +2573,8 @@ Message_struct['C1G2InventoryCommand'] = {
         'C1G2RFControl',
         'C1G2SingulationControl',
         # XXX custom parameters
-        'ImpinjInventorySearchModeParameter'
+        'ImpinjInventorySearchModeParameter',
+        'ImpinjFixedFrequencyListParameter'
     ],
     'encode': encode_C1G2InventoryCommand
 }
@@ -2584,15 +2582,51 @@ Message_struct['C1G2InventoryCommand'] = {
 
 # 16.3.1.2.1.1 C1G2Filter Parameter
 def encode_C1G2Filter(par):
-    raise NotImplementedError
+    msgtype = Message_struct['C1G2Filter']['type']
+    msg_header = '!HH'
+    data = struct.pack('!B', Message_struct['C1G2Filter']['T'] << 6) # XXX: hardcoded trucation for now
+    if 'C1G2TagInventoryMask' in par:
+        data += encode('C1G2TagInventoryMask')(
+            par['C1G2TagInventoryMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
 
 
 Message_struct['C1G2Filter'] = {
     'type': 331,
-    'fields': [],
-    'encode': lambda: None
+    'T': 0,
+    'fields': [
+        'C1G2TagInventoryMask'
+    ],
+    'encode': encode_C1G2Filter
 }
 
+# 16.3.1.2.1.1.1 C1G2TagInventoryMask Parameter
+def encode_C1G2TagInventoryMask(par):
+    msgtype = Message_struct['C1G2TagInventoryMask']['type']
+    msg_header = '!HH'
+    maskbitcount = len(par['TagMask'])*4
+    if len(par['TagMask']) % 2 != 0:    # check for odd numbered length hexstring
+        par['TagMask'] += '0'           # pad with zero
+    data = struct.pack('!B', par['MB'] << 6)
+    data += struct.pack('!H', par['Pointer'])
+    if maskbitcount:
+        data += struct.pack('!H', maskbitcount)
+        data += unhexlify(par['TagMask'])
+    data = struct.pack(msg_header, msgtype,
+                       len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+Message_struct['C1G2TagInventoryMask'] = {
+    'type': 332,
+    'fields': [
+        'MB',
+        'Pointer',
+        'TagMask'
+    ],
+    'encode': encode_C1G2TagInventoryMask
+}
 
 # 16.3.1.2.1.2 C1G2RFControl Parameter
 def encode_C1G2RFControl(par):
@@ -3711,7 +3745,7 @@ def encode_CustomMessage(msg):
     subtype = msg['Subtype']
     payload = msg.get('Payload', struct.pack('!I', 0))
     data = struct.pack('!IB', vendor_id, subtype) + payload
-    logger.info('data: %s', hexlify(data))
+    # logger.debug('data: %s', hexlify(data))
     return data
 
 
@@ -3786,6 +3820,33 @@ Message_struct['ImpinjInventorySearchModeParameter'] = {
     'encode': encode_ImpinjInventorySearchModeParameter
 }
 
+def encode_ImpinjFixedFrequencyListParameter(par):
+    msg_struct_param = Message_struct['ImpinjFixedFrequencyListParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype']
+    }
+    channellist = par.get('ChannelListIndex')
+    payload = struct.pack('!H', par.get('FixedFrequencyMode'))
+    payload += struct.pack('!H', 0) # Reserved space
+    payload += struct.pack('!H', len(channellist))
+    for index in channellist:
+        payload += struct.pack('!H', index)
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+Message_struct['ImpinjFixedFrequencyListParameter'] = {
+    'vendorid': 25882,
+    'subtype': 26,
+    'fields': [
+        'FixedFrequencyMode',
+        'Reserved',
+        'ChannelListCount',
+        'ChannelListIndex'
+    ],
+    'encode': encode_ImpinjFixedFrequencyListParameter
+}
 
 def encode_ImpinjTransmitPower(par):
     msg_struct_param = Message_struct['ImpinjTransmitPower']
@@ -4432,7 +4493,8 @@ class LLRPROSpec(dict):
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4,
                  impinj_search_mode=None, impinj_tag_content_selector=None,
-                update_interval=20, compute_window=5, tag_age_interval=2, enable_sector_id=[2,2,6], field_of_view=2):
+                update_interval=20, compute_window=5, tag_age_interval=2, enable_sector_id=[2,2,6], field_of_view=2
+                ,impinj_fixed_frequency_param=None,tag_filter_mask=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'.format(
@@ -4603,6 +4665,7 @@ class LLRPROSpec(dict):
                     'ImpinjEnableRFDopplerParameter':
                         impinj_tag_content_selector['EnableRFDopplerFrequency']
                 }
+
             # patch up per-antenna config
             for antid in antennas:
                 transmit_power = tx_power[antid]
@@ -4623,6 +4686,16 @@ class LLRPROSpec(dict):
                         },
                     }
                 }
+
+                if tag_filter_mask:
+                    antconf['C1G2InventoryCommand']['C1G2Filter'] = {
+                        'C1G2TagInventoryMask': {
+                            'MB': 1,    # EPC bank
+                            'Pointer': 0x20,    # Third word starts the EPC ID
+                            'TagMask': tag_filter_mask
+                        }
+                    }
+
                 if reader_mode:
                     rfcont = {
                         'ModeIndex': mode_index,
@@ -4631,19 +4704,30 @@ class LLRPROSpec(dict):
                     antconf['C1G2InventoryCommand']['C1G2RFControl'] = rfcont
 
                 # impinj extension: single mode or dual mode (XXX others?)
+
                 if impinj_search_mode is not None:
                     logger.info('impinj_search_mode: %s', impinj_search_mode)
                     antconf['C1G2InventoryCommand']\
                         ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
-                    self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
-                        'AISpecStopTriggerType': 'Duration',
-                        'DurationTriggerValue': int(duration_sec * 1000)
-                    }
+
+                if impinj_fixed_frequency_param is not None:
+                    antconf['C1G2InventoryCommand']\
+                        ['ImpinjFixedFrequencyListParameter'] = {
+                            'FixedFrequencyMode': 
+                                impinj_fixed_frequency_param['FixedFrequencyMode'],
+                            'ChannelListIndex': 
+                                impinj_fixed_frequency_param['ChannelListIndex']
+                        }
+
                 ips['AntennaConfiguration'].append(antconf)
 
             if duration_sec is not None:
                 self['ROSpec']['ROBoundarySpec']['ROSpecStopTrigger'] = {
                     'ROSpecStopTriggerType': 'Duration',
+                    'DurationTriggerValue': int(duration_sec * 1000)
+                }
+                self['ROSpec']['AISpec']['AISpecStopTrigger'] = {
+                    'AISpecStopTriggerType': 'Duration',
                     'DurationTriggerValue': int(duration_sec * 1000)
                 }
 

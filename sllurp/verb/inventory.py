@@ -11,9 +11,9 @@ import json
 
 from sllurp.util import monotonic
 from sllurp.llrp import LLRPClientFactory
-from sllurp.llrp_proto import Modulation_DefaultTari
 from sllurp.verb.http_server import httpServer
 from apscheduler.schedulers.background import BackgroundScheduler
+
 start_time = None
 sched = BackgroundScheduler()
 numtags = 0
@@ -106,18 +106,6 @@ def main(args):
         logger.info('No readers specified.')
         return 0
 
-    # special case default Tari values
-    tari = args.tari
-    if args.modulation in Modulation_DefaultTari:
-        t_suggested = Modulation_DefaultTari[args.modulation]
-        if args.tari:
-            logger.warn('recommended Tari for %s is %d', args.modulation,
-                        t_suggested)
-        else:
-            tari = t_suggested
-            logger.info('selected recommended Tari of %d for %s', args.tari,
-                        args.modulation)
-
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
     antmap = {
         host: {
@@ -137,8 +125,7 @@ def main(args):
         report_every_n_tags=args.every_n,
         antenna_dict=antmap,
         tx_power=args.tx_power,
-        modulation=args.modulation,
-        tari=tari,
+        tari=args.tari,
         session=args.session,
         mode_identifier=args.mode_identifier,
         tag_population=args.population,
@@ -146,6 +133,7 @@ def main(args):
         reset_on_connect=True,
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
+        tag_filter_mask=args.tag_filter_mask,
         tag_content_selector={
             'EnableROSpecID': False,
             'EnableSpecIndex': False,
@@ -183,6 +171,12 @@ def main(args):
             factory_args['mqtt_client'] = client
             factory_args['mqtt_status_topic'] = args.mqtt_status_topic
             factory_args['mqtt_status_interval'] = args.mqtt_status_interval
+    if args.impinj_fixed_freq:
+        factory_args['impinj_fixed_frequency_param'] = {
+            'FixedFrequencyMode': 2,
+            'ChannelListIndex': [1]
+        }
+
     fac = LLRPClientFactory(**factory_args)
 
     # tag_report_cb will be called every time the reader sends a TagReport
