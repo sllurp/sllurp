@@ -3981,7 +3981,7 @@ class LLRPROSpec(dict):
                  antennas=(1,), tx_power=0, duration_sec=None,
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector=None, tari=None,
-                 session=2, tag_population=4, tag_filter_mask=None,
+                 session=2, tag_population=4, tag_filter_mask=[],
                  impinj_search_mode=None, impinj_tag_content_selector=None,
                  impinj_fixed_frequency_param=None):
         # Sanity checks
