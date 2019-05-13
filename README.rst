@@ -4,8 +4,8 @@
 .. image:: https://img.shields.io/pypi/pyversions/sllurp.svg
     :target: https://pypi.python.org/pypi/sllurp
 
-.. image:: https://travis-ci.org/ransford/sllurp.svg?branch=master
-    :target: https://travis-ci.org/ransford/sllurp
+.. image:: https://circleci.com/gh/ransford/sllurp.svg?style=svg
+    :target: https://circleci.com/gh/ransford/sllurp
 
 sllurp is a Python library to interface with RFID readers.  It is a pure-Python
 implementation of the Low Level Reader Protocol (LLRP).

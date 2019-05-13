@@ -2494,7 +2494,12 @@ def encode_C1G2InventoryCommand(par):
     msg_header = '!HH'
     data = struct.pack('!B', (par['TagInventoryStateAware'] and 1 or 0) << 7)
     if 'C1G2Filter' in par:
-        data += encode('C1G2Filter')(par['C1G2Filter'])
+        filters = par['C1G2Filter']
+        if isinstance(filters, list):
+            for filt in filters:
+                data += encode('C1G2Filter')(filt)
+        else: # only one filter
+            data += encode('C1G2Filter')(filters)
     if 'C1G2RFControl' in par:
         data += encode('C1G2RFControl')(par['C1G2RFControl'])
     if 'C1G2SingulationControl' in par:
@@ -4073,10 +4078,11 @@ class LLRPROSpec(dict):
                         impinj_tag_content_selector['EnableRFDopplerFrequency']
                 }
 
+        ips = self['ROSpec']['AISpec']['InventoryParameterSpec']
+
         # patch up per-antenna config
         for antid in antennas:
             transmit_power = tx_power[antid]
-            ips = self['ROSpec']['AISpec']['InventoryParameterSpec']
             antconf = {
                 'AntennaID': antid,
                 'RFTransmitter': {
@@ -4093,14 +4099,20 @@ class LLRPROSpec(dict):
                     },
                 }
             }
-            if tag_filter_mask:
-                antconf['C1G2InventoryCommand']['C1G2Filter'] = {
+
+            # apply one or more tag filters
+            tag_filters = []
+            for tfm in tag_filter_mask:
+                tag_filters.append({
                     'C1G2TagInventoryMask': {
                         'MB': 1,    # EPC bank
                         'Pointer': 0x20,    # Third word starts the EPC ID
-                        'TagMask': tag_filter_mask
+                        'TagMask': tfm
                     }
-                }
+                })
+            if tag_filters:
+                antconf['C1G2InventoryCommand']['C1G2Filter'] = tag_filters
+
             if reader_mode:
                 rfcont = {
                     'ModeIndex': mode_index,

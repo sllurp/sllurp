@@ -81,6 +81,20 @@ class TestROSpec(unittest.TestCase):
         rospec_str = repr(rospec)
         self.assertNotEqual(rospec_str, '')
 
+    def test_multi_tag_mask(self):
+        fx = FauxClient()
+        masks = ['0123', '4567']
+        rospec = sllurp.llrp.LLRPROSpec(
+            fx.reader_mode, 1,
+            tag_filter_mask=masks)
+        rospec_str = repr(rospec)
+        filters = rospec['ROSpec']['AISpec']['InventoryParameterSpec'][
+            'AntennaConfiguration'][0]['C1G2InventoryCommand']['C1G2Filter']
+        self.assertEqual(len(filters), 2)
+        self.assertEqual(
+            [f['C1G2TagInventoryMask']['TagMask'] for f in filters],
+            masks)
+
 
 class TestReaderEventNotification(unittest.TestCase):
     def test_decode(self):
