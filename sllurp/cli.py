@@ -11,13 +11,11 @@ from .verb import reset as _reset
 from .verb import inventory as _inventory
 from .verb import log as _log
 from .verb import access as _access
-from .llrp_proto import Modulation_Name2Type
 
 # Disable Click unicode warning since we use unicode string exclusively
 click.disable_unicode_literals_warning = True
 
 logger = loggie.get_logger(__name__)
-mods = sorted(Modulation_Name2Type.keys())
 
 
 @click.group()
