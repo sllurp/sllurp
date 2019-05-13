@@ -8,7 +8,6 @@ import time
 
 from sllurp.util import monotonic
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
-from sllurp.llrp_proto import Modulation_DefaultTari
 from sllurp.log import get_logger
 from sllurp.log import is_general_debug_enabled, set_general_debug
 

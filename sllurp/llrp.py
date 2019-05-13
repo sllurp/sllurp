@@ -11,7 +11,7 @@ from threading import Thread, Event
 
 from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
     Message_Type2Name, Capability_Name2Type, AirProtocol, \
-    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type
+    llrp_data2xml, LLRPMessageDict
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger, is_general_debug_enabled
 from .util import BITMASK, natural_keys, iterkeys, find_closest
