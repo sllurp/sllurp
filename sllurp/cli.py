@@ -56,14 +56,17 @@ def cli(debug, logfile):
 @click.option('--impinj-reports', is_flag=True, default=False,
               help='Enable Impinj tag report content '
               '(Phase angle, RSSI, Doppler)')
-@click.option('--impinj-fixed-freq', is_flag=True, default=False,
-              help='Fix operating frequency (dependent '
-              'on operating region if possible)')
+@click.option('-f', '--frequencies', type=str, default='1',
+              help='comma-separated list of frequency indexes to use (0=all;'
+                   ' default 1). Region and reader dependent')
+@click.option('--hoptable-id', type=int, default=1,
+              help='HopTableID to use (default 1) for regions '
+              'with frequency hopping regulatory requirements')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               tari, session, mode_identifier,
               tag_population, reconnect, tag_filter_mask,
               impinj_extended_configuration,
-              impinj_search_mode, impinj_reports, impinj_fixed_freq):
+              impinj_search_mode, impinj_reports, frequencies, hoptable_id):
     """Conduct inventory (searching the area around the antennas)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
@@ -73,7 +76,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'impinj_extended_configuration',
                                'impinj_search_mode',
                                'impinj_reports',
-                               'impinj_fixed_freq'])
+                               'frequencies', 'hoptable_id'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power,
                 tari=tari, session=session, population=tag_population,
@@ -82,7 +85,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
                 impinj_reports=impinj_reports,
-                impinj_fixed_freq=impinj_fixed_freq)
+                frequencies=frequencies, hoptable_id=hoptable_id)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
 
@@ -98,9 +101,17 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
 @click.option('-e', '--epc', type=str, help='log only a specific EPC')
 @click.option('-r', '--reader-timestamp', is_flag=True, default=False,
               help='Use reader-provided timestamps instead of our own')
-def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp):
+@click.option('-f', '--frequencies', type=str, default='1',
+              help='comma-separated list of frequency indexes to use (0=all;'
+                   ' default 1). Region and reader dependent')
+@click.option('--hoptable-id', type=int, default=1,
+              help='HopTableID to use (default 1) for regions '
+              'with frequency hopping regulatory requirements')
+def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp,
+        frequencies, hoptable_id):
     Args = namedtuple('Args', ['host', 'port', 'outfile', 'antennas',
-                               'tx_power', 'epc', 'reader_timestamp'])
+                               'tx_power', 'epc', 'reader_timestamp',
+                               'frequencies', 'hoptable_id'])
     args = Args(host=host, port=port, outfile=outfile, tx_power=tx_power,
                 antennas=antennas, epc=epc, reader_timestamp=reader_timestamp)
     logger.debug('log args: %s', args)
@@ -137,21 +148,29 @@ def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp):
               help='Word addresss of the first word to read/write')
 @click.option('-ap', '--access-password', type=int, default=0,
               help='Access password for secure state if R/W locked')
+@click.option('-f', '--frequencies', type=str, default='1',
+              help='comma-separated list of frequency indexes to use (0=all;'
+                   ' default 1). Region and reader dependent')
+@click.option('--hoptable-id', type=int, default=1,
+              help='HopTableID to use (default 1) for regions '
+              'with frequency hopping regulatory requirements')
 def access(host, port, time, report_every_n_tags, antennas, tx_power,
            tari, session, mode_identifier, tag_population,
            read_words, write_words, count, memory_bank, word_ptr,
-           access_password):
+           access_password, frequencies, hoptable_id):
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'tari', 'session',
                                'mode_identifier', 'population', 'read_words',
                                'write_words', 'count', 'mb', 'word_ptr',
-                               'access_password'])
+                               'access_password', 'frequencies',
+                               'hoptable_id'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power, tari=tari,
                 session=session, mode_identifier=mode_identifier,
                 population=tag_population, read_words=read_words,
                 write_words=write_words, count=count, mb=memory_bank,
-                word_ptr=word_ptr, access_password=access_password)
+                word_ptr=word_ptr, access_password=access_password,
+                frequencies=frequencies, hoptable_id=hoptable_id)
     logger.debug('access args: %s', args)
     _access.main(args)
 

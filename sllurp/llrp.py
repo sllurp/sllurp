@@ -9,9 +9,9 @@ from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
                     IPPROTO_TCP, TCP_NODELAY, socket, error as SocketError)
 from threading import Thread, Event
 
-from .llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
-    Message_Type2Name, Capability_Name2Type, AirProtocol, \
-    llrp_data2xml, LLRPMessageDict
+from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
+                         Message_Type2Name, Capability_Name2Type, AirProtocol,
+                         llrp_data2xml, LLRPMessageDict, DEFAULT_CHANNEL_INDEX, DEFAULT_HOPTABLE_INDEX)
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger, is_general_debug_enabled
 from .util import BITMASK, natural_keys, iterkeys, find_closest
@@ -520,7 +520,8 @@ class LLRPClient(object):
             if self.config.impinj_search_mode \
                or self.config.impinj_tag_content_selector \
                or self.config.impinj_extended_configuration \
-               or self.config.impinj_fixed_frequency_param:
+               or self.config.frequencies.get('Automatic', False) \
+               or len(self.config.frequencies.get('Channelist', [])) > 1:
 
                 def enable_impinj_ext_cb(state, is_success, *args):
                     if is_success:
@@ -1112,7 +1113,8 @@ class LLRPClient(object):
             tag_content_selector=config.tag_content_selector,
             session=config.session,
             tari=config.tari,
-            tag_population=config.tag_population
+            tag_population=config.tag_population,
+            frequencies=config.frequencies
         )
         if config.tag_filter_mask is not None:
             rospec_kwargs['tag_filter_mask'] = config.tag_filter_mask
@@ -1122,9 +1124,6 @@ class LLRPClient(object):
         if config.impinj_tag_content_selector is not None:
             rospec_kwargs['impinj_tag_content_selector'] = \
                 config.impinj_tag_content_selector
-        if config.impinj_fixed_frequency_param is not None:
-            rospec_kwargs['impinj_fixed_frequency_param'] = \
-                config.impinj_fixed_frequency_param
 
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
@@ -1413,6 +1412,12 @@ class LLRPReaderConfig(object):
             'AntennaEvent': False,
         }
 
+        self.frequencies = {
+            'HopTableId': DEFAULT_HOPTABLE_INDEX,
+            'Channelist': [DEFAULT_CHANNEL_INDEX],
+            'Automatic': False
+        }
+
         self.reconnect = False
         self.start_inventory = True
         self.reset_on_connect = True
@@ -1422,7 +1427,6 @@ class LLRPReaderConfig(object):
         self.impinj_search_mode = None
         self.impinj_reports = False
         self.impinj_tag_content_selector = None
-        self.impinj_fixed_frequency_param = None
 
         ## If impinj extension, would be like:
         #self.impinj_tag_content_selector = {

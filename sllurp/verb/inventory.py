@@ -45,6 +45,7 @@ def main(args):
         return 0
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
+    frequency_list = [int(x.strip()) for x in args.frequencies.split(',')]
 
     factory_args = dict(
         duration=args.time,
@@ -75,6 +76,11 @@ def main(args):
                 'EnablePCBits': False,
             }
         },
+        frequencies={
+            'HopTableId': args.hoptable_id,
+            'ChannelList': frequency_list,
+            'Automatic': False
+        },
         impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
@@ -85,11 +91,9 @@ def main(args):
             'EnablePeakRSSI': True,
             'EnableRFDopplerFrequency': True
         }
-    if args.impinj_fixed_freq:
-        factory_args['impinj_fixed_frequency_param'] = {
-            'FixedFrequencyMode': 2,
-            'ChannelListIndex': [1]
-        }
+    if frequency_list[0] == 0:
+        factory_args['frequencies']['Automatic'] = True
+        factory_args['frequencies']['ChannelList'] = [1]
 
 
     reader_clients = []

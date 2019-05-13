@@ -69,6 +69,9 @@ def encode(data):
 
 VER_PROTO_V1 = 1
 
+DEFAULT_CHANNEL_INDEX = 1
+DEFAULT_HOPTABLE_INDEX = 1
+
 gen_header = '!HI'
 gen_header_len = struct.calcsize(gen_header)
 gen_header_unpack = struct.Struct(gen_header).unpack
@@ -3983,7 +3986,7 @@ class LLRPROSpec(dict):
                  tag_content_selector=None, tari=None,
                  session=2, tag_population=4, tag_filter_mask=[],
                  impinj_search_mode=None, impinj_tag_content_selector=None,
-                 impinj_fixed_frequency_param=None):
+                 frequencies=None):
         # Sanity checks
         if rospecid <= 0:
             raise LLRPError('invalid ROSpec message ID {} (need >0)'\
@@ -4003,6 +4006,9 @@ class LLRPROSpec(dict):
                 raise LLRPError('Must set tx_power for all antennas')
         else:
             raise LLRPError('tx_power must be dictionary or integer')
+
+        if frequencies is None:
+            frequencies = {}
 
         # if reader mode settings are specified, pepper them into this ROSpec
         override_tari = None
@@ -4080,14 +4086,18 @@ class LLRPROSpec(dict):
 
         ips = self['ROSpec']['AISpec']['InventoryParameterSpec']
 
+
+        freq_channel_list = frequencies.get('ChannelList',
+                                          [DEFAULT_CHANNEL_INDEX])
         # patch up per-antenna config
         for antid in antennas:
             transmit_power = tx_power[antid]
             antconf = {
                 'AntennaID': antid,
                 'RFTransmitter': {
-                    'HopTableId': 1,
-                    'ChannelIndex': 1,
+                    'HopTableId': frequencies.get('HopTableId',
+                                                DEFAULT_HOPTABLE_INDEX),
+                    'ChannelIndex': freq_channel_list[0],
                     'TransmitPower': transmit_power,
                 },
                 'C1G2InventoryCommand': {
@@ -4126,13 +4136,17 @@ class LLRPROSpec(dict):
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
 
-            if impinj_fixed_frequency_param is not None:
+            if frequencies.get('Automatic', False):
                 antconf['C1G2InventoryCommand']\
                     ['ImpinjFixedFrequencyListParameter'] = {
-                        'FixedFrequencyMode':
-                            impinj_fixed_frequency_param['FixedFrequencyMode'],
-                        'ChannelListIndex':
-                            impinj_fixed_frequency_param['ChannelListIndex']
+                        'FixedFrequencyMode': 1,
+                        'ChannelListIndex': []
+                    }
+            elif len(freq_channel_list) > 1:
+                antconf['C1G2InventoryCommand']\
+                    ['ImpinjFixedFrequencyListParameter'] = {
+                        'FixedFrequencyMode': 2,
+                        'ChannelListIndex': freq_channel_list
                     }
 
             ips['AntennaConfiguration'].append(antconf)
