@@ -96,6 +96,7 @@ def main(main_args):
                         args.modulation)
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
+    frequency_list = [int(x.strip()) for x in args.frequencies.split(',')]
 
     factory_args = dict(
         report_every_n_tags=args.every_n,
@@ -119,8 +120,17 @@ def main(main_args):
             'EnableLastSeenTimestamp': True,
             'EnableTagSeenCount': True,
             'EnableAccessSpecID': True,
-        }
+        },
+        frequencies={
+            'HopTableId': args.hoptable_id,
+            'ChannelList': frequency_list,
+            'Automatic': False
+        },
     )
+
+    if frequency_list[0] == 0:
+        factory_args['frequencies']['Automatic'] = True
+        factory_args['frequencies']['ChannelList'] = [1]
 
     reader_clients = []
     for host in args.host:
