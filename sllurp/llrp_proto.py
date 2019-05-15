@@ -392,7 +392,7 @@ def decode_param(data):
     if partype == 1023:
         vsfmt = '!II'
         vendor, subtype = struct.unpack(vsfmt, pardata[:struct.calcsize(vsfmt)])
-        ret['Vendor'] = vendor
+        ret['VendorID'] = vendor
         ret['Subtype'] = subtype
         ret['Data'] = pardata[struct.calcsize(vsfmt):]
     else:
@@ -3922,7 +3922,17 @@ def llrp_data2xml(msg):
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
 
-        xml_str = tabs + '<%s>\n' % name
+        ret = tabs + '<%s>\n' % name
+
+        if name.startswith('Parameter '):
+            ret = '{tabs}<Parameter>\n'.format(tabs=tabs)
+            for k in ('Type', 'Data', 'VendorID', 'Subtype'):
+                if k not in msg:
+                    continue
+                ret += '{tabs1}<{k}>{data}</{k}>\n'.format(
+                    k=k, tabs1=tabs + '\t', data=msg[k])
+            ret += '{tabs}</Parameter>\n'.format(tabs=tabs, **msg)
+            return ret
 
         fields = Message_struct[name]['fields']
         for p in fields:

@@ -361,7 +361,7 @@ class LLRPClient(object):
             vendor = None
             subtype = None
             try:
-                vendor, subtype = v['Vendor'], v['Subtype']
+                vendor, subtype = v['VendorID'], v['Subtype']
             except KeyError:
                 pass
 
