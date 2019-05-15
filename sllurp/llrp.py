@@ -9,6 +9,7 @@ from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
                     IPPROTO_TCP, TCP_NODELAY, socket, error as SocketError)
 from threading import Thread, Event
 
+from .llrp_decoder import TYPE_CUSTOM
 from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
                          Message_Type2Name, Capability_Name2Type, AirProtocol,
                          llrp_data2xml, LLRPMessageDict, DEFAULT_CHANNEL_INDEX, DEFAULT_HOPTABLE_INDEX)
@@ -348,8 +349,8 @@ class LLRPClient(object):
             Data: b'\x00'
         }
         {
-            Type: 1023,
-            Vendor: 25882,
+            Type: TYPE_CUSTOM,
+            VendorID: 25882,
             Subtype: 21,
             Data: b'\x00'
         }
@@ -368,7 +369,7 @@ class LLRPClient(object):
             except KeyError:
                 pass
 
-            if ty == 1023:
+            if ty == TYPE_CUSTOM:
                 if vendor == 25882 and subtype == 37:
                     tempc = struct.unpack('!H', data)[0]
                     conf.update(temperature=tempc)
@@ -787,7 +788,7 @@ class LLRPClient(object):
         self.sendMessage({
             'CUSTOM_MESSAGE': {
                 'Ver': 1,
-                'Type': 1023,
+                'Type': TYPE_CUSTOM,
                 'ID': 0,
                 'VendorID': 25882,
                 'Subtype': 21,
