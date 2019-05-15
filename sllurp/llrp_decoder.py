@@ -16,6 +16,8 @@ struct_schar = Struct('!b')
 struct_uint = Struct('!I')
 struct_2ushort = Struct('!HH')
 
+TYPE_CUSTOM = 1023
+
 tve_param_formats = {
     # param type: (param name, struct format)
     1: ('AntennaID', struct_ushort),
@@ -39,8 +41,9 @@ tve_param_formats = {
     20: ('C1G2XPCW2', struct_ushort),
 }
 
+
 custom_param_formats = {
-    25882: { # Impinj
+    25882: {  # Impinj
         56: ('ImpinjPhase', struct_ushort),
         57: ('ImpinjPeakRSSI', struct_short),
         68: ('ImpinjRFDopplerFrequency', struct_short)
@@ -55,6 +58,7 @@ nontve_header_unpack = nontve_header_struct.unpack
 vendor_subtype_struct = Struct('!II')
 vendor_subtype_len = vendor_subtype_struct.size
 vendor_subtype_unpack = vendor_subtype_struct.unpack
+
 
 def decode_tve_parameter(data):
     """Generic byte decoding function for TVE parameters.
@@ -81,7 +85,7 @@ def decode_tve_parameter(data):
         # not a TV-encoded param, maybe a custom parameter
         (nontve, size) = nontve_header_unpack(data[:nontve_header_len])
         # Check that it is a customparameter
-        if nontve != 1023:
+        if nontve != TYPE_CUSTOM:
             return None, 0
         param_value_offset = nontve_header_len + vendor_subtype_len
         (vendor, subtype) = vendor_subtype_unpack(
@@ -106,3 +110,4 @@ def decode_tve_parameter(data):
 
 def decode_parameter(data):
     """Decode a single parameter."""
+    pass

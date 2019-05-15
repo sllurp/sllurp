@@ -30,7 +30,7 @@ from collections import defaultdict
 from binascii import hexlify, unhexlify
 
 from .util import BIT, BITMASK, func, reverse_dict, iteritems
-from . import llrp_decoder
+from .llrp_decoder import decode_tve_parameter, TYPE_CUSTOM
 from .llrp_errors import LLRPError
 from .log import get_logger, is_general_debug_enabled
 
@@ -378,23 +378,21 @@ def decode_param(data):
         <decoded data>} and bytes is the remaining bytes trailing the bytes we
         could decode.
     """
-    logger.debug('decode_param data: %r', data)
-    header_len = struct.calcsize('!HH')
-    partype, parlen = struct.unpack('!HH', data[:header_len])
+    logger.debugfast('decode_param data: %r', data)
+    partype, parlen = par_header_unpack(data[:par_header_len])
 
-    pardata = data[header_len:parlen]
-    logger.debug('decode_param pardata: %r', pardata)
+    pardata = data[par_header_len:parlen]
+    logger.debugfast('decode_param pardata: %r', pardata)
 
     ret = {
         'Type': partype,
     }
 
-    if partype == 1023:
-        vsfmt = '!II'
-        vendor, subtype = struct.unpack(vsfmt, pardata[:struct.calcsize(vsfmt)])
+    if partype == TYPE_CUSTOM:
+        vendor, subtype = uint_uint_unpack(pardata[:uint_uint_size])
         ret['VendorID'] = vendor
         ret['Subtype'] = subtype
-        ret['Data'] = pardata[struct.calcsize(vsfmt):]
+        ret['Data'] = pardata[uint_uint_size:]
     else:
         ret['Data'] = pardata,
 
@@ -2792,7 +2790,7 @@ def decode_TagReportData(data):
 
     # grab TV-encoded parameters
     while body:
-        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        ret, nbytes = decode_tve_parameter(body)
         if ret:
             par.update(ret)
             body = body[nbytes:]
@@ -3102,6 +3100,32 @@ Message_struct['ROSpecID'] = {
     'tv_encoded': True,
 }
 
+def decode_C1G2SingulationDetails(data):
+    logger.debugfast('decode_C1G2SingulationDetails')
+    par = {}
+
+    if len(data) == 0:
+        return None, data
+
+    ret, nbytes = decode_tve_parameter(data)
+    if ret:
+        par['NumCollisionSlots'] = ret['C1G2SingulationDetails'][0]
+        par['NumEmptySlots'] = ret['C1G2SingulationDetails'][1]
+        data = data[nbytes:]
+    return par, data
+
+
+Message_struct['C1G2SingulationDetails'] = {
+    'type': 18,
+    'tv_encoded': True,
+    'fields': [
+        'NumCollisionSlots',
+        'NumEmptySlots',
+    ],
+    'decode': decode_C1G2SingulationDetails
+}
+
+
 # 16.2.7.6.1 HoppingEvent Parameter
 def decode_HoppingEvent(data):
     logger.debugfast('decode_HoppingEvent')
@@ -3269,7 +3293,7 @@ def decode_ReaderExceptionEvent(data):
 
     # grab TV-encoded parameters
     while body:
-        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
+        ret, nbytes = decode_tve_parameter(body)
         if ret:
             par.update(ret)
             body = body[nbytes:]
@@ -3359,11 +3383,9 @@ def decode_AISpecEvent(data):
 
     # Optionnal AirProtocolSingulationDetailsParameter parameter:
     # C1G2SingulationDetails that is a tve
-    if body:
-        ret, nbytes = llrp_decoder.decode_tve_parameter(body)
-        if ret:
-            par.update(ret)
-            body = body[nbytes:]
+    ret, body = decode('C1G2SingulationDetails')(body)
+    if ret:
+        par['C1G2SingulationDetails'] = ret
 
     return par, data[length:]
 
@@ -3758,7 +3780,7 @@ def decode_CustomMessageResponse(data):
 
 
 Message_struct['CUSTOM_MESSAGE'] = {
-    'type': 1023,
+    'type': TYPE_CUSTOM,
     'fields': [
         'Ver', 'Type', 'ID',
         'VendorID',
@@ -3784,7 +3806,7 @@ def encode_CustomParameter(par):
 
 
 Message_struct['CustomParameter'] = {
-    'type': 1023,
+    'type': TYPE_CUSTOM,
     'fields': [
         'VendorID',
         'Subtype',
