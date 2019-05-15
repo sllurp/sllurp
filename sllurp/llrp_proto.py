@@ -441,6 +441,9 @@ def encode_SetReaderConfig(msg):
     if 'ReaderEventNotificationSpec' in msg:
         data += encode('ReaderEventNotificationSpec')(
             msg['ReaderEventNotificationSpec'])
+    if 'ImpinjAntennaConfigurationParameter' in msg:
+        data += encode('ImpinjAntennaConfigurationParameter')(
+            msg['ImpinjAntennaConfigurationParameter'])
     # XXX other params
     return data
 
@@ -459,6 +462,7 @@ Message_struct['SET_READER_CONFIG'] = {
         'GPOWriteData',
         'GPIPortCurrentState',
         'EventsAndReports',
+        'ImpinjAntennaConfigurationParameter',
     ],
     'encode': encode_SetReaderConfig,
 }
@@ -2429,6 +2433,48 @@ Message_struct['AntennaConfiguration'] = {
 }
 
 
+def encode_ImpinjAntennaEventConfigurationParameter(par):
+    msg_struct_param = Message_struct['ImpinjAntennaEventConfigurationParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+    enabled_flags = (int(bool(par)) << 7) & 0xff
+    data = struct.pack('!B', enabled_flags)
+    custom_par['Payload'] = data
+
+    return encode('CustomParameter')(custom_par)
+
+
+Message_struct['ImpinjAntennaEventConfigurationParameter'] = {
+    'vendorid': 25882,
+    'subtype': 1576,
+    'fields': [],
+    'encode': encode_ImpinjAntennaEventConfigurationParameter
+}
+
+
+def encode_ImpinjAntennaConfigurationParameter(par):
+    msg_struct_param = Message_struct['ImpinjAntennaConfigurationParameter']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+    payload = encode('ImpinjAntennaEventConfigurationParameter')(
+        par.get('ImpinjAntennaEventConfigurationParameter', True))
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+
+Message_struct['ImpinjAntennaConfigurationParameter'] = {
+    'vendorid': 25882,
+    'subtype': 1524,
+    'fields': [],
+    'encode': encode_ImpinjAntennaConfigurationParameter
+}
+
+
 # 16.2.6.7 RFReceiver Parameter
 def encode_RFReceiver(par):
     msgtype = Message_struct['RFReceiver']['type']
@@ -3100,6 +3146,7 @@ Message_struct['ROSpecID'] = {
     'tv_encoded': True,
 }
 
+
 def decode_C1G2SingulationDetails(data):
     logger.debugfast('decode_C1G2SingulationDetails')
     par = {}
@@ -3402,6 +3449,7 @@ Message_struct['AISpecEvent'] = {
     'decode': decode_AISpecEvent
 }
 
+
 # 16.2.7.6.9 AntennaEvent Parameter
 def decode_AntennaEvent(data):
     logger.debugfast('decode_AntennaEvent')
@@ -3435,6 +3483,7 @@ Message_struct['AntennaEvent'] = {
     ],
     'decode': decode_AntennaEvent
 }
+
 
 # 16.2.7.6.10 ConnectionAttemptEvent Parameter
 def decode_ConnectionAttemptEvent(data):
@@ -3524,6 +3573,38 @@ Message_struct['SpecLoopEvent'] = {
 }
 
 
+# Missing from the documentation, Impinj Custom Antenna Event Since Octane 5.8
+# Fired each time there is an attempt to us an antenna during the inventory
+def decode_ImpinjAntennaAttemptEvent(data):
+    logger.debugfast('decode_ImpinjAntennaAttemptEvent')
+    par = {}
+
+    if len(data) == 0:
+        return None, data
+
+    header = data[0:par_header_len]
+    partype, length = par_header_unpack(header)
+
+    # Skip param header + custom headers
+    body = data[par_header_len + uint_uint_size:]
+
+    logger.debugfast('decode_ImpinjAntennaAttemptEvent (len=%d)', len(body))
+
+    # Decode fields
+    par['AntennaID'] = ushort_unpack(body)[0]
+
+    return par, data[length:]
+
+
+Message_struct['ImpinjAntennaAttemptEvent'] = {
+    'vendorid': 25882,
+    'subtype': 1577,
+    'fields': [
+        'AntennaID'
+    ],
+    'decode': decode_ImpinjAntennaAttemptEvent
+}
+
 # 16.2.7.6 ReaderEventNotificationData Parameter
 def decode_ReaderEventNotificationData(data):
     par = {}
@@ -3551,7 +3632,16 @@ def decode_ReaderEventNotificationData(data):
         evt_msgtype, evt_length = par_header_unpack(evt_header)
         evt_msgtype = evt_msgtype & BITMASK(10)
 
-        event_name = Event_Type2Name.get(evt_msgtype)
+        if evt_msgtype != TYPE_CUSTOM:
+            event_name = Event_Type2Name.get(evt_msgtype)
+        else:
+            vendorid, subtype = uint_uint_unpack(
+                body[par_header_len:par_header_len + uint_uint_size])
+            try:
+                event_name = Event_Type2Name[TYPE_CUSTOM][vendorid][subtype]
+            except KeyError:
+                event_name = None
+
         if not event_name:
             logger.warning('skipping unsupported event (type: %d)',
                            evt_msgtype)
@@ -3570,7 +3660,7 @@ def decode_ReaderEventNotificationData(data):
         if ret:
             par[event_name] = ret
         else:
-            logger.warning('error decoding event %s', )
+            logger.warning('error decoding event %s', event_name)
             body = body[evt_length:]
             continue
 
@@ -3593,7 +3683,8 @@ Message_struct['ReaderEventNotificationData'] = {
         'AntennaEvent',
         'ConnectionAttemptEvent',
         'ConnectionCloseEvent',
-        'SpecLoopEvent'
+        'SpecLoopEvent',
+        'ImpinjAntennaAttemptEvent',
     ],
     'decode': decode_ReaderEventNotificationData
 }
@@ -3605,6 +3696,13 @@ for field_name in Message_struct['ReaderEventNotificationData']['fields']:
     if field_name in ['Type', 'UTCTimestamp']:
         continue
     event_type_id = Message_struct.get(field_name, {}).get('type')
+    if not event_type_id or event_type_id == TYPE_CUSTOM:
+        event_vendor_id = Message_struct.get(field_name, {}).get('vendorid')
+        event_subtype = Message_struct.get(field_name, {}).get('subtype')
+        if event_vendor_id and event_subtype:
+            Event_Type2Name.setdefault(TYPE_CUSTOM, {})\
+                .setdefault(event_vendor_id, {})[event_subtype] = field_name
+        continue
     if event_type_id:
         Event_Type2Name[event_type_id] = field_name
 
