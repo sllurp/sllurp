@@ -309,8 +309,12 @@ class LLRPClient(object):
         if config.start_inventory:
             logger.info('will start inventory on connect')
 
-        if config.impinj_search_mode is not None \
-           or config.impinj_tag_content_selector is not None:
+        if config.impinj_search_mode \
+           or config.impinj_tag_content_selector \
+           or config.impinj_extended_configuration \
+           or config.impinj_event_selector \
+           or config.frequencies.get('Automatic', False) \
+           or len(config.frequencies.get('Channelist', [])) > 1:
             logger.info('Enabling Impinj extensions')
 
         logger.info('using antennas: %s', config.antennas)
@@ -521,6 +525,7 @@ class LLRPClient(object):
             if self.config.impinj_search_mode \
                or self.config.impinj_tag_content_selector \
                or self.config.impinj_extended_configuration \
+               or self.config.impinj_event_selector \
                or self.config.frequencies.get('Automatic', False) \
                or len(self.config.frequencies.get('Channelist', [])) > 1:
 
@@ -862,12 +867,23 @@ class LLRPClient(object):
                         ## with llrp v2 (spec 1_1)
                         #'SpecLoopEvent': False,
                     },
-                }
+                },
             }
         }
         for event, enabled in self.config.event_selector.items():
             msg['SET_READER_CONFIG']['ReaderEventNotificationSpec']\
                 ['EventNotificationState'][event] = enabled
+        if self.config.impinj_event_selector:
+            ant_event_enable = self.config.impinj_event_selector.get(
+                'AntennaAttemptEvent')
+            if ant_event_enable is not None:
+                msg['SET_READER_CONFIG']\
+                   ['ImpinjAntennaConfigurationParameter']\
+                    = {
+                        'ImpinjAntennaEventConfigurationParameter':
+                            ant_event_enable
+                    }
+
         self.sendMessage(msg)
         self.setState(LLRPReaderState.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
@@ -1428,12 +1444,16 @@ class LLRPReaderConfig(object):
         self.impinj_search_mode = None
         self.impinj_reports = False
         self.impinj_tag_content_selector = None
+        self.impinj_event_selector = None
 
         ## If impinj extension, would be like:
         #self.impinj_tag_content_selector = {
         #    'EnableRFPhaseAngle': True,
         #    'EnablePeakRSSI': False,
         #    'EnableRFDopplerFrequency': False
+        #}
+        #self.impinj_event_selector = {
+        #    'AntennaAttemptEvent': False
         #}
 
 
