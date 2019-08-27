@@ -2507,10 +2507,14 @@ Message_struct['C1G2InventoryCommand'] = {
 def encode_C1G2Filter(par):
     msgtype = Message_struct['C1G2Filter']['type']
     msg_header = '!HH'
-    data = struct.pack('!B', Message_struct['C1G2Filter']['T'] << 6) # XXX: hardcoded trucation for now
+    data = struct.pack('!B', Message_struct['C1G2Filter']['T'] << 6) # XXX: hardcoded truncation for now
     if 'C1G2TagInventoryMask' in par:
         data += encode('C1G2TagInventoryMask')(
             par['C1G2TagInventoryMask'])
+    if "C1G2TagInventoryStateAwareFilterAction" in par:
+        data += encode("C1G2TagInventoryStateAwareFilterAction")(
+            par["C1G2TagInventoryStateAwareFilterAction"]
+        )
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
     return data
@@ -2520,7 +2524,8 @@ Message_struct['C1G2Filter'] = {
     'type': 331,
     'T': 0,
     'fields': [
-        'C1G2TagInventoryMask'
+        'C1G2TagInventoryMask',
+	'C1G2TagInventoryStateAwareFilterAction'
     ],
     'encode': encode_C1G2Filter
 }
@@ -2551,6 +2556,23 @@ Message_struct['C1G2TagInventoryMask'] = {
     'encode': encode_C1G2TagInventoryMask
 }
 
+# 16.2.1.2.1.1.2 C1G2TagInventoryStateAwareFilterAction Parameter
+def encode_C1G2TagInventoryStateAwareFilterAction(par):
+    msgtype = Message_struct["C1G2TagInventoryStateAwareFilterAction"]["type"]
+    msg_header = "!HH"
+    data = struct.pack("!B", par["Target"])
+    data += struct.pack("!B", par["Action"])
+    data = struct.pack(msg_header, msgtype, len(data) + struct.calcsize(msg_header)) + data
+    print("******** TagInventoryStateAware")
+    return data
+
+
+Message_struct["C1G2TagInventoryStateAwareFilterAction"] = {
+    "type": 333,
+    "fields": ["Target", "Action"],
+    "encode": encode_C1G2TagInventoryStateAwareFilterAction,
+}
+
 # 16.3.1.2.1.2 C1G2RFControl Parameter
 def encode_C1G2RFControl(par):
     msgtype = Message_struct['C1G2RFControl']['type']
@@ -2579,8 +2601,9 @@ def encode_C1G2SingulationControl(par):
     data = struct.pack('!B', par['Session'] << 6)
     data += struct.pack('!H', par['TagPopulation'])
     data += struct.pack('!I', par['TagTransitTime'])
-    data = struct.pack(msg_header, msgtype,
-                       len(data) + struct.calcsize(msg_header)) + data
+    if "C1G2TagInventoryStateAwareSingulationAction" in par:
+        data += encode("C1G2TagInventoryStateAwareSingulationAction")(par["C1G2TagInventoryStateAwareSingulationAction"])
+    data = struct.pack(msg_header, msgtype, len(data) + struct.calcsize(msg_header)) + data
     return data
 
 
@@ -2590,8 +2613,25 @@ Message_struct['C1G2SingulationControl'] = {
         'Session',
         'TagPopulation',
         'TagTransitTime',
+        'C1G2TagInventoryStateAwareSingulationAction',
     ],
     'encode': encode_C1G2SingulationControl
+}
+
+
+# 16.2.1.2.1.3.1. C1G2TagInventoryStateAwareSingulationAction Parameter
+def encode_C1G2TagInventoryStateAwareSingulationAction(par):
+    msgtype = Message_struct["C1G2TagInventoryStateAwareSingulationAction"]["type"]
+    msg_header = "!HH"
+    data = struct.pack("!B", (par["I"] << 7) | (par["S"] << 6) | (par["A"] << 5))
+    data = struct.pack(msg_header, msgtype, len(data) + struct.calcsize(msg_header)) + data
+    return data
+
+
+Message_struct["C1G2TagInventoryStateAwareSingulationAction"] = {
+    "type": 337,
+    "fields": ["I", "S", "A"],
+    "encode": encode_C1G2TagInventoryStateAwareSingulationAction,
 }
 
 
