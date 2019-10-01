@@ -3917,6 +3917,7 @@ class LLRPROSpec(dict):
                  report_every_n_tags=None, report_timeout_ms=0,
                  tag_content_selector={}, tari=None,
                  session=2, tag_population=4, tag_filter_mask=[],
+                 singulation_action={}, filter_action={},
                  impinj_search_mode=None, impinj_tag_content_selector=None,
                  impinj_fixed_frequency_param=None):
         # Sanity checks
@@ -3965,6 +3966,23 @@ class LLRPROSpec(dict):
         }
         if tag_content_selector:
             tagReportContentSelector.update(tag_content_selector)
+
+        state_aware_singulation_action = {
+            "I": 1, # B
+            "S": 1, # SL==0
+            "A": 0, # SL do not care
+        }
+
+        if singulation_action:
+            state_aware_singulation_action.update(singulation_action)
+
+        state_aware_filter_action = {
+            "Target": session + 1,  ## Do not use SL (0), use session
+            "Action": 4,  ## Match => flag = A, unmatch => flag = B
+        }
+
+        if filter_action:
+            state_aware_filter_action.update(filter_action)
 
         self['ROSpec'] = {
             'ROSpecID': rospecid,
@@ -4024,11 +4042,12 @@ class LLRPROSpec(dict):
                     'TransmitPower': transmit_power,
                 },
                 'C1G2InventoryCommand': {
-                    'TagInventoryStateAware': False,
+                    "TagInventoryStateAware": True if tag_filter_mask else False,
                     'C1G2SingulationControl': {
                         'Session': session,
                         'TagPopulation': tag_population,
-                        'TagTransitTime': 0
+                        'TagTransitTime': 0,
+                        "C1G2TagInventoryStateAwareSingulationAction": state_aware_singulation_action,
                     },
                 }
             }
@@ -4041,7 +4060,8 @@ class LLRPROSpec(dict):
                         'MB': 1,    # EPC bank
                         'Pointer': 0x20,    # Third word starts the EPC ID
                         'TagMask': tfm
-                    }
+                    },
+                    "C1G2TagInventoryStateAwareFilterAction": state_aware_filter_action,
                 })
             if tag_filters:
                 antconf['C1G2InventoryCommand']['C1G2Filter'] = tag_filters
