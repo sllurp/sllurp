@@ -14,17 +14,15 @@ import sllurp.llrp_errors
 
 
 logLevel = logging.WARNING
-logging.basicConfig(level=logLevel,
-                    format='%(asctime)s %(name)s: %(levelname)s: %(message)s')
-logger = logging.getLogger('sllurp')
+logging.basicConfig(level=logLevel, format="%(asctime)s %(name)s: %(levelname)s: %(message)s")
+logger = logging.getLogger("sllurp")
 logger.setLevel(logLevel)
 
 
 def randhex(numdigits):
     """Return a string with numdigits hexadecimal digits."""
     assert type(numdigits) is int
-    return '{{:0{}x}}'.format(numdigits).format(
-        random.randrange(16**numdigits))
+    return "{{:0{}x}}".format(numdigits).format(random.randrange(16 ** numdigits))
 
 
 def hex_to_bytes(hexdata):
@@ -68,7 +66,7 @@ class MockConn(object):
 
 class FauxClient(object):
     def __init__(self):
-        self.reader_mode = {'ModeIdentifier': '0', 'MaxTari': 7250}
+        self.reader_mode = {"ModeIdentifier": "0", "MaxTari": 7250}
 
 
 class TestROSpec(unittest.TestCase):
@@ -76,33 +74,61 @@ class TestROSpec(unittest.TestCase):
         fx = FauxClient()
         rospec = sllurp.llrp.LLRPROSpec(fx.reader_mode, 1)
         rospec_str = repr(rospec)
-        self.assertNotEqual(rospec_str, '')
+        self.assertNotEqual(rospec_str, "")
 
     def test_multi_tag_mask(self):
         fx = FauxClient()
-        masks = ['0123', '4567']
-        rospec = sllurp.llrp.LLRPROSpec(
-            fx.reader_mode, 1,
-            tag_filter_mask=masks)
+        masks = ["0123", "4567"]
+        rospec = sllurp.llrp.LLRPROSpec(fx.reader_mode, 1, tag_filter_mask=masks)
         rospec_str = repr(rospec)
-        filters = rospec['ROSpec']['AISpec']['InventoryParameterSpec'][
-            'AntennaConfiguration'][0]['C1G2InventoryCommand']['C1G2Filter']
+        filters = rospec["ROSpec"]["AISpec"]["InventoryParameterSpec"]["AntennaConfiguration"][0][
+            "C1G2InventoryCommand"
+        ]["C1G2Filter"]
         self.assertEqual(len(filters), 2)
+        self.assertEqual([f["C1G2TagInventoryMask"]["TagMask"] for f in filters], masks)
+
+    def test_multi_tag_filter_action(self):
+        fx = FauxClient()
+        session = 2
+        masks = ["0123", "4567"]
+        singulation_action = {"I": 1, "S": 1, "A": 0}  # B  # SL==0  # SL do not care
+        filter_action = {
+            "Target": session + 1,  ## Do not use SL (0), use session
+            "Action": 4,  ## Match => flag = A, unmatch => flag = B
+        }
+        rospec = sllurp.llrp.LLRPROSpec(
+            fx.reader_mode,
+            1,
+            tag_filter_mask=masks,
+            singulation_action=singulation_action,
+            filter_action=filter_action,
+        )
+        rospec_str = repr(rospec)
+        inventoryCommand = rospec["ROSpec"]["AISpec"]["InventoryParameterSpec"][
+            "AntennaConfiguration"
+        ][0]["C1G2InventoryCommand"]
+        self.assertEqual(inventoryCommand["TagInventoryStateAware"], True)
         self.assertEqual(
-            [f['C1G2TagInventoryMask']['TagMask'] for f in filters],
-            masks)
+            inventoryCommand["C1G2SingulationControl"][
+                "C1G2TagInventoryStateAwareSingulationAction"
+            ],
+            singulation_action,
+        )
+        for f in inventoryCommand["C1G2Filter"]:
+            self.assertEqual(f["C1G2TagInventoryStateAwareFilterAction"], filter_action)
 
 
 class TestReaderEventNotification(unittest.TestCase):
     def test_decode(self):
-        data = binascii.unhexlify('043f000000200ab288c900f600160080000c0004f8'
-                                  '535baadaff010000060000')
+        data = binascii.unhexlify(
+            "043f000000200ab288c900f600160080000c0004f8" "535baadaff010000060000"
+        )
         client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        client.transport = MockConn('')
+        client.transport = MockConn("")
         client.dataReceived(data)
 
 
-class TestDecodeROAccessReport (unittest.TestCase):
+class TestDecodeROAccessReport(unittest.TestCase):
     _r = """
     043d0000002c4095892f00f000228d3005fb63ac1f3841ec88046781000186ce820004ec2ea8
     354c09880001043d0000002c4095893000f000228d300833b2ddd906c00000000081000186c6
@@ -165,15 +191,15 @@ class TestDecodeROAccessReport (unittest.TestCase):
         self._tags_seen += 1
 
     def setUp(self):
-        self._r = self._r.rstrip().lstrip().replace('\n', '').replace(' ', '')
+        self._r = self._r.rstrip().lstrip().replace("\n", "").replace(" ", "")
         self._binr = hex_to_bytes(self._r)
         self.assertEqual(len(self._r), 3982)
         self.assertEqual(len(self._binr), 1991)
         self._mock_conn = MockConn(self._binr)
-        logger.debug('%d bytes waiting', self._mock_conn.stream.waiting())
+        logger.debug("%d bytes waiting", self._mock_conn.stream.waiting())
         self._client = sllurp.llrp.LLRPClient(self, start_inventory=False)
-        self._client.transport = MockConn('')
-        self._client.addMessageCallback('RO_ACCESS_REPORT', self.tagcb)
+        self._client.transport = MockConn("")
+        self._client.addMessageCallback("RO_ACCESS_REPORT", self.tagcb)
 
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
@@ -187,28 +213,28 @@ class TestDecodeROAccessReport (unittest.TestCase):
 
 class TestEncodings(unittest.TestCase):
     tagReportContentSelector = {
-        'EnableROSpecID': False,
-        'EnableSpecIndex': False,
-        'EnableInventoryParameterSpecID': False,
-        'EnableAntennaID': True,
-        'EnableChannelIndex': False,
-        'EnablePeakRSSI': True,
-        'EnableFirstSeenTimestamp': True,
-        'EnableLastSeenTimestamp': True,
-        'EnableTagSeenCount': True,
-        'EnableAccessSpecID': False}
+        "EnableROSpecID": False,
+        "EnableSpecIndex": False,
+        "EnableInventoryParameterSpecID": False,
+        "EnableAntennaID": True,
+        "EnableChannelIndex": False,
+        "EnablePeakRSSI": True,
+        "EnableFirstSeenTimestamp": True,
+        "EnableLastSeenTimestamp": True,
+        "EnableTagSeenCount": True,
+        "EnableAccessSpecID": False,
+    }
 
     def test_roreportspec(self):
-        par = {'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
-               'N': 1}
-        par['TagReportContentSelector'] = self.tagReportContentSelector
+        par = {"ROReportTrigger": "Upon_N_Tags_Or_End_Of_ROSpec", "N": 1}
+        par["TagReportContentSelector"] = self.tagReportContentSelector
         sllurp.llrp_proto.encode_ROReportSpec(par)
 
     def test_tagreportcontentselector(self):
         par = self.tagReportContentSelector
         data = sllurp.llrp_proto.encode_TagReportContentSelector(par)
         self.assertEqual(len(data), 48 / 8)
-        ty = int(binascii.hexlify(data[0:2]), 16) & (2**10 - 1)
+        ty = int(binascii.hexlify(data[0:2]), 16) & (2 ** 10 - 1)
         self.assertEqual(ty, 238)
         length = int(binascii.hexlify(data[2:4]), 16)
         self.assertEqual(length, len(data))
@@ -217,8 +243,8 @@ class TestEncodings(unittest.TestCase):
 
     def test_encode_bitstring(self):
         eb = sllurp.llrp_proto.encode_bitstring
-        self.assertEqual(eb(b'\x41\x42\x43', 6), b'ABC\x00\x00\x00')
-        self.assertEqual(eb(b'\x41\x42\x43', 2), b'ABC')
+        self.assertEqual(eb(b"\x41\x42\x43", 6), b"ABC\x00\x00\x00")
+        self.assertEqual(eb(b"\x41\x42\x43", 2), b"ABC")
 
 
 class TestMessageStruct(unittest.TestCase):
@@ -227,121 +253,115 @@ class TestMessageStruct(unittest.TestCase):
     def test_can_encode_or_decode(self):
         for msg_name, msg_struct in self.s.items():
             self.assertIsInstance(msg_struct, dict)
-            self.assertTrue('decode' in msg_struct or 'encode' in msg_struct)
-            if 'decode' in msg_struct:
-                self.assertTrue(callable(msg_struct['decode']))
-            if 'encode' in msg_struct:
-                self.assertTrue(callable(msg_struct['encode']))
+            self.assertTrue("decode" in msg_struct or "encode" in msg_struct)
+            if "decode" in msg_struct:
+                self.assertTrue(callable(msg_struct["decode"]))
+            if "encode" in msg_struct:
+                self.assertTrue(callable(msg_struct["encode"]))
 
     def test_has_fields(self):
         for msg_name, msg_struct in self.s.items():
             self.assertIsInstance(msg_struct, dict)
-            self.assertIn('fields', msg_struct)
-            self.assertIsInstance(msg_struct['fields'], list)
+            self.assertIn("fields", msg_struct)
+            self.assertIsInstance(msg_struct["fields"], list)
 
     @unittest.expectedFailure
     def test_unique_types(self):
         d = {}
         for msg_name, msg_struct in self.s.items():
-            self.assertIn('type', msg_struct)
-            self.assertIsInstance(msg_struct['type'], int)
-            self.assertNotIn(msg_struct['type'], d)
-            d[msg_struct['type']] = True
+            self.assertIn("type", msg_struct)
+            self.assertIsInstance(msg_struct["type"], int)
+            self.assertNotIn(msg_struct["type"], d)
+            d[msg_struct["type"]] = True
 
 
 def test_get_reader_config():
-    msg = {
-        'Ver':  1,
-        'Type': 2,
-        'ID':   0,
-        'RequestedData': 0,
-    }
+    msg = {"Ver": 1, "Type": 2, "ID": 0, "RequestedData": 0}
     conf = sllurp.llrp_proto.encode_GetReaderConfig(msg)
     assert len(conf) == 7
-    assert conf[:2] == b'\x00\x00' # antenna ID=0
-    assert conf[2:3] == b'\x00' # requested data = 0
-    assert conf[3:5] == b'\x00\x00' # GPIPortNum=0
-    assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
+    assert conf[:2] == b"\x00\x00"  # antenna ID=0
+    assert conf[2:3] == b"\x00"  # requested data = 0
+    assert conf[3:5] == b"\x00\x00"  # GPIPortNum=0
+    assert conf[5:7] == b"\x00\x00"  # GPOPortNum=0
 
-    msg['CustomParameters'] = [
+    msg["CustomParameters"] = [
         {
             # ImpinjRequestedData parameter
-            'VendorID': 25882,
+            "VendorID": 25882,
             # per Octane LLRP guide:
             # 21 = ImpinjRequestedData
             # 2000 = All configuration params
-            'Subtype': 21,
-            'Payload': b'\x00\x00\x07\xd0' # 2000
+            "Subtype": 21,
+            "Payload": b"\x00\x00\x07\xd0",  # 2000
         }
     ]
 
     # CustomParameter gets tacked on properly
     conf = sllurp.llrp_proto.encode_GetReaderConfig(msg)
-    parm = sllurp.llrp_proto.encode_CustomParameter(msg['CustomParameters'][0])
+    parm = sllurp.llrp_proto.encode_CustomParameter(msg["CustomParameters"][0])
     assert conf[7:] == parm
 
-    assert parm[:2] == b'\x03\xff' # type=1023
-    assert parm[2:4] == b'\x00\x10' # length = 23 - 7 = 16
-    assert parm[4:8] == b'\x00\x00e\x1a' # VendorID=25882
-    assert parm[8:12] == b'\x00\x00\x00\x15' # Subtype=21
-    assert parm[12:16] == b'\x00\x00\x07\xd0' # Payload=2000
+    assert parm[:2] == b"\x03\xff"  # type=1023
+    assert parm[2:4] == b"\x00\x10"  # length = 23 - 7 = 16
+    assert parm[4:8] == b"\x00\x00e\x1a"  # VendorID=25882
+    assert parm[8:12] == b"\x00\x00\x00\x15"  # Subtype=21
+    assert parm[12:16] == b"\x00\x00\x07\xd0"  # Payload=2000
 
     assert len(conf) == 23
-    assert conf[:2] == b'\x00\x00' # antenna ID=0
-    assert conf[2:3] == b'\x00' # requested data = 0
-    assert conf[3:5] == b'\x00\x00' # GPIPortNum=0
-    assert conf[5:7] == b'\x00\x00' # GPOPortNum=0
+    assert conf[:2] == b"\x00\x00"  # antenna ID=0
+    assert conf[2:3] == b"\x00"  # requested data = 0
+    assert conf[3:5] == b"\x00\x00"  # GPIPortNum=0
+    assert conf[5:7] == b"\x00\x00"  # GPOPortNum=0
 
 
 def test_parse_get_reader_config():
     msgb = hex_to_bytes(
-        b'040c0000034b00000003011f00080000000000da000f000008001625ffff10ba4700'
-        b'dd0009800001000000dd0009000002000000de0072000100df0006000100e0000a00'
-        b'0100000051014a005c00014f000803e800000150000b4000200000000003ff000e00'
-        b'00651a00000017000003ff00120000651a0000001a00000000000003ff0012000065'
-        b'1a0000001b00000000000003ff00120000651a0000001c00000000000000de007200'
-        b'0200df0006000100e0000a000100000051014a005c00014f000803e800000150000b'
-        b'4000200000000003ff000e0000651a00000017000003ff00120000651a0000001a00'
-        b'000000000003ff00120000651a0000001b00000000000003ff00120000651a000000'
-        b'1c00000000000000f4004300f5000700000000f5000700010000f5000700020000f5'
-        b'000700030000f5000700048000f5000700050000f5000700060000f5000700070000'
-        b'f5000700088000ed008602000100ee000b1600015c00050003ff00140000651a0000'
-        b'0018000000020000000003ff00600000651a0000003203ff000e0000651a00000033'
-        b'000003ff000e0000651a00000034000003ff000e0000651a00000035000003ff000e'
-        b'0000651a00000036000003ff000e0000651a00000041000003ff000e0000651a0000'
-        b'0043000000ef00050100d900087857993700dc0009000000000000e1000800010000'
-        b'00e100080002000000e100080003000000e100080004000000db000700010000db00'
-        b'0700020000db000700030000db000700040000e200050003ff000e0000651a000000'
-        b'16000003ff00120000651a0000002400010000001403ff00120000651a0000002400'
-        b'020000001403ff00120000651a0000002400030000001403ff00120000651a000000'
-        b'2400040000001403ff000e0000651a00000025001b03ff00100000651a0000002600'
-        b'00000003ff000e0000651a00000027000003ff00360000651a0000002803ff000e00'
-        b'00651a00000029000103ff000e0000651a0000003f000003ff000e0000651a000000'
-        b'42000003ff000c0000651a0000003c03ff00140000651a0000004000010000000000'
-        b'0003ff00140000651a00000040000200000000000003ff00140000651a0000004000'
-        b'0300000000000003ff00140000651a000000400004000000000000'
+        b"040c0000034b00000003011f00080000000000da000f000008001625ffff10ba4700"
+        b"dd0009800001000000dd0009000002000000de0072000100df0006000100e0000a00"
+        b"0100000051014a005c00014f000803e800000150000b4000200000000003ff000e00"
+        b"00651a00000017000003ff00120000651a0000001a00000000000003ff0012000065"
+        b"1a0000001b00000000000003ff00120000651a0000001c00000000000000de007200"
+        b"0200df0006000100e0000a000100000051014a005c00014f000803e800000150000b"
+        b"4000200000000003ff000e0000651a00000017000003ff00120000651a0000001a00"
+        b"000000000003ff00120000651a0000001b00000000000003ff00120000651a000000"
+        b"1c00000000000000f4004300f5000700000000f5000700010000f5000700020000f5"
+        b"000700030000f5000700048000f5000700050000f5000700060000f5000700070000"
+        b"f5000700088000ed008602000100ee000b1600015c00050003ff00140000651a0000"
+        b"0018000000020000000003ff00600000651a0000003203ff000e0000651a00000033"
+        b"000003ff000e0000651a00000034000003ff000e0000651a00000035000003ff000e"
+        b"0000651a00000036000003ff000e0000651a00000041000003ff000e0000651a0000"
+        b"0043000000ef00050100d900087857993700dc0009000000000000e1000800010000"
+        b"00e100080002000000e100080003000000e100080004000000db000700010000db00"
+        b"0700020000db000700030000db000700040000e200050003ff000e0000651a000000"
+        b"16000003ff00120000651a0000002400010000001403ff00120000651a0000002400"
+        b"020000001403ff00120000651a0000002400030000001403ff00120000651a000000"
+        b"2400040000001403ff000e0000651a00000025001b03ff00100000651a0000002600"
+        b"00000003ff000e0000651a00000027000003ff00360000651a0000002803ff000e00"
+        b"00651a00000029000103ff000e0000651a0000003f000003ff000e0000651a000000"
+        b"42000003ff000c0000651a0000003c03ff00140000651a0000004000010000000000"
+        b"0003ff00140000651a00000040000200000000000003ff00140000651a0000004000"
+        b"0300000000000003ff00140000651a000000400004000000000000"
     )
     assert len(msgb) == 843
     m = sllurp.llrp_proto.decode_GetReaderConfigResponse(msgb[10:])
     assert isinstance(m, sllurp.llrp_proto.LLRPMessageDict)
     keys = set(m.keys())
     assert len(keys) == 34
-    assert 'LLRPStatus' in keys
-    assert 'Identification' in keys
+    assert "LLRPStatus" in keys
+    assert "Identification" in keys
     for k in range(32):
-        assert 'Parameter {}'.format(k + 1) in keys
+        assert "Parameter {}".format(k + 1) in keys
 
-@pytest.mark.skipif(sys.version_info < (3, 0),
-                    reason='Broken decoding on Python 2')
+
+@pytest.mark.skipif(sys.version_info < (3, 0), reason="Broken decoding on Python 2")
 def test_llrp_data2xml():
-    assert sllurp.llrp_proto.llrp_data2xml(
-        {
-            'Parameter 1': {
-                'Type': 123,
-                'Data': b'\x01\x02\x03',
-            },
-        }).replace('\t', '').replace('\n', '') != ''
+    assert (
+        sllurp.llrp_proto.llrp_data2xml({"Parameter 1": {"Type": 123, "Data": b"\x01\x02\x03"}})
+        .replace("\t", "")
+        .replace("\n", "")
+        != ""
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
