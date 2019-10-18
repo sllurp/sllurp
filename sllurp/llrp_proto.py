@@ -3978,7 +3978,7 @@ class LLRPROSpec(dict):
 
         state_aware_filter_action = {
             "Target": session + 1,  ## Do not use SL (0), use session
-            "Action": 4,  ## Match => flag = A, unmatch => flag = B
+            "Action": 4,  ## Match => flag = B, unmatch => flag = A
         }
 
         if filter_action:
