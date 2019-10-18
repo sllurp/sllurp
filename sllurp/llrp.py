@@ -1181,8 +1181,8 @@ class LLRPClient(LineReceiver):
 
         ret = {}
         for antid, tx_power in tx_power.items():
-            if tx_power == 0:
-                # tx_power = 0 means max power
+            if tx_power == min_power:
+               # tx_power = min_power index (index's value is 0) means max power
                 max_power_dbm = max(self.tx_power_table)
                 tx_power = self.tx_power_table.index(max_power_dbm)
                 ret[antid] = (tx_power, max_power_dbm)
