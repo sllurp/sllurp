@@ -1176,20 +1176,20 @@ class LLRPClient(LineReceiver):
             return {}
 
         logger.debug('requested tx_power: %s', tx_power)
-        min_power = self.tx_power_table.index(min(self.tx_power_table))
+        min_power = self.tx_power_table.index(
+            min(set(self.tx_power_table) - {0}))
         max_power = self.tx_power_table.index(max(self.tx_power_table))
 
         ret = {}
-        for antid, tx_power in tx_power.items():
-            if tx_power == min_power:
-               # tx_power = min_power index (index's value is 0) means max power
+        for antid, txpow in tx_power.items():
+            if txpow == 0:
+                # tx_power 0 means max power
                 max_power_dbm = max(self.tx_power_table)
-                tx_power = self.tx_power_table.index(max_power_dbm)
-                ret[antid] = (tx_power, max_power_dbm)
+                txpow = self.tx_power_table.index(max_power_dbm)
 
             try:
-                power_dbm = self.tx_power_table[tx_power]
-                ret[antid] = (tx_power, power_dbm)
+                power_dbm = self.tx_power_table[txpow]
+                ret[antid] = (txpow, power_dbm)
             except IndexError:
                 raise LLRPError('Invalid tx_power for antenna {}: '
                                 'requested={}, min_available={}, '

@@ -43,8 +43,6 @@ def test_get_tx_power_zebra():
     client = sllurp.llrp.LLRPClient(None)
     client.tx_power_table = [10.0, 10.1, 10.2, 11, 12, 18, 25.0, 29.2, 0]
 
-    assert client.get_tx_power({1: 0}) == {
-        1: (len(client.tx_power_table) - 2, max(client.tx_power_table))}
-
-    assert client.get_tx_power({1: 5}) == {
-        1: (5, client.tx_power_table[5])}
+    power = client.get_tx_power({1: 0})[1]  # max power for antenna 1
+    assert power[0] == 7
+    assert power[1] == max(client.tx_power_table)
