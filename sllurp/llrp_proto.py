@@ -837,20 +837,9 @@ def decode_ReaderEventNotification(data):
 
 def encode_ReaderEventNotification(msg):
     logger.debug(func())
-    msg_header = '!BII'
-    msg_header_len = struct.calcsize(msg_header)
-    conntype = Message_struct['READER_EVENT_NOTIFICATION']['type']
-    ID = msg['ID']
     # resolve the ReaderEventNotification Data
     req = msg['ReaderEventNotificationData']
     data = encode('ReaderEventNotificationData')(req)
-    logger.debug('ReaderEventNotificationData in ReaderEventNotification: %s', hexlify(data))
-    # add the ReaderEventNotification header
-    #msg_data = struct.pack(msg_header, conntype,
-    #                   len(data) + msg_header_len, ID)
-
-    #logger.debug('ReaderEventNotificationHeader in ReaderEventNotification: %s', hexlify(msg_data))
-    #data = msg_data + data
     logger.debug('ReaderEventNotification data: %s', hexlify(data))
     return data
 
