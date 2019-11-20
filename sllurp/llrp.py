@@ -10,9 +10,11 @@ from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
 from threading import Thread, Event
 
 from .llrp_decoder import TYPE_CUSTOM
-from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
-                         Message_Type2Name, Capability_Name2Type, AirProtocol,
-                         llrp_data2xml, LLRPMessageDict, DEFAULT_CHANNEL_INDEX, DEFAULT_HOPTABLE_INDEX)
+from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct, Param_struct,
+                         msg_header_decode, get_message_name_from_type,
+                         Capability_Name2Type, AirProtocol,
+                         llrp_data2xml, LLRPMessageDict,
+                         DEFAULT_CHANNEL_INDEX, DEFAULT_HOPTABLE_INDEX)
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger, is_general_debug_enabled
 from .util import BITMASK, natural_keys, iterkeys, find_closest
@@ -76,18 +78,29 @@ class LLRPMessage(object):
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
         data = self.msgbytes
-        msgtype, length, msgid = self.full_hdr_struct.unpack(
-            data[:self.full_hdr_len])
-        ver = (msgtype >> 10) & BITMASK(3)
-        msgtype = msgtype & BITMASK(10)
+        (msgtype,
+         vendorid,
+         subtype,
+         ver,
+         hdr_len,
+         full_length,
+         msgid) = msg_header_decode(data)
         try:
-            name = Message_Type2Name[msgtype]
+            try:
+                name = get_message_name_from_type(msgtype, vendorid, subtype)
+            except KeyError:
+                # If no specific custom_message struct, fallback to generic one
+                if msgtype == TYPE_CUSTOM:
+                    name = "CUSTOM_MESSAGE"
+                    hdr_len = self.full_hdr_len
+                else:
+                    raise
             logger.debugfast('deserializing %s command', name)
             decoder = Message_struct[name]['decode']
         except KeyError:
             raise LLRPError('Cannot find decoder for message type '
                             '{}'.format(msgtype))
-        body = data[self.full_hdr_len:length]
+        body = data[hdr_len:full_length]
         try:
             self.msgdict = {
                 name: dict(decoder(body))
@@ -96,6 +109,9 @@ class LLRPMessage(object):
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
             logger.debugfast('done deserializing %s command', name)
+        except ValueError:
+            logger.exception('Unable to decode body %s, %s', body,
+                             decoder(body))
         except LLRPError:
             logger.exception('Problem with %s message format', name)
             return ''
@@ -1027,7 +1043,7 @@ class LLRPClient(object):
         else:
             raise LLRPError('Selected opSpec type is not yet supported.')
 
-        m = Message_struct['AccessSpec']
+        m = Param_struct['AccessSpec']
         accessSpec = {
             'Type': m['type'],
             'AccessSpecID': accessSpecID,
@@ -1842,6 +1858,8 @@ class LLRPReaderClient(object):
                     data = data[msg_len:]
                     data_len = data_len - msg_len
                 except LLRPError:
+                    ## FIXME, ReaderConfigurationError should be
+                    ## notified in some way
                     logger.exception('Failed to decode LLRPMessage; '
                                      'will not decode %d remaining bytes',
                                      data_len)
