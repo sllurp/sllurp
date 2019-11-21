@@ -426,10 +426,13 @@ def decode_param(data):
     pardata = data[par_header_len:parlen]
     logger.debugfast('decode_param pardata: %r', pardata)
 
+    body = None
+    vendorid = 0
+    subtype = 0
+
     ret = {
         'Type': partype,
     }
-
     if partype == TYPE_CUSTOM:
         vendor, subtype = uint_uint_unpack(pardata[:uint_uint_size])
         ret['VendorID'] = vendor
@@ -438,7 +441,18 @@ def decode_param(data):
     else:
         ret['Data'] = pardata,
 
-    return ret, data[parlen:]
+
+    param_name = Param_Type2Name.get((partype, vendorid, subtype))
+    if param_name:
+        try:
+            ret, body = decode(param_name)(data)
+        except KeyError:
+            logger.debugfast('"decode" func is missing for parameter %s',
+                             param_name)
+    if body is None:
+        body = data[parlen:]
+
+    return ret, body
 
 
 def decode_GetReaderConfigResponse(data):
@@ -2505,6 +2519,7 @@ def encode_ImpinjAntennaEventConfigurationParameter(par):
 
 
 Param_struct['ImpinjAntennaEventConfigurationParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 1576,
     'fields': [],
@@ -2526,6 +2541,7 @@ def encode_ImpinjAntennaConfigurationParameter(par):
 
 
 Param_struct['ImpinjAntennaConfigurationParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 1524,
     'fields': [],
@@ -2638,6 +2654,7 @@ def encode_ImpinjIntelligentAntennaManagementParameter(par):
 
 
 Param_struct['ImpinjIntelligentAntennaManagementParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 1554,
     'fields': [],
@@ -3659,6 +3676,7 @@ def decode_ImpinjAntennaAttemptEvent(data):
 
 
 Param_struct['ImpinjAntennaAttemptEvent'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 1577,
     'fields': [
@@ -3992,6 +4010,7 @@ def encode_ImpinjInventorySearchModeParameter(par):
     return encode('CustomParameter')(custom_par)
 
 Param_struct['ImpinjInventorySearchModeParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 23,
     'fields': [],
@@ -4015,6 +4034,7 @@ def encode_ImpinjFixedFrequencyListParameter(par):
     return encode('CustomParameter')(custom_par)
 
 Param_struct['ImpinjFixedFrequencyListParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 26,
     'fields': [
@@ -4044,6 +4064,7 @@ def encode_ImpinjTagReportContentSelectorParameter(par):
     return encode('CustomParameter')(custom_par)
 
 Param_struct['ImpinjTagReportContentSelectorParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 50,
     'fields': [
@@ -4064,6 +4085,7 @@ def encode_ImpinjEnableRFPhaseAngleParameter(par):
     return encode('CustomParameter')(custom_par)
 
 Param_struct['ImpinjEnableRFPhaseAngleParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 52,
     'fields': [],
@@ -4080,6 +4102,7 @@ def encode_ImpinjEnablePeakRSSIParameter(par):
     return encode('CustomParameter')(custom_par)
 
 Param_struct['ImpinjEnablePeakRSSIParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 53,
     'fields': [],
@@ -4096,6 +4119,7 @@ def encode_ImpinjEnableRFDopplerParameter(par):
     return encode('CustomParameter')(custom_par)
 
 Param_struct['ImpinjEnableRFDopplerParameter'] = {
+    'type': TYPE_CUSTOM,
     'vendorid': 25882,
     'subtype': 67,
     'fields': [],
@@ -4362,23 +4386,26 @@ class LLRPMessageDict(dict):
 
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
-for msgname, msgstruct in iteritems(Message_struct):
-    vendorid = 0
-    subtype = 0
-    try:
-        msgtype = msgstruct['type']
-    except KeyError:
-        logging.debug('Pseudo-warning: Message_struct type %s lacks "type" '
-                      'field', msgname)
-        continue
+Param_Type2Name = {}
+for source_struct, dest_dict, obj_name in [
+        (Message_struct, Message_Type2Name, 'Message_struct'),
+        (Param_struct, Param_Type2Name, 'Param_struct')]:
+    for msgname, msgstruct in iteritems(source_struct):
+        vendorid = msgstruct.get('vendorid', 0)
+        subtype = msgstruct.get('subtype', 0)
 
-    if msgtype == TYPE_CUSTOM:
         try:
-            vendorid = msgstruct['vendorid']
-            subtype = msgstruct['subtype']
+            msgtype = msgstruct['type']
         except KeyError:
-            logging.debug('Pseudo-warning: Message_struct type %s lacks '
-                          '"vendorid" or "subtype" fields', msgname)
+            logging.warning('Pseudo-warning: %s type %s lacks "type" field',
+                            obj_name, msgname)
             continue
 
-    Message_Type2Name[(msgtype, vendorid, subtype)] = msgname
+        if msgtype == TYPE_CUSTOM and (not vendorid or not subtype) \
+           and msgname not in ['CUSTOM_MESSAGE', 'CustomParameter']:
+            logging.warning('Pseudo-warning: %s type %s lacks "vendorid" or '
+                            '"subtype" fields', obj_name, msgname)
+            continue
+
+        dest_dict[(msgtype, vendorid, subtype)] = msgname
+
