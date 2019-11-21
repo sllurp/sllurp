@@ -29,8 +29,10 @@ import struct
 from collections import defaultdict
 from binascii import hexlify, unhexlify
 
-from .util import BIT, BITMASK, func, reverse_dict, iteritems
-from .llrp_decoder import decode_tve_parameter, TYPE_CUSTOM
+from .util import BIT, BITMASK, reverse_dict, iteritems
+from .llrp_decoder import (msg_header_decode, param_header_decode,
+                           decode_tve_parameter,
+                           TYPE_CUSTOM)
 from .llrp_errors import LLRPError
 from .log import get_logger, is_general_debug_enabled
 
@@ -85,18 +87,17 @@ VER_PROTO_V1 = 1
 DEFAULT_CHANNEL_INDEX = 1
 DEFAULT_HOPTABLE_INDEX = 1
 
-gen_header = '!HI'
-gen_header_len = struct.calcsize(gen_header)
-gen_header_unpack = struct.Struct(gen_header).unpack
+
 msg_header = '!HII'
-msg_header_unpack = struct.Struct(msg_header).unpack
 msg_header_len = struct.calcsize(msg_header)
+msg_header_unpack = struct.Struct(msg_header).unpack
+
 par_header = '!HH'
-par_header_unpack = struct.Struct(par_header).unpack
 par_header_len = struct.calcsize(par_header)
+par_header_unpack = struct.Struct(par_header).unpack
 tve_header = '!B'
-tve_header_unpack = struct.Struct(tve_header).unpack
 tve_header_len = struct.calcsize(tve_header)
+tve_header_unpack = struct.Struct(tve_header).unpack
 
 # Common types unpacks
 ubyte_size = struct.calcsize('!B')
@@ -274,23 +275,6 @@ Param_struct = {}
 
 # Global helpers
 
-def msg_header_decode(data):
-    msgtype, length, msgid = msg_header_unpack(data[:msg_header_len])
-    hdr_len = msg_header_len
-    version = (msgtype >> 10) & BITMASK(3)
-    msgtype = msgtype & BITMASK(10)
-    if msgtype == TYPE_CUSTOM:
-        vendorid, subtype = uint_ubyte_unpack(
-            data[hdr_len:hdr_len + uint_ubyte_size])
-        hdr_len += uint_ubyte_size
-    else:
-        vendorid = 0
-        subtype = 0
-    return msgtype, vendorid, subtype, version, hdr_len, length, msgid
-
-
-def param_header_decode():
-    pass
 
 
 def get_message_name_from_type(msgtype, vendorid=0, subtype=0):
@@ -421,26 +405,30 @@ def decode_param(data):
         could decode.
     """
     logger.debugfast('decode_param data: %r', data)
-    partype, parlen = par_header_unpack(data[:par_header_len])
-
-    pardata = data[par_header_len:parlen]
-    logger.debugfast('decode_param pardata: %r', pardata)
-
     body = None
-    vendorid = 0
-    subtype = 0
 
+    (partype,
+     vendorid,
+     subtype,
+     hdr_len,
+     full_length) = param_header_decode(data)
+
+    if not partype:
+        # No parameter can be smaller than a tve_header
+        return None, data
+
+    pardata = data[hdr_len:full_length]
+
+    # Default "unknown param" ret as a fallback
     ret = {
+        'Name': '',
         'Type': partype,
+        'DecodeError': 'UnknownParameter',
+        'Data': pardata,
     }
-    if partype == TYPE_CUSTOM:
-        vendor, subtype = uint_uint_unpack(pardata[:uint_uint_size])
-        ret['VendorID'] = vendor
+    if vendorid and subtype:
+        ret['VendorID'] = vendorid
         ret['Subtype'] = subtype
-        ret['Data'] = pardata[uint_uint_size:]
-    else:
-        ret['Data'] = pardata,
-
 
     param_name = Param_Type2Name.get((partype, vendorid, subtype))
     if param_name:
@@ -449,28 +437,32 @@ def decode_param(data):
         except KeyError:
             logger.debugfast('"decode" func is missing for parameter %s',
                              param_name)
-    if body is None:
-        body = data[parlen:]
+            ret['DecodeError'] = 'DecodeFunctionMissing'
+            ret['Name'] = param_name
+            # After saving the name, void it to avoid the returned value to
+            # be considered as a correctly decoded parameter
+            param_name = None
 
-    return ret, body
+    if body is None:
+        body = data[full_length:]
+
+    return param_name, ret, body
 
 
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
     logger.debugfast('decode_GetReaderConfigResponse')
 
-    ret, body = decode('LLRPStatus')(data)
-    msg['LLRPStatus'] = ret
-
-    ret, body = decode('Identification')(body)
-    msg['Identification'] = ret
+    body = data
 
     paridx = 1
     prev_bodylen = len(body)
     while body:
-        ret, body = decode_param(body)
+        parname, ret, body = decode_param(body)
         bodylen = len(body)
-        msg['Parameter {}'.format(paridx)] = ret
+        if not parname:
+            parname = 'Parameter {}'.format(paridx)
+        msg[parname] = ret
         if bodylen >= prev_bodylen:
             logger.error('Loop in parameter body decoding (%d bytes left)',
                          bodylen)
@@ -4136,16 +4128,20 @@ def llrp_data2xml(msg):
             msg_param_struct = Message_struct.get(name)
 
         if msg_param_struct is None:
-            ret = '{tabs}<UnknownParameter>\n'.format(tabs=tabs)
+            decode_error_reason = msg.get('DecodeError')
+            sub_name = msg.get('Name')
+            if decode_error_reason and sub_name:
+                name = name + ' - ' + sub_name
+            ret = '{tabs}<SllurpDecodeError>\n'.format(tabs=tabs)
             tabs1 = tabs + '\t'
             ret += '{tabs1}<Name>{name}</Name>\n'.format(tabs1=tabs1,
                                                          name=name)
-            for k in ('Type', 'Data', 'VendorID', 'Subtype'):
+            for k in ('DecodeError', 'Type', 'Data', 'VendorID', 'Subtype'):
                 if k not in msg:
                     continue
                 ret += '{tabs1}<{k}>{data}</{k}>\n'.format(k=k, tabs1=tabs1,
                                                            data=msg[k])
-            ret += '{tabs}</UnknownParameter>\n'.format(tabs=tabs)
+            ret += '{tabs}</SllurpDecodeError>\n'.format(tabs=tabs)
             return ret
 
         ret = tabs + '<%s>\n' % name
