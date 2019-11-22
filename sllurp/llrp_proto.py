@@ -835,13 +835,22 @@ def decode_ReaderEventNotification(data):
     return msg
 
 
+def encode_ReaderEventNotification(msg):
+    logger.debug(func())
+    # resolve the ReaderEventNotification Data
+    req = msg['ReaderEventNotificationData']
+    data = encode('ReaderEventNotificationData')(req)
+    logger.debug('ReaderEventNotification data: %s', hexlify(data))
+    return data
+
 Message_struct['READER_EVENT_NOTIFICATION'] = {
     'type': 63,
     'fields': [
         'Ver', 'Type', 'ID',
         'ReaderEventNotificationData'
     ],
-    'decode': decode_ReaderEventNotification
+    'decode': decode_ReaderEventNotification,
+    'encode': encode_ReaderEventNotification
 }
 
 
@@ -913,9 +922,9 @@ def decode_UTCTimestamp(data):
 
 def encode_UTCTimestamp(par):
     msgtype = Message_struct['UTCTimestamp']['type']
-    msg = '!HHQ'
+    msg_header = '!HHQ'
     msg_len = struct.calcsize(msg_header)
-    data = struct.pack(msg, msgtype, msg_len, par['Microseconds'])
+    data = struct.pack(msg_header, msgtype, msg_len, par['Microseconds'])
     return data
 
 
@@ -3350,6 +3359,17 @@ def decode_ConnectionAttemptEvent(data):
 
     return par, data[length:]
 
+def encode_ConnectionAttemptEvent(msg):
+    logger.debug(func())
+    msgtype = Message_struct['ConnectionAttemptEvent']['type']
+    msg_header = '!HHH'
+    msg_len = struct.calcsize(msg_header)
+    status = ConnEvent_Name2Type[msg['Status']]
+    data = struct.pack(msg_header, msgtype, msg_len, status)
+    logger.debug('ConnectionAttemptEvent data: %s', hexlify(data))
+    return data
+
+
 
 Message_struct['ConnectionAttemptEvent'] = {
     'type': 256,
@@ -3357,7 +3377,8 @@ Message_struct['ConnectionAttemptEvent'] = {
         'Type',
         'Status'
     ],
-    'decode': decode_ConnectionAttemptEvent
+    'decode': decode_ConnectionAttemptEvent,
+    'encode': encode_ConnectionAttemptEvent
 }
 
 
@@ -3467,6 +3488,20 @@ def decode_ReaderEventNotificationData(data):
     return par, body
 
 
+def encode_ReaderEventNotificationData(msg):
+    # XXX Does not implement most fields.
+    logger.debug(func())
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+    eventtype = Message_struct['ReaderEventNotificationData']['type']
+    # add the timestamp
+    data = encode('UTCTimestamp')(msg['UTCTimestamp'])
+    data += encode('ConnectionAttemptEvent')(msg['ConnectionAttemptEvent'])
+    data = struct.pack(msg_header, eventtype,
+                       len(data) + msg_header_len) + data
+    logger.debug('ReaderEventNotificationData: %s', hexlify(data))
+    return data
+
 Message_struct['ReaderEventNotificationData'] = {
     'type': 246,
     'fields': [
@@ -3484,7 +3519,8 @@ Message_struct['ReaderEventNotificationData'] = {
         'ConnectionCloseEvent',
         'SpecLoopEvent'
     ],
-    'decode': decode_ReaderEventNotificationData
+    'decode': decode_ReaderEventNotificationData,
+    'encode': encode_ReaderEventNotificationData
 }
 
 

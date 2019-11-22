@@ -101,6 +101,28 @@ class TestReaderEventNotification(unittest.TestCase):
         client.transport = MockConn('')
         client.dataReceived(data)
 
+    def test_encode(self):
+        expected_result = binascii.unhexlify('043f000000200000000000f600160080'
+                                             '000c0000000000000000010000060000')
+        msg_dict = {'READER_EVENT_NOTIFICATION': {
+                        'Ver': 1,
+                        'Type': 63,
+                        'ID': 0,
+                        'ReaderEventNotificationData':
+                        {
+                            'UTCTimestamp':
+                            {
+                                'Microseconds': 0
+                            },
+                            'ConnectionAttemptEvent' :
+                            {
+                                'Status': 'Success'
+                            }
+                        }
+                    }}
+        llrp_msg = sllurp.llrp.LLRPMessage(msgdict=msg_dict)
+        self.assertEqual(expected_result, llrp_msg.msgbytes)
+
 
 class TestDecodeROAccessReport (unittest.TestCase):
     _r = """
