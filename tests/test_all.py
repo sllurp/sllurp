@@ -124,6 +124,33 @@ class TestReaderEventNotification(unittest.TestCase):
         self.assertEqual(expected_result, llrp_msg.msgbytes)
 
 
+class TestGetSupportedVersion(unittest.TestCase):
+    def test_decode(self):
+        data = binascii.unhexlify('082e0000000a00000001')
+        lmsg = sllurp.llrp.LLRPMessage(msgbytes=data)
+        self.assertEqual(lmsg.getName(), 'GET_SUPPORTED_VERSION')
+
+class TestGetSupportedVersionResponse(unittest.TestCase):
+    def test_encode(self):
+        expected_result = binascii.unhexlify('04380000002d000000010101011f0021'
+                                             '006e00195765206f6e6c792073757070'
+                                             '6f72742076657273696f6e2031')
+        msg_dict = {'GET_SUPPORTED_VERSION_RESPONSE': {
+                            'Ver': 1,
+                            'Type': 56,
+                            'ID': 1,
+                            'CurrentVersion': 1,
+                            'SupportedVersion': 1,
+                            'LLRPStatus': {
+                                'Type': 287,
+                                'StatusCode': 'UnsupportedVersion',
+                                'ErrorDescription': 'We only support version 1',
+                            }
+                    }}
+        llrp_msg = sllurp.llrp.LLRPMessage(msgdict=msg_dict)
+        self.assertEqual(expected_result, llrp_msg.msgbytes)
+
+
 class TestDecodeROAccessReport (unittest.TestCase):
     _r = """
     043d0000002c4095892f00f000228d3005fb63ac1f3841ec88046781000186ce820004ec2ea8

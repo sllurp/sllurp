@@ -229,6 +229,14 @@ def encode_GetReaderCapabilities(msg):
     req = msg['RequestedData']
     return struct.pack('!B', req)
 
+def decode_GetReaderCapabilities(data):
+    # XXX ignores CustomParameters
+    logger.debug(func())
+    ret = {}
+    ret['RequestedData'] = hexlify(data)
+    logger.debug('GetReaderCapabilities data: %s', ret)
+    return ret
+
 
 Message_struct['GET_READER_CAPABILITIES'] = {
     'type': 1,
@@ -236,7 +244,8 @@ Message_struct['GET_READER_CAPABILITIES'] = {
         'Ver', 'Type', 'ID',
         'RequestedData'
     ],
-    'encode': encode_GetReaderCapabilities
+    'encode': encode_GetReaderCapabilities,
+    'decode': decode_GetReaderCapabilities
 }
 
 
@@ -3582,6 +3591,29 @@ def decode_LLRPStatus(data):
 
     return par, data[length:]
 
+def encode_LLRPStatus(msg):
+    logger.debug(func())
+    msgtype = Message_struct['LLRPStatus']['type']
+    msg_header = '!HHHH'
+    statuscode = Error_Name2Type[msg['StatusCode']]
+    # set the variable length UTF-8 ErrorDescription so we can count length
+    data = struct.pack("%ds" % len(msg['ErrorDescription']),
+                       bytes(msg['ErrorDescription']))
+    error_bytecount = len(data)
+
+    #FieldError and Parameter error are optional fields
+    if 'FieldError' in msg.keys():
+        data += encode('FieldError')(msg['FieldError'])
+    if 'ParameterError' in msg.keys():
+        data += encode('ParameterError')(msg['ParameterError'])
+
+    msg_header_len = struct.calcsize(msg_header)
+    data = struct.pack(msg_header, msgtype, len(data) + msg_header_len,
+                      statuscode, error_bytecount) + data
+    logger.debug('LLRPStatus data: %s', hexlify(data))
+    return data
+
+
 
 Message_struct['LLRPStatus'] = {
     'type':   287,
@@ -3592,7 +3624,8 @@ Message_struct['LLRPStatus'] = {
         'FieldError',
         'ParameterError'
     ],
-    'decode': decode_LLRPStatus
+    'decode': decode_LLRPStatus,
+    'encode': encode_LLRPStatus
 }
 
 
@@ -3619,6 +3652,16 @@ def decode_FieldError(data):
 
     return par, data[length:]
 
+def encode_FieldError(data):
+    logger.debug(func())
+    msg_header = '!HIHH'
+    msg_header_len = struct.calcsize(msg_header)
+    msgtype = Message_struct['FieldError']
+    data = struct.pack(msg_header, msgtype,  msg_header_len, msg['FieldNum'],
+                       Error_Name2Type[msg['ErrorCode']])
+
+    logger.debug('FieldError: %s', hexlify(data))
+    return data
 
 Message_struct['FieldError'] = {
     'type':   288,
@@ -3627,7 +3670,8 @@ Message_struct['FieldError'] = {
         'ErrorCode',
         'FieldNum',
     ],
-    'decode': decode_FieldError
+    'decode': decode_FieldError,
+    'encode': encode_FieldError
 }
 
 
@@ -3669,6 +3713,24 @@ def decode_ParameterError(data):
     return par, data[length:]
 
 
+def encode_ParameterError(msg):
+    logger.debug(func())
+    msg_header = '!HHHH'
+    msg_header_len = struct.calcsize(msg_header)
+    msgtype = Message_struct['ParameterError']
+    data = b''
+    if 'FieldError' in msg.keys():
+        data = encode('FieldError')(msg['FieldError'])
+    if 'ParameterError' in msg.keys():
+        data += encode('ParameterError')(msg['ParameterError'])
+
+    data = struct.pack(msg_header, msgtype, len(data) + msg_header_len,
+                       msg['ParameterType'], Error_Name2Type[msg['ErrorCode']]
+                      ) + data
+
+    logger.debug('ParameterError: %s', hexlify(data))
+    return data
+
 Message_struct['ParameterError'] = {
     'type':   289,
     'fields': [
@@ -3678,8 +3740,44 @@ Message_struct['ParameterError'] = {
         'FieldError',
         'ParameterError'
     ],
-    'decode': decode_ParameterError
+    'decode': decode_ParameterError,
+    'encode': encode_ParameterError
 }
+
+
+# 17.1.1 GET_SUPPORTED_VERSION
+# Sometimes LLRP v2 clients will send this to v1 hosts in the first interaction
+def decode_GetSupportedVersion(data):
+    logger.debug(func())
+    return b''
+
+
+Message_struct['GET_SUPPORTED_VERSION'] = {
+    'type': 46,
+    'fields': [
+        'Ver', 'Type', 'ID'
+    ],
+    'decode': decode_GetSupportedVersion
+}
+
+# 17.1.2 GET_SUPPORTED_VERSION_RESPONSE
+def encode_GetSupportedVersionResponse(msg):
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    data = struct.pack('!BB', msg['CurrentVersion'], msg['SupportedVersion']) + data
+    logger.debug('GetSupportedVersionResponse data: %s', hexlify(data))
+    return data
+
+Message_struct['GET_SUPPORTED_VERSION_RESPONSE'] = {
+    'type': 56,
+    'fields': [
+        'Ver', 'Type', 'ID', 'CurrentVersion', 'SupportedVersion', 'LLRPStatus'
+    ],
+    'encode': encode_GetSupportedVersionResponse
+}
+
+
+
 
 def encode_CustomMessage(msg):
     vendor_id = msg['VendorID']
