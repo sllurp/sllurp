@@ -279,6 +279,27 @@ def decode_GetReaderCapabilitiesResponse(data):
     return msg
 
 
+def encode_GetReaderCapabilitiesResponse(msg):
+    # XXX ignores CustomParameters
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+
+    if 'GeneralDeviceCapabilities' in msg.keys():
+        data += encode('GeneralDeviceCapabilities')(msg['GeneralDeviceCapabilities'])
+
+    if 'LLRPCapabilities' in msg.keys():
+        data += encode('LLRPCapabilities')(msg['LLRPCapabilities'])
+
+    if 'RegulatoryCapabilities' in msg.keys():
+        data += encode('RegulatoryCapabilities')(msg['RegulatoryCapabilities'])
+
+    if 'AirProtocolLLRPCapabilities' in msg.keys():
+        data += encode('AirProtocolLLRPCapabilities')(msg['AirProtocolLLRPCapabilities'])
+
+    logger.debug('GetSupportedVersionResponse data: %s', hexlify(data))
+    return data
+
+
 Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
     'type': 11,
     'fields': [
@@ -289,7 +310,8 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
         'RegulatoryCapabilities',
         'AirProtocolLLRPCapabilities'
     ],
-    'decode': decode_GetReaderCapabilitiesResponse
+    'decode': decode_GetReaderCapabilitiesResponse,
+    'encode': encode_GetReaderCapabilitiesResponse
 }
 
 
@@ -439,6 +461,35 @@ def encode_SetReaderConfig(msg):
     # XXX other params
     return data
 
+def decode_SetReaderConfig(data):
+    logger.debug(func())
+    logger.debug(hexlify(data))
+    par = {}
+
+    # ResetToFactoryDefaults (R) is a single bit, with an !B reserved
+    R_header = '!B'
+    R_len = struct.calcsize(R_header)
+    # Decode fields
+    par['ResetToFactoryDefaults'] = struct.unpack(R_header, data[:R_len])[0]
+
+    body = data[R_len:]
+    paridx = 1
+    prev_bodylen = len(body)
+    while body:
+        ret, body = decode_param(body)
+        bodylen = len(body)
+        par['Parameter {}'.format(paridx)] = ret
+        if bodylen >= prev_bodylen:
+            logger.error('Loop in parameter body decoding (%d bytes left)',
+                         bodylen)
+            break
+        paridx += 1
+    logger.debug('decode_param ran %d times', paridx - 1)
+
+    logger.debug(par)
+    return par
+
+
 
 Message_struct['SET_READER_CONFIG'] = {
     'type': 3,
@@ -456,6 +507,7 @@ Message_struct['SET_READER_CONFIG'] = {
         'EventsAndReports',
     ],
     'encode': encode_SetReaderConfig,
+    'decode': decode_SetReaderConfig
 }
 
 
@@ -466,6 +518,11 @@ def decode_SetReaderConfigResponse(data):
         msg['LLRPStatus'] = ret
     return msg
 
+def encode_SetReaderConfigResponse(msg):
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    logger.debug('SetReaderConfigResponser data: %s', hexlify(data))
+    return data
 
 Message_struct['SET_READER_CONFIG_RESPONSE'] = {
     'type': 13,
@@ -473,7 +530,8 @@ Message_struct['SET_READER_CONFIG_RESPONSE'] = {
         'Ver', 'Type', 'ID',
         'LLRPStatus',
     ],
-    'decode': decode_SetReaderConfigResponse
+    'decode': decode_SetReaderConfigResponse,
+    'encode': encode_SetReaderConfigResponse
 }
 
 
@@ -495,6 +553,10 @@ Message_struct['ENABLE_EVENTS_AND_REPORTS'] = {
 def encode_AddROSpec(msg):
     return encode('ROSpec')(msg['ROSpec'])
 
+def decode_AddROSpec(data):
+    logger.debug(func())
+    logger.debug(hexlify(data))
+    return decode('ROSpec')(data)
 
 Message_struct['ADD_ROSPEC'] = {
     'type': 20,
@@ -502,7 +564,8 @@ Message_struct['ADD_ROSPEC'] = {
         'Ver', 'Type', 'ID',
         'ROSpec'
     ],
-    'encode': encode_AddROSpec
+    'encode': encode_AddROSpec,
+    'decode': decode_AddROSpec
 }
 
 
@@ -524,6 +587,12 @@ def decode_AddROSpecResponse(data):
 
     return msg
 
+def encode_AddROSpecResponse(msg):
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    logger.debug('AddROSpecResponse data: %s', hexlify(data))
+    return data
+
 
 Message_struct['ADD_ROSPEC_RESPONSE'] = {
     'type': 30,
@@ -531,7 +600,8 @@ Message_struct['ADD_ROSPEC_RESPONSE'] = {
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_AddROSpecResponse
+    'decode': decode_AddROSpecResponse,
+    'encode': encode_AddROSpecResponse
 }
 
 
@@ -541,6 +611,12 @@ def encode_DeleteROSpec(msg):
 
     return struct.pack('!I', msgid)
 
+def decode_DeleteROSpec(data):
+    logger.debug(func())
+    ret = {}
+    ret['ROSpecID'] = struct.unpack('!I', data)
+    logger.debug(ret)
+    return ret
 
 Message_struct['DELETE_ROSPEC'] = {
     'type': 21,
@@ -548,7 +624,8 @@ Message_struct['DELETE_ROSPEC'] = {
         'Ver', 'Type', 'ID',
         'ROSpecID'
     ],
-    'encode': encode_DeleteROSpec
+    'encode': encode_DeleteROSpec,
+    'decode': decode_DeleteROSpec
 }
 
 
@@ -570,6 +647,12 @@ def decode_DeleteROSpecResponse(data):
 
     return msg
 
+def encode_DeleteROSpecResponse(msg):
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    logger.debug('DeleteROResponse data: %s', hexlify(data))
+    return data
+
 
 Message_struct['DELETE_ROSPEC_RESPONSE'] = {
     'type': 31,
@@ -577,7 +660,8 @@ Message_struct['DELETE_ROSPEC_RESPONSE'] = {
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_DeleteROSpecResponse
+    'decode': decode_DeleteROSpecResponse,
+    'encode': encode_DeleteROSpecResponse
 }
 
 
@@ -765,6 +849,41 @@ Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
 }
 
 
+# 16.1.15 GET_ROSPECS
+def decode_GetROSpecs(data):
+    logger.debug(func())
+    return b''
+
+Message_struct['GET_ROSPECS'] = {
+    'type': 26,
+    'fields': [
+        'Ver', 'Type', 'ID',
+    ],
+    'decode': decode_GetROSpecs
+}
+
+# 16.1.16 GET_ROSPECS_RESPONSE
+def encode_GetROSpecsResponse(msg):
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    # There can be multiple ROSpecs in an rospecs response.
+    if 'ROSpec' in msg.keys():
+        for spec in msg['ROSpec']:
+            data += encode('ROSpec')(spec)
+    return data
+
+
+Message_struct['GET_ROSPECS_RESPONSE'] = {
+    'type': 36,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus',
+        'ROSpec'
+    ],
+    'encode': encode_GetROSpecsResponse
+}
+
+
+
 # 16.1.30 RO_ACCESS_REPORT
 def decode_ROAccessReport(data):
     msg = LLRPMessageDict()
@@ -867,13 +986,18 @@ Message_struct['READER_EVENT_NOTIFICATION'] = {
 def encode_CloseConnection(msg):
     return b''
 
+def decode_CloseConnection(data):
+    logger.debug(func())
+    return {}
+
 
 Message_struct['CLOSE_CONNECTION'] = {
     'type': 14,
     'fields': [
         'Ver', 'Type', 'ID',
     ],
-    'encode': encode_CloseConnection
+    'encode': encode_CloseConnection,
+    'decode': decode_CloseConnection
 }
 
 
@@ -1426,6 +1550,43 @@ def decode_GeneralDeviceCapabilities(data):
 
     return par, data[length:]
 
+def encode_GeneralDeviceCapabilities(msg):
+    logger.debug(func())
+    msgtype = Message_struct['GeneralDeviceCapabilities']['type']
+    msg_header = '!HHHHIIH'
+    msg_header_len = struct.calcsize(msg_header)
+    # set the variable length UTF-8 ErrorDescription so we can count length
+    fwversion = struct.pack("%ds" % len(msg['ReaderFirmwareVersion']),
+                       bytes(msg['ReaderFirmwareVersion']))
+    fwversion_bytecount = len(fwversion)
+    # CanSetAntennaProperties (C) and HasUTCClockCapability (T) are single bits
+    # using the space  of a !H
+    CTbits = str(msg['CanSetAntennaProperties']) + str(msg['HasUTCClockCapability']) + '00'
+
+    data = unhexlify(CTbits)
+    data += struct.pack('!IIH', msg['DeviceManufacturerName'],
+                        msg['ModelName'], fwversion_bytecount) + fwversion
+
+
+    # There can be multiple entries for the ReceiveSensitivityTableEntry,
+    # PerAntennaReceiveSensitivityRange, and PerAntennaProtocol parameters
+    if 'ReceiveSensitivityTableEntry' in msg.keys():
+        for entry in msg['ReceiveSensitivityTableEntry']:
+            data += encode('ReceiveSensitivityTableEntry')(entry)
+    if 'PerAntennaReceiveSensitivityRange' in msg.keys():
+        for entry in msg['PerAntennaReceiveSensitivityRange']:
+            data += encode('PerAntennaReceiveSensitivityRange')(entry)
+    if 'GPIOCapabilities' in msg.keys():
+        data += encode('GPIOCapabilities')(msg['GPIOCapabilities'])
+    if 'PerAntennaAirProtocol' in msg.keys():
+        for entry in msg['PerAntennaAirProtocol']:
+            data += encode('PerAntennaAirProtocol')(entry)
+
+    data = struct.pack('!HHH', msgtype, len(data) + struct.calcsize('!HHH'),
+                      msg['MaxNumberOfAntennaSupported']) + data
+
+    logger.debug('LLRPStatus data: %s', hexlify(data))
+    return data
 
 Message_struct['GeneralDeviceCapabilities'] = {
     'type': 137,
@@ -1444,7 +1605,8 @@ Message_struct['GeneralDeviceCapabilities'] = {
         'PerAntennaAirProtocol',
         'MaximumReceiveSensitivity'
     ],
-    'decode': decode_GeneralDeviceCapabilities
+    'decode': decode_GeneralDeviceCapabilities,
+    'encode': encode_GeneralDeviceCapabilities
 }
 
 
@@ -1751,6 +1913,12 @@ Message_struct['ADD_ACCESSSPEC_RESPONSE'] = {
 def encode_DeleteAccessSpec(msg):
     return struct.pack('!I', msg['AccessSpecID'])
 
+def decode_DeleteAccessSpec(data):
+    logger.debug(func())
+    ret = {}
+    ret['AccessSpecID'] = struct.unpack('!I', data)
+    logger.debug(ret)
+    return ret
 
 # 17.1.23 DELETE_ACCESSSPEC
 Message_struct['DELETE_ACCESSSPEC'] = {
@@ -1759,7 +1927,8 @@ Message_struct['DELETE_ACCESSSPEC'] = {
         'Ver', 'Type', 'ID',
         'AccessSpecID'
     ],
-    'encode': encode_DeleteAccessSpec
+    'encode': encode_DeleteAccessSpec,
+    'decode': decode_DeleteAccessSpec
 }
 
 
@@ -1768,6 +1937,11 @@ def decode_DeleteAccessSpecResponse(msg):
     # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
     return decode_DeleteROSpecResponse(msg)
 
+def encode_DeleteAccessSpecResponse(msg):
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    logger.debug('DeleteAccessSpecResponse data: %s', hexlify(data))
+    return data
 
 # 17.1.24 DELETE_ACCESSSPEC_RESPONSE
 Message_struct['DELETE_ACCESSSPEC_RESPONSE'] = {
@@ -1776,7 +1950,8 @@ Message_struct['DELETE_ACCESSSPEC_RESPONSE'] = {
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_DeleteAccessSpecResponse
+    'decode': decode_DeleteAccessSpecResponse,
+    'encode': encode_DeleteAccessSpecResponse
 }
 
 
