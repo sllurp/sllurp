@@ -820,33 +820,41 @@ class LLRPClient(LineReceiver):
                 'ID': 0,
             }})
 
-    def send_SET_READER_CONFIG(self, onCompletion):
-        self.sendMessage({
-            'SET_READER_CONFIG': {
-                'Ver':  1,
-                'Type': 3,
-                'ID':   0,
-                'ResetToFactoryDefaults': False,
-                'ReaderEventNotificationSpec': {
-                    'EventNotificationState': {
-                            'HoppingEvent': False,
-                            'GPIEvent': False,
-                            'ROSpecEvent': False,
-                            'ReportBufferFillWarning': False,
-                            'ReaderExceptionEvent': False,
-                            'RFSurveyEvent': False,
-                            'AISpecEvent': False,
-                            'AISpecEventWithSingulation': False,
-                            'AntennaEvent': False,
-                            ## Next one will only be available
-                            ## with llrp v2 (spec 1_1)
-                            #'SpecLoopEvent': True,
-                    },
-                }
-            }})
+    def send_SET_READER_CONFIG(self, onCompletion, config_dict=None):
+        """Set reader configuration, with optional user-supplied dictionary.
+
+        config_dict is a dictionary representation of a SET_READER_CONFIG
+        message that contains fields like ReaderEventNotificationSpec. If no
+        config_dict is provided, uses a a default configuration.
+        """
+        DEFAULT_READER_CONFIG = {
+            'ResetToFactoryDefaults': False,
+            'ReaderEventNotificationSpec': {
+                'EventNotificationState': {
+                    'HoppingEvent': False,
+                    'GPIEvent': False,
+                    'ROSpecEvent': False,
+                    'ReportBufferFillWarning': False,
+                    'ReaderExceptionEvent': False,
+                    'RFSurveyEvent': False,
+                    'AISpecEvent': False,
+                    'AISpecEventWithSingulation': False,
+                    'AntennaEvent': False,
+                    ## Next one will only be available
+                    ## with llrp v2 (spec 1_1)
+                    #'SpecLoopEvent': True,
+                },
+            }
+        }
+        cdict = config_dict.copy() if config_dict else DEFAULT_READER_CONFIG
+        cdict.update({
+            'Ver':  1,
+            'Type': 3,
+            'ID':   0,
+        })
+        self.sendMessage({'SET_READER_CONFIG': cdict})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
-        self._deferreds['SET_READER_CONFIG_RESPONSE'].append(
-            onCompletion)
+        self._deferreds['SET_READER_CONFIG_RESPONSE'].append(onCompletion)
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
         logger.debug('about to send_ADD_ROSPEC')
