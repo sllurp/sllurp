@@ -147,6 +147,26 @@ class LLRPClient(LineReceiver):
     STATE_PAUSED = 23
     STATE_SENT_ENABLE_IMPINJ_EXTENSIONS = 24
 
+    DEFAULT_READER_CONFIG = {
+        'ResetToFactoryDefaults': False,
+        'ReaderEventNotificationSpec': {
+            'EventNotificationState': {
+                'HoppingEvent': False,
+                'GPIEvent': False,
+                'ROSpecEvent': False,
+                'ReportBufferFillWarning': False,
+                'ReaderExceptionEvent': False,
+                'RFSurveyEvent': False,
+                'AISpecEvent': False,
+                'AISpecEventWithSingulation': False,
+                'AntennaEvent': False,
+                ## Next one will only be available
+                ## with llrp v2 (spec 1_1)
+                #'SpecLoopEvent': True,
+            },
+        }
+    }
+
     @classmethod
     def getStates(_):
         state_names = [st for st in dir(LLRPClient) if st.startswith('STATE_')]
@@ -171,6 +191,7 @@ class LLRPClient(LineReceiver):
                  mode_identifier=None,
                  session=2, tag_population=4,
                  tag_filter_mask=None,
+                 config_dict=DEFAULT_READER_CONFIG,
                  impinj_extended_configuration=False,
                  impinj_search_mode=None,
                  impinj_tag_content_selector=None,
@@ -219,6 +240,14 @@ class LLRPClient(LineReceiver):
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
+
+        # configuration dictionary
+        self.config_dict = config_dict
+        self.config_dict.update({
+            'Ver':  1,
+            'Type': 3,
+            'ID':   0,
+        })
 
         # for partial data transfers
         self.expectingRemainingBytes = 0
@@ -820,39 +849,15 @@ class LLRPClient(LineReceiver):
                 'ID': 0,
             }})
 
-    def send_SET_READER_CONFIG(self, onCompletion, config_dict=None):
-        """Set reader configuration, with optional user-supplied dictionary.
+    def send_SET_READER_CONFIG(self, onCompletion):
+        """Set reader configuration based on a configuration dictionary.
 
-        config_dict is a dictionary representation of a SET_READER_CONFIG
+        self.config_dict is a dictionary representation of a SET_READER_CONFIG
         message that contains fields like ReaderEventNotificationSpec. If no
-        config_dict is provided, uses a a default configuration.
+        config_dict is provided in the LLRPClient constructor, uses
+        DEFAULT_READER_CONFIG.
         """
-        DEFAULT_READER_CONFIG = {
-            'ResetToFactoryDefaults': False,
-            'ReaderEventNotificationSpec': {
-                'EventNotificationState': {
-                    'HoppingEvent': False,
-                    'GPIEvent': False,
-                    'ROSpecEvent': False,
-                    'ReportBufferFillWarning': False,
-                    'ReaderExceptionEvent': False,
-                    'RFSurveyEvent': False,
-                    'AISpecEvent': False,
-                    'AISpecEventWithSingulation': False,
-                    'AntennaEvent': False,
-                    ## Next one will only be available
-                    ## with llrp v2 (spec 1_1)
-                    #'SpecLoopEvent': True,
-                },
-            }
-        }
-        cdict = config_dict.copy() if config_dict else DEFAULT_READER_CONFIG
-        cdict.update({
-            'Ver':  1,
-            'Type': 3,
-            'ID':   0,
-        })
-        self.sendMessage({'SET_READER_CONFIG': cdict})
+        self.sendMessage({'SET_READER_CONFIG': self.config_dict})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(onCompletion)
 
