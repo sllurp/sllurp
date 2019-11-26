@@ -479,7 +479,7 @@ def decode_GetReaderConfigResponse(data):
         paridx += 1
     logger.debugfast('decode_param ran %d times', paridx - 1)
 
-    logger.debugfast('GET_READER_CONFIG_RESPONSE: %s', msg)
+    logger.debugfast('GET_READER_CONFIG_RESPONSE:\n%s', msg)
     return msg
 
 
