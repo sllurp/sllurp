@@ -923,6 +923,20 @@ def decode_ROAccessReport(data):
 
     return msg
 
+def encode_ROAccessReport(msg):
+    logger.debug(func())
+    data = b''
+    if 'TagReportData' in msg.keys():
+        for tagdata in msg['TagReportData']:
+            data += encode('TagReportData')(tagdata)
+    if 'RFSurveyReportData' in msg.keys():
+        for rfsurveydata in msg['RFSurveyReportData']:
+            data += encode('RFSurveyReportData')(rfsurveydata)
+    if 'CustomParameter' in msg.keys():
+        for customparam in msg['CustomParameter']:
+            data += encode('CustomParameter')(customparam)
+    logger.debug(func() + "data " + hexlify(data))
+    return data
 
 Message_struct['RO_ACCESS_REPORT'] = {
     'type': 61,
@@ -930,7 +944,8 @@ Message_struct['RO_ACCESS_REPORT'] = {
         'Ver', 'Type', 'ID',
         'TagReportData',
     ],
-    'decode': decode_ROAccessReport
+    'decode': decode_ROAccessReport,
+    'encode': encode_ROAccessReport
 }
 
 
@@ -3041,6 +3056,53 @@ def decode_TagReportData(data):
     logger.debug('par=%s', par)
     return par, data[length:]
 
+def encode_TagReportData(msg):
+    logger.debug(func())
+    msg_header = '!HH'
+    msg_header_len = struct.calcsize(msg_header)
+    data = b''
+    # can only have EPC-96 or EPCData
+    if 'EPC-96' in msg.keys():
+        data += encode('EPC-96')(msg['EPC-96'])
+    else:
+        data += encode('EPCData')(msg['EPCData'])
+    if 'ROSpecID' in msg.keys():
+        data += encode('ROSpecID')(msg['ROSpecID'])
+    if 'SpecIndex' in msg.keys():
+        data += encode('SpecIndex')(msg['SpecIndex'])
+    if 'InventoryParameterSpecID' in msg.keys():
+        data += encode('InventoryParameterSpecID')(msg['InventoryParameterSpecID'])
+    if 'AntennaID' in msg.keys():
+        data += encode('AntennaID')(msg['AntennaID'])
+    if 'PeakRSSI' in msg.keys():
+        data += encode('PeakRSSI')(msg['PeakRSSI'])
+    if 'ChannelIndex' in msg.keys():
+        data += encode('ChannelIndex')(msg['ChannelIndex'])
+    if 'FirstSeenTimeStampUTC' in msg.keys():
+        data += encode('FirstSeenTimeStampUTC')(msg['FirstSeenTimeStampUTC'])
+    if 'FirstSeenTimeStampUptime' in msg.keys():
+        data += encode('FirstSeenTimeStampUptime')(msg['FirstSeenTimeStampUptime'])
+    if 'LastSeenTimeStampUTC' in msg.keys():
+        data += encode('LastSeenTimeStampUTC')(msg['LastSeenTimeStampUTC'])
+    if 'LastSeenTimeStampUptime' in msg.keys():
+        data += encode('LastSeenTimeStampUptime')(msg['LastSeenTimeStampUptime'])
+    if 'TagSeenCount' in msg.keys():
+        data += encode('TagSeenCount')(msg['TagSeenCount'])
+    if 'AirProtocolTagData' in msg.keys():
+        # can be more than one AirProtocolTagData
+        for airprotocol in msg['AirProtocolTagData']:
+            data += encode('AirProtocolTagData')(airprotocol)
+    if 'AccessSpecID' in msg.keys():
+        data += encode('AccessSpecID')(msg['AccessSpecID'])
+    if 'OpSpecResult' in msg.keys():
+        data += encode('OpSpecResult')(msg['OpSpecResult'])
+
+
+    data = struct.pack(msg_header, msg['Type'], msg_header_len + len(data)) + data
+    logger.debug(func() + "data " + hexlify(data))
+    return data
+
+
 
 Message_struct['TagReportData'] = {
     'type': 240,
@@ -3063,8 +3125,10 @@ Message_struct['TagReportData'] = {
         'AccessSpecID',
         'OpSpecResult',
     ],
-    'decode': decode_TagReportData
+    'decode': decode_TagReportData,
+    'encode': encode_TagReportData
 }
+
 
 
 def decode_OpSpecResult(data):
@@ -3250,6 +3314,16 @@ def decode_EPCData(data):
 
     return par, data[length:]
 
+def encode_EPCData(msg):
+    logger.debug(func())
+    msg_header = '!HHH'
+    bin_epc = unhexlify(msg['EPC'])
+    msg_len = struct.calcsize(msg_header) + len(bin_epc)
+    data = struct.pack(msg_header, msg['Type'], msg_len, msg['EPCLengthBits'])
+    data += bin_epc
+    logger.debug(func() + " data " + hexlify(data))
+    return data
+
 
 Message_struct['EPCData'] = {
     'type': 241,
@@ -3258,7 +3332,8 @@ Message_struct['EPCData'] = {
         'EPCLengthBits',
         'EPC'
     ],
-    'decode': decode_EPCData
+    'decode': decode_EPCData,
+    'encode': encode_EPCData
 }
 
 
