@@ -829,9 +829,38 @@ class LLRPClient(LineReceiver):
         SET_READER_CONFIG message that contains fields like
         ReaderEventNotificationSpec. If no set_reader_config is
         provided in the LLRPClient constructor, uses
-        LLRPClientFactory.DEFAULT_SET_READER_CONFIG.
+        DEFAULT_SET_READER_CONFIG.
         """
-        self.sendMessage({'SET_READER_CONFIG': self.set_reader_config})
+        DEFAULT_SET_READER_CONFIG = {
+            'ResetToFactoryDefaults': False,
+            'ReaderEventNotificationSpec': {
+                'EventNotificationState': {
+                    'HoppingEvent': False,
+                    'GPIEvent': False,
+                    'ROSpecEvent': False,
+                    'ReportBufferFillWarning': False,
+                    'ReaderExceptionEvent': False,
+                    'RFSurveyEvent': False,
+                    'AISpecEvent': False,
+                    'AISpecEventWithSingulation': False,
+                    'AntennaEvent': False,
+                    ## Next one will only be available
+                    ## with llrp v2 (spec 1_1)
+                    #'SpecLoopEvent': True,
+                },
+            }
+        }
+
+        if self.set_reader_config:
+            set_reader_config = self.set_reader_config.copy()
+        else:
+            set_reader_config = DEFAULT_SET_READER_CONFIG
+        set_reader_config.update({
+            'Ver': 1,
+            'Type': 3,
+            'ID': 0,
+        })
+        self.sendMessage({'SET_READER_CONFIG': set_reader_config})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(onCompletion)
 
@@ -1288,40 +1317,20 @@ class LLRPClient(LineReceiver):
 class LLRPClientFactory(ReconnectingClientFactory):
     maxDelay = 60  # seconds
 
-    DEFAULT_SET_READER_CONFIG = {
-        'ResetToFactoryDefaults': False,
-        'ReaderEventNotificationSpec': {
-            'EventNotificationState': {
-                'HoppingEvent': False,
-                'GPIEvent': False,
-                'ROSpecEvent': False,
-                'ReportBufferFillWarning': False,
-                'ReaderExceptionEvent': False,
-                'RFSurveyEvent': False,
-                'AISpecEvent': False,
-                'AISpecEventWithSingulation': False,
-                'AntennaEvent': False,
-                ## Next one will only be available
-                ## with llrp v2 (spec 1_1)
-                #'SpecLoopEvent': True,
-            },
-        }
-    }
-
     def __init__(self, start_first=False, onFinish=None, reconnect=False,
-                 set_reader_config=DEFAULT_SET_READER_CONFIG,
+                 set_reader_config=None,
                  antenna_dict=None, **kwargs):
-        self.onFinish = onFinish
         self.start_first = start_first
-        self.client_args = kwargs
+        self.onFinish = onFinish
+        # reconnection logic: if self.reconnect is False, maxDelay doesn't
+        # matter because clients won't try to reconnect
+        self.reconnect = reconnect
+        self.set_reader_config = set_reader_config
         if isinstance(antenna_dict, dict):
             self.antenna_dict = antenna_dict
         else:
             self.antenna_dict = {}
-
-        # reconnection logic: if self.reconnect is False, maxDelay doesn't
-        # matter because clients won't try to reconnect
-        self.reconnect = reconnect
+        self.client_args = kwargs
 
         # callbacks to pass to connected clients
         # (map of LLRPClient.STATE_* -> [list of callbacks])
@@ -1333,14 +1342,6 @@ class LLRPClientFactory(ReconnectingClientFactory):
         self._message_callbacks = defaultdict(list)
 
         self.protocols = []
-
-        # configuration dictionary
-        self.set_reader_config = set_reader_config
-        self.set_reader_config.update({
-            'Ver':  1,
-            'Type': 3,
-            'ID':   0,
-        })
 
     def startedConnecting(self, connector):
         dst = connector.getDestination()
