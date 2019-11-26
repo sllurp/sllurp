@@ -1818,6 +1818,41 @@ def encode_ROSpec(par):
 
     return data
 
+def decode_ROSpec(data):
+    logger.debug(func())
+    ret = {}
+    msg_header = '!HHIBB'
+    msg_header_len = struct.calcsize(msg_header)
+    (ret['Type'], msglen, ret['ROSpecID'], ret['Priority'],
+     ret['CurrentState']) = struct.unpack(
+        msg_header, data[:msg_header_len])
+
+    #trim the data we've processed
+    data = data[msg_header_len:]
+    logger.debug(hexlify(data))
+    ROBoundarySpec_type, ROBoundarySpec_len = struct.unpack('!HH', data[:par_header_len])
+    ret['ROBoundarySpec'] = decode('ROBoundarySpec')(data[:ROBoundarySpec_len])
+
+    #remaining data is all SpecParameters (AISpec/RFSurveySpec/Custom]
+    # XXX decode_param ideally should not be used here, since each of these
+    # parameters have nested parameters which it does not handle. However
+    # this should be enough for basic usage.
+    body = data[:ROBoundarySpec_len]
+    paridx = 1
+    prev_bodylen = len(body)
+    while body:
+        par, body = decode_param(body)
+        bodylen = len(body)
+        ret['Parameter {}'.format(paridx)] = par
+        if bodylen >= prev_bodylen:
+            logger.error('Loop in parameter body decoding (%d bytes left)',
+                         bodylen)
+            break
+        paridx += 1
+    logger.debug('decode_param ran %d times', paridx - 1)
+
+    logger.debug(ret)
+    return ret
 
 Message_struct['ROSpec'] = {
     'type': 177,
@@ -1831,7 +1866,8 @@ Message_struct['ROSpec'] = {
         'RFSurveySpec',
         'ROReportSpec'
     ],
-    'encode': encode_ROSpec
+    'encode': encode_ROSpec,
+    'decode': decode_ROSpec
 }
 
 
@@ -2338,6 +2374,19 @@ def encode_ROBoundarySpec(par):
 
     return data
 
+def decode_ROBoundarySpec(data):
+    logger.debug(func())
+    ret = {}
+    msg_header = '!HH'
+    ret['Type'], msglen = struct.unpack(par_header, data[:par_header_len])
+    data = data[par_header_len:]
+    start_trig_type, start_trig_len = struct.unpack(par_header,
+                                                    data[:par_header_len])
+    ret['ROSpecStartTrigger'] = decode('ROSpecStartTrigger')(data[:start_trig_len])
+    ret['ROSpecStopTrigger'] = decode('ROSpecStopTrigger')(data[start_trig_len:])
+
+    logger.debug(ret)
+    return ret
 
 Message_struct['ROBoundarySpec'] = {
     'type': 178,
@@ -2346,7 +2395,8 @@ Message_struct['ROBoundarySpec'] = {
         'ROSpecStartTrigger',
         'ROSpecStopTrigger'
     ],
-    'encode': encode_ROBoundarySpec
+    'encode': encode_ROBoundarySpec,
+    'decode': decode_ROBoundarySpec
 }
 
 
@@ -2369,6 +2419,24 @@ def encode_ROSpecStartTrigger(par):
 
     return data
 
+def decode_ROSpecStartTrigger(data):
+    logger.debug(func())
+    ret = {}
+    msg_header = '!HHB'
+    msg_header_len = struct.calcsize(msg_header)
+    ret['Type'], msglen, ret['ROSpecStartTriggerType'] = struct.unpack(msg_header,
+                                                                       data[:msg_header_len])
+    ret['ROSpecStartTriggerType'] = StartTrigger_Type2Name[ret['ROSpecStartTriggerType']]
+    logger.debug(ret)
+    data = data[msg_header_len:]
+
+    if ret['ROSpecStartTriggerType'] == 'Periodic':
+        ret['PeriodicTriggerValue'] = decode('PeriodicTriggerValue')(data)
+    elif ret['ROSpecStartTriggerType'] == 'GPI':
+        re['GPITriggerValue'] = decode('GPITriggerValue')(data)
+
+    return ret
+
 
 Message_struct['ROSpecStartTrigger'] = {
     'type': 179,
@@ -2378,7 +2446,8 @@ Message_struct['ROSpecStartTrigger'] = {
         'PeriodicTriggerValue',
         'GPITriggerValue'
     ],
-    'encode': encode_ROSpecStartTrigger
+    'encode': encode_ROSpecStartTrigger,
+    'decode': decode_ROSpecStartTrigger
 }
 
 
@@ -2421,6 +2490,23 @@ def encode_ROSpecStopTrigger(par):
     data = struct.pack(msg_header, msgtype, msg_header_len, t_type, duration)
     return data
 
+def decode_ROSpecStopTrigger(data):
+    logger.debug(func())
+    ret = {}
+    msg_header = '!HHBI'
+    msg_header_len = struct.calcsize(msg_header)
+    (ret['Type'], msglen, ret['ROSpecStopTriggerType'],
+     ret['DurationTriggerValue']) = struct.unpack(msg_header,
+                                                  data[:msg_header_len])
+
+    ret['ROSpecStopTriggerType'] = StopTrigger_Type2Name[ret['ROSpecStopTriggerType']]
+    logger.debug(ret)
+    data = data[msg_header_len:]
+
+    if ret['ROSpecStopTriggerType'] == 'GPI':
+        re['GPITriggerValue'] = decode('GPITriggerValue')(data)
+
+    return ret
 
 Message_struct['ROSpecStopTrigger'] = {
     'type': 182,
@@ -2430,7 +2516,8 @@ Message_struct['ROSpecStopTrigger'] = {
         'DurationTriggerValue',
         'GPITriggerValue'
     ],
-    'encode': encode_ROSpecStopTrigger
+    'encode': encode_ROSpecStopTrigger,
+    'decode': decode_ROSpecStopTrigger
 }
 
 
