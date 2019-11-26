@@ -763,6 +763,15 @@ def encode_EnableROSpec(msg):
 
     return struct.pack('!I', msgid)
 
+def decode_EnableROSpec(data):
+    logger.debug(func())
+    ret = {}
+    msg_header = '!I'
+    ret['ROSpecID'] = struct.unpack('!I', data)
+
+    logger.debug(ret)
+    return ret
+
 
 Message_struct['ENABLE_ROSPEC'] = {
     'type': 24,
@@ -770,7 +779,8 @@ Message_struct['ENABLE_ROSPEC'] = {
         'Ver', 'Type', 'ID',
         'ROSpecID'
     ],
-    'encode': encode_EnableROSpec
+    'encode': encode_EnableROSpec,
+    'decode': decode_EnableROSpec
 }
 
 
@@ -792,6 +802,12 @@ def decode_EnableROSpecResponse(data):
 
     return msg
 
+def encode_EnableROSpecResponse(msg):
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    logger.debug('EnableROSpecResponse data: %s', hexlify(data))
+    return data
+
 
 Message_struct['ENABLE_ROSPEC_RESPONSE'] = {
     'type': 34,
@@ -799,7 +815,8 @@ Message_struct['ENABLE_ROSPEC_RESPONSE'] = {
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_EnableROSpecResponse
+    'decode': decode_EnableROSpecResponse,
+    'encode': encode_EnableROSpecResponse
 }
 
 
@@ -1019,6 +1036,10 @@ def decode_CloseConnectionResponse(data):
 
     return msg
 
+def encode_CloseConnectionResponse(msg):
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+    return data
 
 # 16.1.41 CLOSE_CONNECTION_RESPONSE
 Message_struct['CLOSE_CONNECTION_RESPONSE'] = {
@@ -1027,7 +1048,8 @@ Message_struct['CLOSE_CONNECTION_RESPONSE'] = {
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_CloseConnectionResponse
+    'decode': decode_CloseConnectionResponse,
+    'encode': encode_CloseConnectionResponse
 }
 
 
