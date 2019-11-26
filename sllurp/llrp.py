@@ -67,8 +67,8 @@ class LLRPMessage(object):
             raise LLRPError('Cannot find encoder for message type '
                             '{}'.format(name))
         data = encoder(self.msgdict[name])
-        self.msgbytes = self.full_hdr_struct.pack((ver << 10) | msgtype,
-            len(data) + self.full_hdr_len, msgid) + data
+        self.msgbytes = self.full_hdr_struct.pack(
+            (ver << 10) | msgtype, len(data) + self.full_hdr_len, msgid) + data
         if is_general_debug_enabled():
             logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
             logger.debugfast('done serializing %s command', name)
@@ -487,7 +487,7 @@ class LLRPClient(object):
 
     def handleMessage(self, lmsg):
         """Implements the LLRP client state machine."""
-        logger.debugfast('LLRPMessage received in state %s: %s', self.state,
+        logger.debugfast('LLRPMessage received in state %s:\n%s', self.state,
                          lmsg)
         msgName = lmsg.getName()
 
