@@ -171,7 +171,7 @@ class LLRPClient(LineReceiver):
                  mode_identifier=None,
                  session=2, tag_population=4,
                  tag_filter_mask=None,
-                 config_dict=None,
+                 set_reader_config=None,
                  impinj_extended_configuration=False,
                  impinj_search_mode=None,
                  impinj_tag_content_selector=None,
@@ -217,7 +217,7 @@ class LLRPClient(LineReceiver):
         self.impinj_search_mode = impinj_search_mode
         self.impinj_tag_content_selector = impinj_tag_content_selector
         self.impinj_fixed_frequency_param = impinj_fixed_frequency_param
-        self.config_dict = config_dict
+        self.set_reader_config = set_reader_config
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
@@ -825,12 +825,13 @@ class LLRPClient(LineReceiver):
     def send_SET_READER_CONFIG(self, onCompletion):
         """Set reader configuration based on a configuration dictionary.
 
-        self.config_dict is a dictionary representation of a SET_READER_CONFIG
-        message that contains fields like ReaderEventNotificationSpec. If no
-        config_dict is provided in the LLRPClient constructor, uses
-        LLRPClientFactory.DEFAULT_READER_CONFIG.
+        self.set_reader_config is a dictionary representation of a
+        SET_READER_CONFIG message that contains fields like
+        ReaderEventNotificationSpec. If no set_reader_config is
+        provided in the LLRPClient constructor, uses
+        LLRPClientFactory.DEFAULT_SET_READER_CONFIG.
         """
-        self.sendMessage({'SET_READER_CONFIG': self.config_dict})
+        self.sendMessage({'SET_READER_CONFIG': self.set_reader_config})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
         self._deferreds['SET_READER_CONFIG_RESPONSE'].append(onCompletion)
 
@@ -1287,7 +1288,7 @@ class LLRPClient(LineReceiver):
 class LLRPClientFactory(ReconnectingClientFactory):
     maxDelay = 60  # seconds
 
-    DEFAULT_READER_CONFIG = {
+    DEFAULT_SET_READER_CONFIG = {
         'ResetToFactoryDefaults': False,
         'ReaderEventNotificationSpec': {
             'EventNotificationState': {
@@ -1308,7 +1309,7 @@ class LLRPClientFactory(ReconnectingClientFactory):
     }
 
     def __init__(self, start_first=False, onFinish=None, reconnect=False,
-                 config_dict=DEFAULT_READER_CONFIG,
+                 set_reader_config=DEFAULT_SET_READER_CONFIG,
                  antenna_dict=None, **kwargs):
         self.onFinish = onFinish
         self.start_first = start_first
@@ -1334,8 +1335,8 @@ class LLRPClientFactory(ReconnectingClientFactory):
         self.protocols = []
 
         # configuration dictionary
-        self.config_dict = config_dict
-        self.config_dict.update({
+        self.set_reader_config = set_reader_config
+        self.set_reader_config.update({
             'Ver':  1,
             'Type': 3,
             'ID':   0,
@@ -1377,7 +1378,7 @@ class LLRPClientFactory(ReconnectingClientFactory):
             # this is the first protocol, so let's start it inventorying
             clargs['start_inventory'] = True
         proto = LLRPClient(factory=self,
-                           config_dict=self.config_dict,
+                           set_reader_config=self.set_reader_config,
                            **clargs)
 
         # register state-change callbacks with new client
