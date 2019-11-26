@@ -147,26 +147,6 @@ class LLRPClient(LineReceiver):
     STATE_PAUSED = 23
     STATE_SENT_ENABLE_IMPINJ_EXTENSIONS = 24
 
-    DEFAULT_READER_CONFIG = {
-        'ResetToFactoryDefaults': False,
-        'ReaderEventNotificationSpec': {
-            'EventNotificationState': {
-                'HoppingEvent': False,
-                'GPIEvent': False,
-                'ROSpecEvent': False,
-                'ReportBufferFillWarning': False,
-                'ReaderExceptionEvent': False,
-                'RFSurveyEvent': False,
-                'AISpecEvent': False,
-                'AISpecEventWithSingulation': False,
-                'AntennaEvent': False,
-                ## Next one will only be available
-                ## with llrp v2 (spec 1_1)
-                #'SpecLoopEvent': True,
-            },
-        }
-    }
-
     @classmethod
     def getStates(_):
         state_names = [st for st in dir(LLRPClient) if st.startswith('STATE_')]
@@ -191,7 +171,7 @@ class LLRPClient(LineReceiver):
                  mode_identifier=None,
                  session=2, tag_population=4,
                  tag_filter_mask=None,
-                 config_dict=DEFAULT_READER_CONFIG,
+                 config_dict=None,
                  impinj_extended_configuration=False,
                  impinj_search_mode=None,
                  impinj_tag_content_selector=None,
@@ -237,17 +217,10 @@ class LLRPClient(LineReceiver):
         self.impinj_search_mode = impinj_search_mode
         self.impinj_tag_content_selector = impinj_tag_content_selector
         self.impinj_fixed_frequency_param = impinj_fixed_frequency_param
+        self.config_dict = config_dict
 
         logger.info('using antennas: %s', self.antennas)
         logger.info('transmit power: %s', self.tx_power)
-
-        # configuration dictionary
-        self.config_dict = config_dict
-        self.config_dict.update({
-            'Ver':  1,
-            'Type': 3,
-            'ID':   0,
-        })
 
         # for partial data transfers
         self.expectingRemainingBytes = 0
@@ -855,7 +828,7 @@ class LLRPClient(LineReceiver):
         self.config_dict is a dictionary representation of a SET_READER_CONFIG
         message that contains fields like ReaderEventNotificationSpec. If no
         config_dict is provided in the LLRPClient constructor, uses
-        DEFAULT_READER_CONFIG.
+        LLRPClientFactory.DEFAULT_READER_CONFIG.
         """
         self.sendMessage({'SET_READER_CONFIG': self.config_dict})
         self.setState(LLRPClient.STATE_SENT_SET_CONFIG)
@@ -1314,7 +1287,28 @@ class LLRPClient(LineReceiver):
 class LLRPClientFactory(ReconnectingClientFactory):
     maxDelay = 60  # seconds
 
+    DEFAULT_READER_CONFIG = {
+        'ResetToFactoryDefaults': False,
+        'ReaderEventNotificationSpec': {
+            'EventNotificationState': {
+                'HoppingEvent': False,
+                'GPIEvent': False,
+                'ROSpecEvent': False,
+                'ReportBufferFillWarning': False,
+                'ReaderExceptionEvent': False,
+                'RFSurveyEvent': False,
+                'AISpecEvent': False,
+                'AISpecEventWithSingulation': False,
+                'AntennaEvent': False,
+                ## Next one will only be available
+                ## with llrp v2 (spec 1_1)
+                #'SpecLoopEvent': True,
+            },
+        }
+    }
+
     def __init__(self, start_first=False, onFinish=None, reconnect=False,
+                 config_dict=DEFAULT_READER_CONFIG,
                  antenna_dict=None, **kwargs):
         self.onFinish = onFinish
         self.start_first = start_first
@@ -1338,6 +1332,14 @@ class LLRPClientFactory(ReconnectingClientFactory):
         self._message_callbacks = defaultdict(list)
 
         self.protocols = []
+
+        # configuration dictionary
+        self.config_dict = config_dict
+        self.config_dict.update({
+            'Ver':  1,
+            'Type': 3,
+            'ID':   0,
+        })
 
     def startedConnecting(self, connector):
         dst = connector.getDestination()
@@ -1374,7 +1376,9 @@ class LLRPClientFactory(ReconnectingClientFactory):
         if self.start_first and not self.protocols:
             # this is the first protocol, so let's start it inventorying
             clargs['start_inventory'] = True
-        proto = LLRPClient(factory=self, **clargs)
+        proto = LLRPClient(factory=self,
+                           config_dict=self.config_dict,
+                           **clargs)
 
         # register state-change callbacks with new client
         for state, cbs in self._state_callbacks.items():
