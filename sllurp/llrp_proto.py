@@ -87,6 +87,8 @@ VER_PROTO_V1 = 1
 DEFAULT_CHANNEL_INDEX = 1
 DEFAULT_HOPTABLE_INDEX = 1
 
+DECODE_ERROR_PARNAME = "SllurpDecodeError"
+
 
 msg_header = '!HII'
 msg_header_len = struct.calcsize(msg_header)
@@ -461,8 +463,15 @@ def decode_GetReaderConfigResponse(data):
         parname, ret, body = decode_param(body)
         bodylen = len(body)
         if not parname:
-            parname = 'Parameter {}'.format(paridx)
-        msg[parname] = ret
+            parname = DECODE_ERROR_PARNAME
+        prev_val = msg.get(parname)
+        if prev_val is None:
+            msg[parname] = ret
+        elif isinstance(prev_val, list):
+            prev_val.append(ret)
+        else:
+            msg[parname] = [prev_val, ret]
+
         if bodylen >= prev_bodylen:
             logger.error('Loop in parameter body decoding (%d bytes left)',
                          bodylen)
@@ -4127,26 +4136,32 @@ def llrp_data2xml(msg):
         if msg_param_struct is None:
             msg_param_struct = Message_struct.get(name)
 
+        # Case 1 - it is asked to decode an unknown or error field
         if msg_param_struct is None:
-            decode_error_reason = msg.get('DecodeError')
-            sub_name = msg.get('Name')
-            if decode_error_reason and sub_name:
-                name = name + ' - ' + sub_name
-            ret = '{tabs}<SllurpDecodeError>\n'.format(tabs=tabs)
-            tabs1 = tabs + '\t'
-            ret += '{tabs1}<Name>{name}</Name>\n'.format(tabs1=tabs1,
-                                                         name=name)
-            for k in ('DecodeError', 'Type', 'Data', 'VendorID', 'Subtype'):
-                if k not in msg:
-                    continue
-                ret += '{tabs1}<{k}>{data}</{k}>\n'.format(k=k, tabs1=tabs1,
-                                                           data=msg[k])
-            ret += '{tabs}</SllurpDecodeError>\n'.format(tabs=tabs)
+            ret = ''
+            sub = msg
+            if not isinstance(sub, list) or not sub or not isinstance(sub[0],
+                                                                      dict):
+                sub = [sub]
+            for e in sub:
+                tabs1 = tabs + '\t'
+                sub_name = e.get('Name', name)
+                decode_error_reason = e.get('DecodeError')
+                ret += tabs + '<%s>\n' % DECODE_ERROR_PARNAME
+                if sub_name:
+                    ret += tabs1 + '<Name>%s</Name>\n' % sub_name
+                for k in ('DecodeError', 'Type', 'Data', 'VendorID', 'Subtype'):
+                    if k not in e:
+                        continue
+                    ret += tabs1 + '<%s>%s</%s>\n' % (k, e[k], k)
+                ret += tabs + '</%s>\n' % DECODE_ERROR_PARNAME
             return ret
 
+
+        # Case 2 - The message or param is known
         ret = tabs + '<%s>\n' % name
 
-        fields = msg_param_struct.get('fields', [])
+        fields = msg_param_struct.get('fields', []) + [DECODE_ERROR_PARNAME]
         for p in fields:
             try:
                 sub = msg[p]
@@ -4167,7 +4182,11 @@ def llrp_data2xml(msg):
 
     ans = ''
     for p in msg:
-        ans += __llrp_data2xml(msg[p], p)
+        sub = msg[p]
+        if not isinstance(sub, list) or not sub or not isinstance(sub[0], dict):
+            sub = [sub]
+        for e in sub:
+            ans += __llrp_data2xml(e, p)
     return ans[:-1]
 
 
