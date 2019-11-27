@@ -32,7 +32,8 @@ from binascii import hexlify, unhexlify
 from .util import BIT, BITMASK, reverse_dict, iteritems
 from .llrp_decoder import (msg_header_decode, param_header_decode,
                            decode_tve_parameter,
-                           TYPE_CUSTOM)
+                           par_vendor_subtype_size, par_vendor_subtype_unpack,
+                           TYPE_CUSTOM, VENDOR_ID_IMPINJ)
 from .llrp_errors import LLRPError
 from .log import get_logger, is_general_debug_enabled
 
@@ -254,10 +255,10 @@ ROReportTrigger_Name2Type = {
     'Upon_N_Milliseconds_Or_End_Of_ROSpec': 6,
 }
 
-# 16.2.1.1.2.1 UHFRFModeTable, to be filled in by capabilities parser
+# v1.0:16.2.1.1.2.1 UHFC1G2RFModeTable, to be filled in by capabilities parser
 ModeIndex_Name2Type = defaultdict(int)
 
-# 16.2.1.1.2.1
+# v1.0:16.2.1.1.2.1
 Modulation_Name2Type = {
     'FM0': 0,
     'M2': 1,
@@ -278,10 +279,104 @@ Param_struct = {}
 # Global helpers
 
 
-
 def get_message_name_from_type(msgtype, vendorid=0, subtype=0):
     name = Message_Type2Name[(msgtype, vendorid, subtype)]
     return name
+
+
+def decode_param(data):
+    """Decode any parameter to a byte sequence.
+
+    :param data: byte sequence representing an LLRP parameter.
+    :returns dict, bytes: where dict is {'Type': <decoded type>, 'Data':
+        <decoded data>} and bytes is the remaining bytes trailing the bytes we
+        could decode.
+    """
+    #logger.debugfast('decode_param data: %r', data)
+    body = None
+
+    (partype,
+     vendorid,
+     subtype,
+     hdr_len,
+     full_length) = param_header_decode(data)
+
+    if not partype:
+        # No parameter can be smaller than a tve_header
+        return None, None, data
+
+    pardata = data[hdr_len:full_length]
+
+    # Default "unknown param" ret as a fallback
+    ret = {
+        'Name': '',
+        'Type': partype,
+        'DecodeError': 'UnknownParameter',
+        'Data': pardata,
+    }
+    if vendorid and subtype:
+        ret['VendorID'] = vendorid
+        ret['Subtype'] = subtype
+
+    param_name = Param_Type2Name.get((partype, vendorid, subtype))
+    if param_name:
+        try:
+            ret, body = decode(param_name)(data)
+        except KeyError:
+            logger.debugfast('"decode" func is missing for parameter %s',
+                             param_name)
+            ret['DecodeError'] = 'DecodeFunctionMissing'
+            ret['Name'] = param_name
+            # After saving the name, void it to avoid the returned value to
+            # be considered as a correctly decoded parameter
+            param_name = None
+    else:
+        logger.debugfast('"unknown parameter" can\'t be decoded (%s, %s, %s)',
+                         partype, vendorid, subtype)
+
+    if body is None:
+        body = data[full_length:]
+
+    return param_name, ret, body
+
+
+def decode_generic_message(data, msg_name=None):
+    """Auto decode a standard LLRP message without 'individual' modification"""
+    msg = LLRPMessageDict()
+    if msg_name:
+        logger.debugfast('decode_%s', msg_name)
+
+    body = data
+    prev_bodylen = len(body)
+    while body:
+        parname, ret, body = decode_param(body)
+        if not parname:
+            if ret is None:
+                raise LLRPError('Error decoding messaging. Invalid byte stream.')
+            parname = DECODE_ERROR_PARNAME
+        prev_val = msg.get(parname)
+        if prev_val is None:
+            msg[parname] = ret
+        elif isinstance(prev_val, list):
+            prev_val.append(ret)
+        else:
+            msg[parname] = [prev_val, ret]
+
+        bodylen = len(body)
+        if bodylen >= prev_bodylen:
+            logger.error('Loop in parameter body decoding (%d bytes left)',
+                         bodylen)
+            break
+
+    return msg
+
+
+def decode_generic_message_with_status_check(data, msg_name=None):
+    """Auto decode a standard LLRP message with check for LLRPStatus"""
+    msg = decode_generic_message(data, msg_name)
+    if 'LLRPStatus' not in msg:
+        raise LLRPError('Missing or invalid LLRPStatus parameter')
+    return msg
 
 
 # 16.1.1 GET_READER_CAPABILITIES
@@ -301,35 +396,6 @@ Message_struct['GET_READER_CAPABILITIES'] = {
 
 
 # 16.1.2 GET_READER_CAPABILITIES_RESPONSE
-def decode_GetReaderCapabilitiesResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_GetReaderCapabilitiesResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    ret, body = decode('GeneralDeviceCapabilities')(body)
-    if ret:
-        msg['GeneralDeviceCapabilities'] = ret
-
-    ret, body = decode('LLRPCapabilities')(body)
-    if ret:
-        msg['LLRPCapabilities'] = ret
-
-    ret, body = decode('RegulatoryCapabilities')(body)
-    if ret:
-        msg['RegulatoryCapabilities'] = ret
-
-    if len(body):
-        msg['AirProtocolLLRPCapabilities'] = body
-
-    return msg
-
-
 Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
     'type': 11,
     'fields': [
@@ -340,7 +406,7 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
         'RegulatoryCapabilities',
         'AirProtocolLLRPCapabilities'
     ],
-    'decode': decode_GetReaderCapabilitiesResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -398,91 +464,6 @@ Param_struct['Identification'] = {
 }
 
 
-def decode_param(data):
-    """Decode any parameter to a byte sequence.
-
-    :param data: byte sequence representing an LLRP parameter.
-    :returns dict, bytes: where dict is {'Type': <decoded type>, 'Data':
-        <decoded data>} and bytes is the remaining bytes trailing the bytes we
-        could decode.
-    """
-    logger.debugfast('decode_param data: %r', data)
-    body = None
-
-    (partype,
-     vendorid,
-     subtype,
-     hdr_len,
-     full_length) = param_header_decode(data)
-
-    if not partype:
-        # No parameter can be smaller than a tve_header
-        return None, data
-
-    pardata = data[hdr_len:full_length]
-
-    # Default "unknown param" ret as a fallback
-    ret = {
-        'Name': '',
-        'Type': partype,
-        'DecodeError': 'UnknownParameter',
-        'Data': pardata,
-    }
-    if vendorid and subtype:
-        ret['VendorID'] = vendorid
-        ret['Subtype'] = subtype
-
-    param_name = Param_Type2Name.get((partype, vendorid, subtype))
-    if param_name:
-        try:
-            ret, body = decode(param_name)(data)
-        except KeyError:
-            logger.debugfast('"decode" func is missing for parameter %s',
-                             param_name)
-            ret['DecodeError'] = 'DecodeFunctionMissing'
-            ret['Name'] = param_name
-            # After saving the name, void it to avoid the returned value to
-            # be considered as a correctly decoded parameter
-            param_name = None
-
-    if body is None:
-        body = data[full_length:]
-
-    return param_name, ret, body
-
-
-def decode_GetReaderConfigResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_GetReaderConfigResponse')
-
-    body = data
-
-    paridx = 1
-    prev_bodylen = len(body)
-    while body:
-        parname, ret, body = decode_param(body)
-        bodylen = len(body)
-        if not parname:
-            parname = DECODE_ERROR_PARNAME
-        prev_val = msg.get(parname)
-        if prev_val is None:
-            msg[parname] = ret
-        elif isinstance(prev_val, list):
-            prev_val.append(ret)
-        else:
-            msg[parname] = [prev_val, ret]
-
-        if bodylen >= prev_bodylen:
-            logger.error('Loop in parameter body decoding (%d bytes left)',
-                         bodylen)
-            break
-        paridx += 1
-    logger.debugfast('decode_param ran %d times', paridx - 1)
-
-    logger.debugfast('GET_READER_CONFIG_RESPONSE:\n%s', msg)
-    return msg
-
-
 Message_struct['GET_READER_CONFIG_RESPONSE'] = {
     'type': 12,
     'fields': [
@@ -500,7 +481,7 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'GPOWriteData',
         'EventsAndReports',
     ],
-    'decode': decode_GetReaderConfigResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -541,21 +522,13 @@ Message_struct['SET_READER_CONFIG'] = {
 }
 
 
-def decode_SetReaderConfigResponse(data):
-    msg = LLRPMessageDict()
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    return msg
-
-
 Message_struct['SET_READER_CONFIG_RESPONSE'] = {
     'type': 13,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus',
     ],
-    'decode': decode_SetReaderConfigResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -589,31 +562,13 @@ Message_struct['ADD_ROSPEC'] = {
 
 
 # 16.1.4 ADD_ROSPEC_RESPONSE
-def decode_AddROSpecResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_AddROSpecResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
-
-    return msg
-
-
 Message_struct['ADD_ROSPEC_RESPONSE'] = {
     'type': 30,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_AddROSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -635,31 +590,13 @@ Message_struct['DELETE_ROSPEC'] = {
 
 
 # 16.1.6 DELETE_ROSPEC_RESPONSE
-def decode_DeleteROSpecResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_DeleteROSpecResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
-
-    return msg
-
-
 Message_struct['DELETE_ROSPEC_RESPONSE'] = {
     'type': 31,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_DeleteROSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -681,31 +618,13 @@ Message_struct['START_ROSPEC'] = {
 
 
 # 16.1.8 START_ROSPEC_RESPONSE
-def decode_StartROSpecResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_StartROSpecResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
-
-    return msg
-
-
 Message_struct['START_ROSPEC_RESPONSE'] = {
     'type': 32,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_StartROSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -727,31 +646,13 @@ Message_struct['STOP_ROSPEC'] = {
 
 
 # 16.1.10 STOP_ROSPEC_RESPONSE
-def decode_StopROSpecResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_StopROSpecResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
-
-    return msg
-
-
 Message_struct['STOP_ROSPEC_RESPONSE'] = {
     'type': 33,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_StopROSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -773,31 +674,13 @@ Message_struct['ENABLE_ROSPEC'] = {
 
 
 # 16.1.12 ENABLE_ROSPEC_RESPONSE
-def decode_EnableROSpecResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_EnableROSpecResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
-
-    return msg
-
-
 Message_struct['ENABLE_ROSPEC_RESPONSE'] = {
     'type': 34,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_EnableROSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -819,31 +702,13 @@ Message_struct['DISABLE_ROSPEC'] = {
 
 
 # 16.1.14 DISABLE_ROSPEC_RESPONSE
-def decode_DisableROSpecResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_DisableROSpecResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
-
-    return msg
-
-
 Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
     'type': 35,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_DisableROSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -881,16 +746,12 @@ Message_struct['RO_ACCESS_REPORT'] = {
 
 
 # 16.1.35 KEEPALIVE
-def decode_Keepalive(msg):
-    return b''
-
-
 Message_struct['KEEPALIVE'] = {
     'type': 62,
     'fields': [
         'Ver', 'Type', 'ID',
     ],
-    'decode': decode_Keepalive
+    'decode': decode_generic_message
 }
 
 
@@ -909,30 +770,13 @@ Message_struct['KEEPALIVE_ACK'] = {
 
 
 # 16.1.33 READER_EVENT_NOTIFICATION
-def decode_ReaderEventNotification(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_ReaderEventNotification')
-
-    # Decode parameters
-    ret, body = decode('ReaderEventNotificationData')(data)
-    if ret:
-        msg['ReaderEventNotificationData'] = ret
-
-    # Check the end of the message
-    if len(body):
-        logger.debugfast('Unprocessed bytes in READER_EVENT_NOTIFICATION: %s',
-                         hexlify(body))
-
-    return msg
-
-
 Message_struct['READER_EVENT_NOTIFICATION'] = {
     'type': 63,
     'fields': [
         'Ver', 'Type', 'ID',
         'ReaderEventNotificationData'
     ],
-    'decode': decode_ReaderEventNotification
+    'decode': decode_generic_message
 }
 
 
@@ -951,33 +795,15 @@ Message_struct['CLOSE_CONNECTION'] = {
 
 
 # 16.1.41 CLOSE_CONNECTION_RESPONSE
-def decode_CloseConnectionResponse(data):
-    msg = LLRPMessageDict()
-    logger.debugfast('decode_CloseConnectionResponse')
-
-    # Decode parameters
-    ret, body = decode('LLRPStatus')(data)
-    if ret:
-        msg['LLRPStatus'] = ret
-    else:
-        raise LLRPError('missing or invalid LLRPStatus parameter')
-
-    # Check the end of the message
-    if len(body) > 0:
-        raise LLRPError('Junk at end of message ({} bytes)'.format(len(body)))
-
-    return msg
-
-
-# 16.1.41 CLOSE_CONNECTION_RESPONSE
 Message_struct['CLOSE_CONNECTION_RESPONSE'] = {
     'type': 4,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_CloseConnectionResponse
+    'decode': decode_generic_message_with_status_check
 }
+
 
 # 16.2.2.1 UTCTimestamp Parameter
 def decode_UTCTimestamp(data):
@@ -1086,9 +912,9 @@ def decode_UHFBandCapabilities(data):
     if ret:
         par['FrequencyInformation'] = ret
 
-    ret, body = decode('UHFRFModeTable')(body)
+    ret, body = decode('UHFC1G2RFModeTable')(body)
     if ret:
-        par['UHFRFModeTable'] = ret
+        par['UHFC1G2RFModeTable'] = ret
 
     ret, body = decode('RFSurveyFrequencyCapabilities')(body)
     if ret:
@@ -1102,7 +928,7 @@ Param_struct['UHFBandCapabilities'] = {
         'Type',
         'TransmitPowerLevelTableEntry',
         'FrequencyInformation',
-        'UHFRFModeTable',
+        'UHFC1G2RFModeTable',
         'RFSurveyFrequencyCapabilities'
     ],
     'decode': decode_UHFBandCapabilities
@@ -1257,21 +1083,30 @@ Param_struct['FixedFrequencyTable'] = {
 }
 
 
-def decode_UHFRFModeTable(data):
-    logger.debugfast('decode_UHFRFModeTable')
+# v1.1:17.3.1.1.1 C1G2LLRPCapabilities
+Param_struct['C1G2LLRPCapabilities'] = {
+    # TODO
+    'type': 327,
+    # 'decode': decode_C1G2LLRPCapabilities
+}
+
+
+# v1.1:17.3.1.1.2 UHFC1G2RFModeTable
+def decode_UHFC1G2RFModeTable(data):
+    logger.debugfast('decode_UHFC1G2RFModeTable')
     par = {}
     if len(data) == 0:
         return None, data
     header = data[0:par_header_len]
     msgtype, length = par_header_unpack(header)
     msgtype = msgtype & BITMASK(10)
-    logger.debugfast('decode_UHFRFModeTable (type=%d len=%d)', msgtype, length)
+    logger.debugfast('decode_UHFC1G2RFModeTable (type=%d len=%d)', msgtype, length)
 
-    if msgtype != Param_struct['UHFRFModeTable']['type']:
+    if msgtype != Param_struct['UHFC1G2RFModeTable']['type']:
         return (None, data)
 
     body = data[par_header_len:length]
-    logger.debugfast('decode_UHFRFModeTable (len=%d)', length)
+    logger.debugfast('decode_UHFC1G2RFModeTable (len=%d)', length)
 
     # Decode fields
     i = 0
@@ -1284,15 +1119,17 @@ def decode_UHFRFModeTable(data):
     return par, data[length:]
 
 
-Param_struct['UHFRFModeTable'] = {
+Param_struct['UHFC1G2RFModeTable'] = {
     'type': 328,
     'fields': [
         'Type',
         'UHFC1G2RFModeTableEntry'
     ],
-    'decode': decode_UHFRFModeTable
+    'decode': decode_UHFC1G2RFModeTable
 }
 
+
+# v1.1:17.3.1.1.3 UHFC1G2RFModeTableEntry
 mode_table_entry_unpack = struct.Struct('!IBBBBIIIII').unpack
 
 def decode_UHFC1G2RFModeTableEntry(data):
@@ -1803,19 +1640,13 @@ Message_struct['ADD_ACCESSSPEC'] = {
 
 
 # 17.1.22 ADD_ACCESSSPEC_RESPONSE
-def decode_AddAccessSpecResponse(msg):
-    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
-    return decode_AddROSpecResponse(msg)
-
-
-# 17.1.22 ADD_ACCESSSPEC_RESPONSE
 Message_struct['ADD_ACCESSSPEC_RESPONSE'] = {
     'type': 50,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_AddAccessSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -1836,19 +1667,13 @@ Message_struct['DELETE_ACCESSSPEC'] = {
 
 
 # 17.1.24 DELETE_ACCESSSPEC_RESPONSE
-def decode_DeleteAccessSpecResponse(msg):
-    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
-    return decode_DeleteROSpecResponse(msg)
-
-
-# 17.1.24 DELETE_ACCESSSPEC_RESPONSE
 Message_struct['DELETE_ACCESSSPEC_RESPONSE'] = {
     'type': 51,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_DeleteAccessSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -1869,19 +1694,13 @@ Message_struct['ENABLE_ACCESSSPEC'] = {
 
 
 # 17.1.26 ENABLE_ACCESSSPEC_RESPONSE
-def decode_EnableAccessSpecResponse(msg):
-    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
-    return decode_EnableROSpecResponse(msg)
-
-
-# 17.1.26 ENABLE_ACCESSSPEC_RESPONSE
 Message_struct['ENABLE_ACCESSSPEC_RESPONSE'] = {
     'type': 52,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_EnableAccessSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -1902,19 +1721,13 @@ Message_struct['DISABLE_ACCESSSPEC'] = {
 
 
 # 17.1.28 DISABLE_ACCESSSPEC_RESPONSE
-def decode_DisableAccessSpecResponse(msg):
-    # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
-    return decode_DisableROSpecResponse(msg)
-
-
-# 17.1.28 DISABLE_ACCESSSPEC_RESPONSE
 Message_struct['DISABLE_ACCESSSPEC_RESPONSE'] = {
     'type': 53,
     'fields': [
         'Ver', 'Type', 'ID',
         'LLRPStatus'
     ],
-    'decode': decode_DisableAccessSpecResponse
+    'decode': decode_generic_message_with_status_check
 }
 
 
@@ -2521,7 +2334,7 @@ def encode_ImpinjAntennaEventConfigurationParameter(par):
 
 Param_struct['ImpinjAntennaEventConfigurationParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 1576,
     'fields': [],
     'encode': encode_ImpinjAntennaEventConfigurationParameter
@@ -2543,7 +2356,7 @@ def encode_ImpinjAntennaConfigurationParameter(par):
 
 Param_struct['ImpinjAntennaConfigurationParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 1524,
     'fields': [],
     'encode': encode_ImpinjAntennaConfigurationParameter
@@ -2656,7 +2469,7 @@ def encode_ImpinjIntelligentAntennaManagementParameter(par):
 
 Param_struct['ImpinjIntelligentAntennaManagementParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 1554,
     'fields': [],
     'encode': encode_ImpinjIntelligentAntennaManagementParameter
@@ -3678,7 +3491,7 @@ def decode_ImpinjAntennaAttemptEvent(data):
 
 Param_struct['ImpinjAntennaAttemptEvent'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 1577,
     'fields': [
         'AntennaID'
@@ -3790,8 +3603,8 @@ for field_name in Param_struct['ReaderEventNotificationData']['fields']:
 
 # 16.2.8.1 LLRPStatus Parameter
 def decode_LLRPStatus(data):
-    if is_general_debug_enabled():
-        logger.debugfast('decode_LLRPStatus: %s', hexlify(data))
+    #if is_general_debug_enabled():
+    #    logger.debugfast('decode_LLRPStatus: %s', hexlify(data))
     par = {}
 
     if len(data) == 0:
@@ -3948,19 +3761,6 @@ def encode_CustomMessage(msg):
     return data
 
 
-def decode_CustomMessageResponse(data):
-    logger.debugfast('decode_CustomMessageResponse')
-    msg = LLRPMessageDict()
-
-    vendorid, subtype = uint_ubyte_unpack(data[:uint_ubyte_size])
-    msg['VendorID'] = vendorid
-    msg['Subtype'] = subtype
-    ret, body = decode('LLRPStatus')(data[uint_ubyte_size:])
-    msg['LLRPStatus'] = ret
-
-    return msg
-
-
 Message_struct['CUSTOM_MESSAGE'] = {
     'type': TYPE_CUSTOM,
     'fields': [
@@ -3970,7 +3770,7 @@ Message_struct['CUSTOM_MESSAGE'] = {
         'Payload',
     ],
     'encode': encode_CustomMessage,
-    'decode': decode_CustomMessageResponse
+    'decode': decode_generic_message
 }
 
 
@@ -4001,6 +3801,29 @@ Param_struct['CustomParameter'] = {
 # Vendor custom parameters and messages
 #
 
+def encode_ImpinjEnableExtensions(msg):
+    vendor_id = Message_struct['IMPINJ_ENABLE_EXTENSIONS']['vendorid']
+    subtype = Message_struct['IMPINJ_ENABLE_EXTENSIONS']['subtype']
+    payload = msg.get('Payload', struct.pack('!I', 0))
+    data = struct.pack('!IB', vendor_id, subtype) + payload
+    return data
+
+
+Message_struct['IMPINJ_ENABLE_EXTENSIONS'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 21,
+    'encode': encode_ImpinjEnableExtensions
+}
+
+Message_struct['IMPINJ_ENABLE_EXTENSIONS_RESPONSE'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 22,
+    'decode': decode_generic_message_with_status_check
+}
+
+
 def encode_ImpinjInventorySearchModeParameter(par):
     msg_struct_param = Param_struct['ImpinjInventorySearchModeParameter']
     custom_par = {
@@ -4012,7 +3835,7 @@ def encode_ImpinjInventorySearchModeParameter(par):
 
 Param_struct['ImpinjInventorySearchModeParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 23,
     'fields': [],
     'encode': encode_ImpinjInventorySearchModeParameter
@@ -4036,7 +3859,7 @@ def encode_ImpinjFixedFrequencyListParameter(par):
 
 Param_struct['ImpinjFixedFrequencyListParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 26,
     'fields': [
         'FixedFrequencyMode',
@@ -4045,6 +3868,23 @@ Param_struct['ImpinjFixedFrequencyListParameter'] = {
         'ChannelListIndex'
     ],
     'encode': encode_ImpinjFixedFrequencyListParameter
+}
+
+
+Param_struct['ImpinjDetailedVersion'] = {
+    # TODO
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 29,
+    # 'decode': decode_ImpinjDetailedVersion
+}
+
+Param_struct['ImpinjFrequencyCapabilities'] = {
+    # TODO
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 30,
+    # 'decode': decode_ImpinjFrequencyCapabilities
 }
 
 def encode_ImpinjTagReportContentSelectorParameter(par):
@@ -4066,7 +3906,7 @@ def encode_ImpinjTagReportContentSelectorParameter(par):
 
 Param_struct['ImpinjTagReportContentSelectorParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 50,
     'fields': [
         'ImpinjEnableRFPhaseAngleParameter',
@@ -4087,7 +3927,7 @@ def encode_ImpinjEnableRFPhaseAngleParameter(par):
 
 Param_struct['ImpinjEnableRFPhaseAngleParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 52,
     'fields': [],
     'encode': encode_ImpinjEnableRFPhaseAngleParameter
@@ -4104,7 +3944,7 @@ def encode_ImpinjEnablePeakRSSIParameter(par):
 
 Param_struct['ImpinjEnablePeakRSSIParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 53,
     'fields': [],
     'encode': encode_ImpinjEnablePeakRSSIParameter
@@ -4121,7 +3961,7 @@ def encode_ImpinjEnableRFDopplerParameter(par):
 
 Param_struct['ImpinjEnableRFDopplerParameter'] = {
     'type': TYPE_CUSTOM,
-    'vendorid': 25882,
+    'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 67,
     'fields': [],
     'encode': encode_ImpinjEnableRFDopplerParameter
