@@ -292,8 +292,7 @@ def decode_param(data):
         <decoded data>} and bytes is the remaining bytes trailing the bytes we
         could decode.
     """
-    #logger.debugfast('decode_param data: %r', data)
-    body = None
+    # logger.debugfast('decode_param data: %r', data)
 
     (partype,
      vendorid,
@@ -321,7 +320,7 @@ def decode_param(data):
     param_name = Param_Type2Name.get((partype, vendorid, subtype))
     if param_name:
         try:
-            ret, body = decode(param_name)(data)
+            ret, _ = decode(param_name)(data)
         except KeyError:
             logger.debugfast('"decode" func is missing for parameter %s',
                              param_name)
@@ -334,10 +333,7 @@ def decode_param(data):
         logger.debugfast('"unknown parameter" can\'t be decoded (%s, %s, %s)',
                          partype, vendorid, subtype)
 
-    if body is None:
-        body = data[full_length:]
-
-    return param_name, ret, body
+    return param_name, ret, data[full_length:]
 
 
 def decode_generic_message(data, msg_name=None):
@@ -459,7 +455,11 @@ def decode_Identification(data):
 
 Param_struct['Identification'] = {
     'type': 218,
-    'fields': ['IDType', 'ByteCount', 'ReaderID'],
+    'fields': [
+        'IDType',
+        'ByteCount',
+        'ReaderID'
+    ],
     'decode': decode_Identification,
 }
 
