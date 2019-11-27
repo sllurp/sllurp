@@ -105,7 +105,7 @@ class LLRPMessage(object):
         body = data[hdr_len:full_length]
         try:
             self.msgdict = {
-                name: dict(decoder(body))
+                name: dict(decoder(body, name))
             }
             self.msgdict[name]['Ver'] = ver
             self.msgdict[name]['Type'] = msgtype
@@ -113,7 +113,7 @@ class LLRPMessage(object):
             logger.debugfast('done deserializing %s command', name)
         except ValueError:
             logger.exception('Unable to decode body %s, %s', body,
-                             decoder(body))
+                             decoder(body, name))
         except LLRPError:
             ## FIXME This should probably be raised
             logger.exception('Problem with %s message format', name)
