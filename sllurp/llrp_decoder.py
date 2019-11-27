@@ -121,20 +121,23 @@ def tve_param_header_decode(data):
     # Most common case first
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)
     tve_msgtype = tve_header_unpack(data[:tve_header_size])[0]
-    if tve_msgtype & 0b10000000:
-        tve_msgtype = tve_msgtype & 0x7f
-        try:
-            param_name, param_struct = tve_param_formats[tve_msgtype]
-            #logger.debugfast('found %s (type=%s)', param_name, tve_msgtype)
-        except KeyError:
-            return None, 0, 0
 
-        # decode the body
-        length = tve_header_size + param_struct.size
+    if not tve_msgtype & 0b10000000:
+        # Not a tve parameter
+        return None, 0, 0
 
-        return tve_msgtype, tve_header_size, length
+    tve_msgtype = tve_msgtype & 0x7f
+    try:
+        param_name, param_struct = tve_param_formats[tve_msgtype]
+        #logger.debugfast('found %s (type=%s)', param_name, tve_msgtype)
+    except KeyError:
+        return None, 0, 0
 
-    return None, 0, 0
+    # decode the body
+    length = tve_header_size + param_struct.size
+
+    return tve_msgtype, tve_header_size, length
+
 
 
 def param_header_decode(data):
