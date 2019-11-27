@@ -9,7 +9,7 @@ from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
                     IPPROTO_TCP, TCP_NODELAY, socket, error as SocketError)
 from threading import Thread, Event
 
-from .llrp_decoder import TYPE_CUSTOM
+from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ
 from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct, Param_struct,
                          msg_header_decode, get_message_name_from_type,
                          Capability_Name2Type, AirProtocol,
@@ -92,7 +92,9 @@ class LLRPMessage(object):
                 # If no specific custom_message struct, fallback to generic one
                 if msgtype == TYPE_CUSTOM:
                     name = "CUSTOM_MESSAGE"
-                    hdr_len = self.full_hdr_len
+                    logger.debugfast('Unknown "custom message" will be decoded'
+                                     ' with the generic custom_message decoder'
+                                     ' (%s,%s,%s)', msgtype, vendorid, subtype)
                 else:
                     raise
             logger.debugfast('deserializing %s command', name)
@@ -113,6 +115,7 @@ class LLRPMessage(object):
             logger.exception('Unable to decode body %s, %s', body,
                              decoder(body))
         except LLRPError:
+            ## FIXME This should probably be raised
             logger.exception('Problem with %s message format', name)
             return ''
         return ''
@@ -367,7 +370,7 @@ class LLRPClient(object):
         }
         {
             Type: TYPE_CUSTOM,
-            VendorID: 25882,
+            VendorID: VENDOR_ID_IMPINJ,
             Subtype: 21,
             Data: b'\x00'
         }
@@ -387,7 +390,7 @@ class LLRPClient(object):
                 pass
 
             if ty == TYPE_CUSTOM:
-                if vendor == 25882 and subtype == 37:
+                if vendor == VENDOR_ID_IMPINJ and subtype == 37:
                     tempc = struct.unpack('!H', data)[0]
                     conf.update(temperature=tempc)
             else:
@@ -435,7 +438,7 @@ class LLRPClient(object):
 
         # parse list of reader's supported mode identifiers
         regcap = capdict['RegulatoryCapabilities']
-        modes = regcap['UHFBandCapabilities']['UHFRFModeTable']
+        modes = regcap['UHFBandCapabilities']['UHFC1G2RFModeTable']
         mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
 
         # select a mode by matching available modes to requested parameters:
@@ -567,7 +570,7 @@ class LLRPClient(object):
         elif self.state == LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS:
             if is_general_debug_enabled():
                 logger.debugfast(lmsg)
-            if msgName != 'CUSTOM_MESSAGE':
+            if msgName != 'IMPINJ_ENABLE_EXTENSIONS_RESPONSE':
                 logger.error('unexpected response %s while enabling Impinj'
                              'extensions', msgName)
                 return
@@ -813,16 +816,14 @@ class LLRPClient(object):
 
     def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
         self.sendMessage({
-            'CUSTOM_MESSAGE': {
+            'IMPINJ_ENABLE_EXTENSIONS': {
                 'Ver': 1,
                 'Type': TYPE_CUSTOM,
                 'ID': 0,
-                'VendorID': 25882,
-                'Subtype': 21,
                 # skip payload
             }})
         self.setState(LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS)
-        self._deferreds['CUSTOM_MESSAGE'].append(onCompletion)
+        self._deferreds['IMPINJ_ENABLE_EXTENSIONS_RESPONSE'].append(onCompletion)
 
     def send_GET_READER_CAPABILITIES(self, _, onCompletion):
         self.sendMessage({
@@ -837,13 +838,24 @@ class LLRPClient(object):
             onCompletion)
 
     def send_GET_READER_CONFIG(self, onCompletion):
-        self.sendMessage({
-            'GET_READER_CONFIG': {
-                'Ver':  1,
-                'Type': 2,
-                'ID':   0,
-                'RequestedData': Capability_Name2Type['All']
-            }})
+        cfg = {
+            'Ver':  1,
+            'Type': 2,
+            'ID':   0,
+            'RequestedData': Capability_Name2Type['All']
+        }
+        if self.config.impinj_extended_configuration:
+            cfg['CustomParameters'] = [
+                {
+                    'VendorID': VENDOR_ID_IMPINJ,
+                    # per Octane LLRP guide:
+                    # 21 = ImpinjRequestedData
+                    # 2000 = All configuration params
+                    'Subtype': 21,
+                    'Payload': struct.pack('!I', 2000)
+                }
+            ]
+        self.sendMessage({'GET_READER_CONFIG': cfg})
         self.setState(LLRPReaderState.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)

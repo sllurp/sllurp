@@ -46,6 +46,7 @@ struct_uint = Struct('!I')
 struct_2ushort = Struct('!HH')
 
 TYPE_CUSTOM = 1023
+VENDOR_ID_IMPINJ = 25882
 
 tve_param_formats = {
     # param type: (param name, struct format)
@@ -72,7 +73,7 @@ tve_param_formats = {
 
 
 custom_param_formats = {
-    25882: {  # Impinj
+    VENDOR_ID_IMPINJ: {
         56: ('ImpinjPhase', struct_ushort),
         57: ('ImpinjPeakRSSI', struct_short),
         68: ('ImpinjRFDopplerFrequency', struct_short)
