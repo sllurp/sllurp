@@ -713,7 +713,7 @@ Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
 
 
 # 16.1.30 RO_ACCESS_REPORT
-def decode_ROAccessReport(data):
+def decode_ROAccessReport(data, msg_name=None):
     msg = LLRPMessageDict()
     logger.debugfast('decode_ROAccessReport')
 
