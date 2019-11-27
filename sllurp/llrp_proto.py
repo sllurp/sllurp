@@ -480,6 +480,8 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'GPIPortCurrentState',
         'GPOWriteData',
         'EventsAndReports',
+        # Optional N custom parameters after
+        'ImpinjHubConfiguration'
     ],
     'decode': decode_generic_message_with_status_check
 }
@@ -3252,6 +3254,7 @@ Param_struct['ReaderExceptionEvent'] = {
         'AccessSpecID',
         'OpSpecID',
         # Optional N custom parameters after
+        'ImpinjHubConfiguration'
     ],
     'decode': decode_ReaderExceptionEvent
 }
@@ -3961,6 +3964,61 @@ Param_struct['ImpinjEnableRFDopplerParameter'] = {
     'subtype': 67,
     'fields': [],
     'encode': encode_ImpinjEnableRFDopplerParameter
+}
+
+ImpinjHubConnectedType = {
+    0: 'Unknown',
+    1: 'Disconnected',
+    2: 'Connected'
+}
+
+ImpinjHubFaultType = {
+    0: 'No_Fault',
+    1: 'RF_Power',
+    2: 'RF_Power_On_Hub_1',
+    3: 'RF_Power_On_Hub_2',
+    4: 'RF_Power_On_Hub_3',
+    5: 'RF_Power_On_Hub_4',
+    6: 'No_Init',
+    7: 'Serial_Overflow',
+    8: 'Disconnected'
+}
+
+
+def decode_ImpinjHubConfiguration(data):
+    par = {}
+    logger.debugfast('decode_ImpinjHubConfiguration')
+
+    if len(data) == 0:
+        return None, data
+
+    (partype,
+     vendorid,
+     subtype,
+     hdr_len,
+     full_length) = param_header_decode(data)
+    pardata = data[hdr_len:full_length]
+
+    # Decode fields
+    par['HubID'], connected, fault = ushort_ushort_ushort_unpack(
+        pardata[:ushort_ushort_ushort_size])
+
+    par['Connected'] = ImpinjHubConnectedType.get(connected,
+                                                  ImpinjHubConnectedType[0])
+    par['Fault'] = ImpinjHubFaultType.get(fault, ImpinjHubFaultType[0])
+    return par, data[full_length:]
+
+
+Param_struct['ImpinjHubConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1538,
+    'fields': [
+        'HubID',
+        'Connected',
+        'Fault'
+    ],
+    'decode': decode_ImpinjHubConfiguration
 }
 
 
