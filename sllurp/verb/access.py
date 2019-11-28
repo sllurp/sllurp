@@ -144,6 +144,9 @@ def main(main_args):
         for reader in reader_clients:
             reader.connect()
     except:
+        if reader:
+            logger.error("Failed to establish a connection with: %r",
+                         reader.get_peername())
         # On one error, abort all
         for reader in reader_clients:
             reader.disconnect()
