@@ -54,8 +54,8 @@ def tag_report_cb(reader, tags):
         return
     for tag in tags:
         tagReport += tag['TagSeenCount']
-        if "OpSpecResult" in tag:
-            result = tag["OpSpecResult"].get("Result")
+        if "C1G2LockOpSpecResult" in tag:
+            result = tag["C1G2LockOpSpecResult"].get("Result")
             logger.debug("result: %s", result)
 
 

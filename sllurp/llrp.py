@@ -438,8 +438,8 @@ class LLRPClient(object):
 
         # parse list of reader's supported mode identifiers
         regcap = capdict['RegulatoryCapabilities']
-        modes = regcap['UHFBandCapabilities']['UHFC1G2RFModeTable']
-        mode_list = [modes[k] for k in sorted(modes.keys(), key=natural_keys)]
+        mode_list = regcap['UHFBandCapabilities']['UHFC1G2RFModeTable']\
+            ['UHFC1G2RFModeTableEntry']
 
         # select a mode by matching available modes to requested parameters:
         # favor mode_identifier over modulation
@@ -1221,16 +1221,15 @@ class LLRPClient(object):
             self.capabilities['RegulatoryCapabilities']['UHFBandCapabilities']
         @return: a list of [0, dBm value, dBm value, ...]
 
-        >>> LLRPReaderState.parsePowerTable({'TransmitPowerLevelTableEntry1': \
+        >>> LLRPReaderState.parsePowerTable({'TransmitPowerLevelTableEntry': \
             {'Index': 1, 'TransmitPowerValue': 3225}})
         [0, 32.25]
         >>> LLRPReaderState.parsePowerTable({})
         [0]
         """
-        bandtbl = {k: v for k, v in uhfbandcap.items()
-                   if k.startswith('TransmitPowerLevelTableEntry')}
+        bandtbl = uhfbandcap['TransmitPowerLevelTableEntry']
         tx_power_table = [0] * (len(bandtbl) + 1)
-        for k, v in bandtbl.items():
+        for v in bandtbl:
             idx = v['Index']
             tx_power_table[idx] = int(v['TransmitPowerValue']) / 100.0
 
