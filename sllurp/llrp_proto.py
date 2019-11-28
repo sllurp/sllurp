@@ -19,9 +19,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-#
-# TODO: use generic functions from llrp_decoder where possible
-#
 
 from __future__ import unicode_literals
 import logging
@@ -73,6 +70,7 @@ def decode(data):
     return Param_struct[data]['decode']
 
 
+
 def encode(data):
     """Encode Parameter"""
     return Param_struct[data]['encode']
@@ -110,6 +108,7 @@ uint_size = struct.calcsize('!I')
 ubyte_ushort_size = struct.calcsize('!BH')
 ushort_ubyte_size = struct.calcsize('!HB')
 ushort_ushort_size = struct.calcsize('!HH')
+ushort_uint_size = struct.calcsize('!HI')
 uint_ubyte_size = struct.calcsize('!IB')
 uint_uint_size = struct.calcsize('!II')
 ubyte_ubyte_ushort_size = struct.calcsize('!BBH')
@@ -125,6 +124,7 @@ ulonglong_unpack = struct.Struct('!Q').unpack
 ubyte_ushort_unpack = struct.Struct('!BH').unpack
 ushort_ubyte_unpack = struct.Struct('!HB').unpack
 ushort_ushort_unpack = struct.Struct('!HH').unpack
+ushort_uint_unpack = struct.Struct('!HI').unpack
 uint_ubyte_unpack = struct.Struct('!IB').unpack
 uint_uint_unpack = struct.Struct('!II').unpack
 ubyte_ubyte_ushort_unpack = struct.Struct('!BBH').unpack
@@ -295,6 +295,20 @@ for p_type, p_format in iteritems(TVE_PARAM_FORMATS):
 
 # Global helpers
 
+def basic_param_decode_generator(unpack_func, sub_list=None):
+    """Generate a decode function for simple parameters"""
+    if sub_list is None:
+        def generated_func(data, name=None):
+            unpacked = unpack_func(data)
+            return unpacked[0], ''
+    else:
+        if not isinstance(sub_list, list):
+            sub_list = [sub_list]
+
+        def generated_func(data, name=None):
+            unpacked = unpack_func(data)
+            return dict(zip(sub_list, unpacked)), ''
+    return generated_func
 
 def get_message_name_from_type(msgtype, vendorid=0, subtype=0):
     name = Message_Type2Name[(msgtype, vendorid, subtype)]
@@ -821,15 +835,6 @@ Message_struct['CLOSE_CONNECTION_RESPONSE'] = {
 
 
 # 16.2.2.1 UTCTimestamp Parameter
-def decode_UTCTimestamp(data):
-    logger.debugfast('decode_UTCTimestamp')
-    par = {}
-
-    # Decode fields
-    par['Microseconds'] = ulonglong_unpack(data)[0]
-
-    return par, ''
-
 
 def encode_UTCTimestamp(par):
     msgtype = Param_struct['UTCTimestamp']['type']
@@ -845,7 +850,7 @@ Param_struct['UTCTimestamp'] = {
         'Type',
         'Microseconds'
     ],
-    'decode': decode_UTCTimestamp,
+    'decode': basic_param_decode_generator(ulonglong_unpack, ['Microseconds']),
     'encode': encode_UTCTimestamp,
 }
 
@@ -889,16 +894,6 @@ Param_struct['UHFBandCapabilities'] = {
 }
 
 
-def decode_TransmitPowerLevelTableEntry(data):
-    logger.debugfast('decode_TransmitPowerLevelTableEntry')
-    par = {}
-
-    # Decode fields
-    par['Index'], par['TransmitPowerValue'] = ushort_ushort_unpack(data)
-
-    return par, ''
-
-
 Param_struct['TransmitPowerLevelTableEntry'] = {
     'type': 145,
     'fields': [
@@ -906,7 +901,8 @@ Param_struct['TransmitPowerLevelTableEntry'] = {
         'Index',
         'TransmitPowerValue'
     ],
-    'decode': decode_TransmitPowerLevelTableEntry
+    'decode': basic_param_decode_generator(ushort_ushort_unpack,
+                                           ['Index', 'TransmitPowerValue'])
 }
 
 
@@ -993,11 +989,36 @@ Param_struct['FixedFrequencyTable'] = {
 }
 
 
+def decode_C1G2LLRPCapabilities(data):
+    logger.debugfast('decode_C1G2LLRPCapabilities')
+    par = {}
+
+    (flags,
+     par['MaxNumSelectFiltersPerQuery']) = ubyte_ushort_unpack(data)
+
+    par['CanSupportBlockErase'] = (flags & BIT(7) == BIT(7))
+    par['CanSupportBlockWrite'] = (flags & BIT(6) == BIT(6))
+    par['CanSupportBlockPermalock'] = (flags & BIT(5) == BIT(5))
+    par['CanSupportTagRecommissioning'] = (flags & BIT(4) == BIT(4))
+    par['CanSupportUMIMethod2'] = (flags & BIT(3) == BIT(3))
+    par['CanSupportXPC'] = (flags & BIT(2) == BIT(2))
+
+    return par, ''
+
+
 # v1.1:17.3.1.1.1 C1G2LLRPCapabilities
 Param_struct['C1G2LLRPCapabilities'] = {
-    # TODO
     'type': 327,
-    # 'decode': decode_C1G2LLRPCapabilities
+    'fields': [
+        'CanSupportBlockErase',
+        'CanSupportBlockWrite',
+        'CanSupportBlockPermalock',
+        'CanSupportTagRecommissioning',
+        'CanSupportUMIMethod2',
+        'CanSupportXPC',
+        'MaxNumSelectFiltersPerQuery'
+    ],
+    'decode': decode_C1G2LLRPCapabilities
 }
 
 
@@ -1056,17 +1077,6 @@ Param_struct['UHFC1G2RFModeTableEntry'] = {
 }
 
 
-def decode_RFSurveyFrequencyCapabilities(data):
-    logger.debugfast('decode_RFSurveyFrequencyCapabilities')
-    par = {}
-
-    # Decode fields
-    (par['MinimumFrequency'],
-     par['MaximumFrequency']) = uint_uint_unpack(data)
-
-    return par, ''
-
-
 Param_struct['RFSurveyFrequencyCapabilities'] = {
     'type': 365,
     'fields': [
@@ -1074,7 +1084,9 @@ Param_struct['RFSurveyFrequencyCapabilities'] = {
         'MinimumFrequency',
         'MaximumFrequency'
     ],
-    'decode': decode_RFSurveyFrequencyCapabilities
+    'decode': basic_param_decode_generator(uint_uint_unpack,
+                                           ['MinimumFrequency',
+                                            'MaximumFrequency'])
 }
 
 
@@ -1085,7 +1097,6 @@ def decode_LLRPCapabilities(data):
     logger.debugfast('decode_LLRPCapabilities')
     par = {}
 
-    # Decode fields
     (flags,
      par['MaxPriorityLevelSupported'],
      par['ClientRequestOpSpecTimeout'],
@@ -1174,35 +1185,15 @@ Param_struct['GeneralDeviceCapabilities'] = {
 }
 
 
-def decode_MaximumReceiveSensitivity(data):
-    logger.debugfast('decode_MaximumReceiveSensitivity')
-    par = {}
-
-    # Decode fields
-    par['MaximumSensitivityValue'] = ushort_unpack(data)[0]
-
-    return par, ''
-
-
 Param_struct['MaximumReceiveSensitivity'] = {
     'type': 363,
     'fields': [
         'Type',
         'MaximumSensitivityValue'
     ],
-    'decode': decode_MaximumReceiveSensitivity
+    'decode': basic_param_decode_generator(ushort_unpack,
+                                           ['MaximumSensitivityValue'])
 }
-
-
-def decode_ReceiveSensitivityTableEntry(data):
-    logger.debugfast('decode_ReceiveSensitivityTableEntry')
-    par = {}
-
-    # Decode fields
-    (par['Index'],
-     par['ReceiveSensitivityValue']) = ushort_ushort_unpack(data)
-
-    return par, ''
 
 
 Param_struct['ReceiveSensitivityTableEntry'] = {
@@ -1212,20 +1203,10 @@ Param_struct['ReceiveSensitivityTableEntry'] = {
         'Index',
         'ReceiveSensitivityValue'
     ],
-    'decode': decode_ReceiveSensitivityTableEntry
+    'decode': basic_param_decode_generator(ushort_ushort_unpack,
+                                           ['Index',
+                                            'ReceiveSensitivityValue'])
 }
-
-
-def decode_PerAntennaReceiveSensitivityRange(data):
-    logger.debugfast('decode_PerAntennaReceiveSensitivityRange')
-    par = {}
-
-    # Decode fields
-    (par['AntennaID'],
-     par['ReceiveSensitivityIndexMin'],
-     par['ReceiveSensitivityIndexMax']) = ushort_ushort_ushort_unpack(data)
-
-    return par, ''
 
 
 Param_struct['PerAntennaReceiveSensitivityRange'] = {
@@ -1236,7 +1217,10 @@ Param_struct['PerAntennaReceiveSensitivityRange'] = {
         'ReceiveSensitivityIndexMin',
         'ReceiveSensitivityIndexMax'
     ],
-    'decode': decode_PerAntennaReceiveSensitivityRange
+    'decode': basic_param_decode_generator(ushort_ushort_ushort_unpack,
+                                           ['AntennaID',
+                                            'ReceiveSensitivityIndexMin',
+                                            'ReceiveSensitivityIndexMax'])
 }
 
 
@@ -1271,16 +1255,6 @@ Param_struct['PerAntennaAirProtocol'] = {
 }
 
 
-def decode_GPIOCapabilities(data):
-    logger.debugfast('decode_GPIOCapabilities')
-    par = {}
-
-    # Decode fields
-    par['NumGPIs'], par['NumGPIs'] = ushort_ushort_unpack(data)
-
-    return par, ''
-
-
 Param_struct['GPIOCapabilities'] = {
     'type': 141,
     'fields': [
@@ -1288,7 +1262,8 @@ Param_struct['GPIOCapabilities'] = {
         'NumGPIs',
         'NumGPOs'
     ],
-    'decode': decode_GPIOCapabilities
+    'decode': basic_param_decode_generator(ushort_ushort_unpack,
+                                           ['NumGPIs', 'NumGPOs'])
 }
 
 
@@ -2466,13 +2441,12 @@ def decode_TagReportData(data):
     # Decode parameters
     par, _ = decode_all_parameters(data, 'TagReportData', par)
 
-    # EPC-96 is just a protocol optimization for EPCData
+    # EPC-96 is just a protocol optimization for EPCData but was not supposed
+    # to be exposed to higher level
     # Keep it here for the moment, because a lof of clients use it directly
     # but only the umbrella "EPC" should be used in the future
     if 'EPC-96' in par:
-        par['EPC'] = par['EPC-96'] = par['EPC-96']['EPC']
-    elif 'EPCData' in par:
-        par['EPC'] = par['EPCData']['EPC']
+        par['EPC'] = par['EPC-96']
 
     logger.debugfast('par=%s', par)
     return par, ''
@@ -2665,21 +2639,14 @@ Param_struct['C1G2GetBlockPermalockStatusOpSpecResult'] = {
 
 # 16.2.7.3.1 EPCData Parameter
 def decode_EPCData(data):
-    par = {}
-
-    # Decode fields
-    par['EPCLengthBits'] = ushort_unpack(data[0:ushort_size])[0]
-    par['EPC'] = hexlify(data[ushort_size:])
-
-    return par, ''
+    #EPC_length_bits = ushort_unpack(data[0:ushort_size])[0]
+    # Skip length
+    return hexlify(data[ushort_size:]), ''
 
 
-Param_struct['EPCData'] = {
+Param_struct['EPC'] = {
     'type': 241,
     'fields': [
-        'Type',
-        'EPCLengthBits',
-        'EPC'
     ],
     'decode': decode_EPCData
 }
@@ -2687,37 +2654,18 @@ Param_struct['EPCData'] = {
 
 # 16.2.7.3.2 EPC-96 Parameter
 def decode_EPC96(data):
-    par = {}
-
     # (EPC-96 bits) (96 // 8) = 12 bytes
     data = data[:12]
-
-    # Decode fields
-    par['EPCLengthBits'] = 96
-    par['EPC'] = hexlify(data)
-
-    return par, ''
+    return hexlify(data), ''
 
 
 Param_struct['EPC-96'] = {
     'type': 13,
     'tv_encoded': True,
     'fields': [
-        'Type',
-        'EPCLengthBits',
-        'EPC'
     ],
     'decode': decode_EPC96,
 }
-
-
-def decode_C1G2SingulationDetails(data):
-    logger.debugfast('decode_C1G2SingulationDetails')
-    par = {}
-
-    par['NumCollisionSlots'], par['NumEmptySlots'] = ushort_ushort_unpack(data)
-
-    return par, ''
 
 
 Param_struct['C1G2SingulationDetails'] = {
@@ -2727,18 +2675,13 @@ Param_struct['C1G2SingulationDetails'] = {
         'NumCollisionSlots',
         'NumEmptySlots',
     ],
-    'decode': decode_C1G2SingulationDetails
+    'decode': basic_param_decode_generator(ushort_ushort_unpack,
+                                           ['NumCollisionSlots',
+                                            'NumEmptySlots'])
 }
 
 
 # 16.2.7.6.1 HoppingEvent Parameter
-def decode_HoppingEvent(data):
-    logger.debugfast('decode_HoppingEvent')
-    par = {}
-
-    par['HopTableID'], par['NextChannelIndex'] = ushort_ushort_unpack(data)
-
-    return par, ''
 
 Param_struct['HoppingEvent'] = {
     'type': 247,
@@ -2747,7 +2690,8 @@ Param_struct['HoppingEvent'] = {
         'HopTableID',
         'NextChannelIndex'
     ],
-    'decode': decode_HoppingEvent
+    'decode': basic_param_decode_generator(ushort_ushort_unpack,
+                                           ['HopTableID', 'NextChannelIndex'])
 }
 
 # 16.2.7.6.2 GPIEvent Parameter
@@ -2801,22 +2745,14 @@ Param_struct['ROSpecEvent'] = {
 }
 
 
-def decode_ReportBufferLevelWarning(data):
-    logger.debugfast('decode_ReportBufferLevelWarning')
-    par = {}
-
-    par['ReportBufferPercentageFull'] = ubyte_unpack(data)[0]
-
-    return par, ''
-
-
 Param_struct['ReportBufferLevelWarning'] = {
     'type': 250,
     'fields': [
         'Type',
         'ReportBufferPercentageFull'
     ],
-    'decode': decode_ReportBufferLevelWarning
+    'decode': basic_param_decode_generator(ubyte_unpack,
+                                           ['ReportBufferPercentageFull'])
 }
 
 
@@ -2865,7 +2801,6 @@ def decode_RFSurveyEvent(data):
     logger.debugfast('decode_RFSurveyEvent')
     par = {}
 
-    # Decode fields
     (event_type,
      par['ROSpecID'],
      par['SpecIndex']) = ubyte_uint_ushort_unpack(data)
@@ -2927,9 +2862,8 @@ def decode_AntennaEvent(data):
     logger.debugfast('decode_AntennaEvent')
     par = {}
 
-    event_type, antenna_id = ubyte_ushort_unpack(data)
+    event_type, par['AntennaID'] = ubyte_ushort_unpack(data)
     par['EventType'] = event_type and 'Connected' or 'Disconnected'
-    par['AntennaID'] = antenna_id
 
     return par, ''
 
@@ -2976,17 +2910,6 @@ Param_struct['ConnectionCloseEvent'] = {
 }
 
 
-def decode_SpecLoopEvent(data):
-    logger.debugfast('decode_SpecLoopEvent')
-    par = {}
-
-    # Decode fields
-    (par['ROSpecID'],
-     par['LoopCount']) = uint_uint_unpack(data)
-
-    return par, ''
-
-
 # Only available with protocol v2 (llrp 1_1)
 Param_struct['SpecLoopEvent'] = {
     'type': 356,
@@ -2995,21 +2918,13 @@ Param_struct['SpecLoopEvent'] = {
         'ROSpecID',
         'LoopCount'
     ],
-    'decode': decode_SpecLoopEvent
+    'decode': basic_param_decode_generator(uint_uint_unpack, ['ROSpecID',
+                                                              'LoopCount'])
 }
 
 
 # Missing from the documentation, Impinj Custom Antenna Event Since Octane 5.8
-# Fired each time there is an attempt to us an antenna during the inventory
-def decode_ImpinjAntennaAttemptEvent(data):
-    logger.debugfast('decode_ImpinjAntennaAttemptEvent')
-    par = {}
-
-    # Decode fields
-    par['AntennaID'] = ushort_unpack(data)[0]
-
-    return par, ''
-
+# Fired each time there is an attempt to use an antenna during the inventory
 
 Param_struct['ImpinjAntennaAttemptEvent'] = {
     'type': TYPE_CUSTOM,
@@ -3018,7 +2933,7 @@ Param_struct['ImpinjAntennaAttemptEvent'] = {
     'fields': [
         'AntennaID'
     ],
-    'decode': decode_ImpinjAntennaAttemptEvent
+    'decode': basic_param_decode_generator(ushort_unpack, ['AntennaID'])
 }
 
 
@@ -3081,14 +2996,6 @@ Param_struct['LLRPStatus'] = {
 
 
 # 16.2.8.1.1 FieldError Parameter
-def decode_FieldError(data):
-    logger.debugfast('decode_FieldError')
-    par = {}
-
-    par['FieldNum'], par['ErrorCode'] = ushort_ushort_unpack(data)
-
-    return par, ''
-
 
 Param_struct['FieldError'] = {
     'type':   288,
@@ -3097,7 +3004,8 @@ Param_struct['FieldError'] = {
         'ErrorCode',
         'FieldNum',
     ],
-    'decode': decode_FieldError
+    'decode': basic_param_decode_generator(ushort_ushort_unpack,
+                                           ['FieldNum', 'ErrorCode'])
 }
 
 
@@ -3201,6 +3109,18 @@ Message_struct['IMPINJ_ENABLE_EXTENSIONS_RESPONSE'] = {
 }
 
 
+Param_struct['ImpinjSubRegulatoryRegion'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 22,
+    'fields': [
+        'ImpinjSubRegulatoryRegion',
+    ],
+    'decode': basic_param_decode_generator(ushort_unpack,
+                                           ['ImpinjSubRegulatoryRegion'])
+}
+
+
 def encode_ImpinjInventorySearchModeParameter(par):
     msg_struct_param = Param_struct['ImpinjInventorySearchModeParameter']
     custom_par = {
@@ -3248,20 +3168,81 @@ Param_struct['ImpinjFixedFrequencyListParameter'] = {
 }
 
 
+def decode_ImpinjDetailedVersion(data):
+    logger.debugfast('decode_ImpinjDetailedVersion')
+    par = {}
+
+    for field in ['ModelName', 'SerialNumber', 'SoftwareVersion',
+                  'FirmwareVersion', 'FPGAVersion', 'PCBAVersion']:
+        byte_count = ushort_unpack(data[:ushort_size])[0]
+        data = data[ushort_size:]
+        par[field] = data[:byte_count]
+        data = data[byte_count:]
+
+    par = decode_all_parameters(data, 'ImpinjDetailedVersion', par)
+    return par, ''
+
+
 Param_struct['ImpinjDetailedVersion'] = {
-    # TODO
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 29,
-    # 'decode': decode_ImpinjDetailedVersion
+    'fields': [
+        'ModelName',
+        'SerialNumber',
+        'SoftwareVersion',
+        'FirmwareVersion',
+        'FPGAVersion',
+        'PCBAVersion'
+        'ImpinjHubVersions',
+        'ImpinjArrayVersion',
+        'ImpinjBLEVersion',
+    ],
+    'decode': decode_ImpinjDetailedVersion
 }
 
+
+def decode_ImpinjFrequencyCapabilities(data):
+    logger.debugfast('decode_ImpinjFrequencyCapabilities')
+    par = {}
+
+    # Decode fields
+    par['NumFrequencies'] = ushort_unpack(data[:ushort_size])[0]
+    data = data[ushort_size:]
+
+    num = int(par['NumFrequencies'])
+    if num:
+        par['Frequency'] = []
+        for x in range(1, num + 1):
+            par['Frequency'].append(uint_unpack(data[:uint_size])[0])
+            data = data[uint_size:]
+
+    return par, ''
+
+
 Param_struct['ImpinjFrequencyCapabilities'] = {
-    # TODO
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 30,
-    # 'decode': decode_ImpinjFrequencyCapabilities
+    'fields': [
+        'NumFrequencies',
+        'Frequencies'
+    ],
+    'decode': decode_ImpinjFrequencyCapabilities
+}
+
+
+Param_struct['ImpinjGPIDebounceConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 36,
+    'fields': [
+        'GPIPortNum',
+        'GPIDebounceTimerMSec',
+    ],
+    'decode': basic_param_decode_generator(ushort_uint_unpack,
+                                           ['GPIPortNum',
+                                            'GPIDebounceTimerMSec'])
 }
 
 def encode_ImpinjTagReportContentSelectorParameter(par):
@@ -3329,23 +3310,13 @@ Param_struct['ImpinjEnablePeakRSSIParameter'] = {
 }
 
 
-def decode_ImpinjPhase(data):
-    par = ushort_unpack(data)[0]
-    return par, ''
-
-
 Param_struct['ImpinjPhase'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 56,
     'fields': [],
-    'decode': decode_ImpinjPhase
+    'decode': basic_param_decode_generator(ushort_unpack)
 }
-
-
-def decode_ImpinjPeakRSSI(data):
-    par = short_unpack(data)[0]
-    return par, ''
 
 
 Param_struct['ImpinjPeakRSSI'] = {
@@ -3353,7 +3324,7 @@ Param_struct['ImpinjPeakRSSI'] = {
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 57,
     'fields': [],
-    'decode': decode_ImpinjPeakRSSI
+    'decode': basic_param_decode_generator(short_unpack)
 }
 
 
@@ -3376,17 +3347,12 @@ Param_struct['ImpinjEnableRFDopplerParameter'] = {
 }
 
 
-def decode_ImpinjRFDopplerFrequency(data):
-    par = short_unpack(data)[0]
-    return par, ''
-
-
 Param_struct['ImpinjRFDopplerFrequency'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 68,
     'fields': [],
-    'decode': decode_ImpinjRFDopplerFrequency
+    'decode': basic_param_decode_generator(short_unpack)
 }
 
 ImpinjHubConnectedType = {
@@ -3413,7 +3379,6 @@ def decode_ImpinjHubConfiguration(data):
     logger.debugfast('decode_ImpinjHubConfiguration')
     par = {}
 
-    # Decode fields
     par['HubID'], connected, fault = ushort_ushort_ushort_unpack(
         data[:ushort_ushort_ushort_size])
 
