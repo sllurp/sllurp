@@ -1643,9 +1643,9 @@ class LLRPReaderClient(object):
             raise ReaderConfigurationError('Already connected')
         try:
             self._socket = socket(AF_INET, SOCK_STREAM)
-            self._socket.connect((self._host, self._port))
             # Sllurp original timeout is 3s
             self._socket.settimeout(self._socktimeout)
+            self._socket.connect((self._host, self._port))
             self._socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
             self._socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         except:
