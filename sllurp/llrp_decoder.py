@@ -44,11 +44,14 @@ struct_ulonglong = Struct('!Q')
 struct_schar = Struct('!b')
 struct_uint = Struct('!I')
 struct_2ushort = Struct('!HH')
+struct_96bits = Struct('!12s')
 
+TVE_PARAM_TYPE_MAX = 127
 TYPE_CUSTOM = 1023
 VENDOR_ID_IMPINJ = 25882
 
-tve_param_formats = {
+
+TVE_PARAM_FORMATS = {
     # param type: (param name, struct format)
     1: ('AntennaID', struct_ushort),
     2: ('FirstSeenTimestampUTC', struct_ulonglong),
@@ -62,6 +65,7 @@ tve_param_formats = {
     10: ('InventoryParameterSpecID', struct_ushort),
     11: ('C1G2CRC', struct_ushort),
     12: ('C1G2PC', struct_ushort),
+    13: ('EPC-96', struct_96bits),
     14: ('SpecIndex', struct_ushort),
     15: ('ClientRequestOpSpecResult', struct_ushort),
     16: ('AccessSpecID', struct_uint),
@@ -69,15 +73,6 @@ tve_param_formats = {
     18: ('C1G2SingulationDetails', struct_2ushort),
     19: ('C1G2XPCW1', struct_ushort),
     20: ('C1G2XPCW2', struct_ushort),
-}
-
-
-custom_param_formats = {
-    VENDOR_ID_IMPINJ: {
-        56: ('ImpinjPhase', struct_ushort),
-        57: ('ImpinjPeakRSSI', struct_short),
-        68: ('ImpinjRFDopplerFrequency', struct_short)
-    }
 }
 
 
@@ -128,7 +123,7 @@ def tve_param_header_decode(data):
 
     tve_msgtype = tve_msgtype & 0x7f
     try:
-        param_name, param_struct = tve_param_formats[tve_msgtype]
+        param_name, param_struct = TVE_PARAM_FORMATS[tve_msgtype]
         #logger.debugfast('found %s (type=%s)', param_name, tve_msgtype)
     except KeyError:
         return None, 0, 0
@@ -137,7 +132,6 @@ def tve_param_header_decode(data):
     length = tve_header_size + param_struct.size
 
     return tve_msgtype, tve_header_size, length
-
 
 
 def param_header_decode(data):
@@ -160,20 +154,9 @@ def param_header_decode(data):
     return partype, vendorid, subtype, hdr_len, full_length
 
 
-def decode_tve_parameter(data):
-    """Generic byte decoding function for TVE parameters.
-
-    Given an array of bytes, tries to interpret a TVE parameter from the
-    beginning of the array.  Returns the decoded data and the number of bytes
-    it read."""
-
-    # Most common case first
-    # decode the TVE field's header (1 bit "reserved" + 7-bit type)
-    tve_msgtype = tve_header_unpack(data[:tve_header_size])[0]
-    if tve_msgtype & 0b10000000:
-        tve_msgtype = tve_msgtype & 0x7f
+def tve_param_body_decode(data):
         try:
-            param_name, param_struct = tve_param_formats[tve_msgtype]
+            param_name, param_struct = TVE_PARAM_FORMATS[tve_msgtype]
             #logger.debugfast('found %s (type=%s)', param_name, tve_msgtype)
         except KeyError:
             return None, 0
@@ -181,34 +164,5 @@ def decode_tve_parameter(data):
         # decode the body
         size = tve_header_size + param_struct.size
         param_value_offset = tve_header_size
-    else:
-        # not a TV-encoded param, maybe a custom parameter
-        (nontve, size) = nontve_header_unpack(data[:nontve_header_size])
-        # Check that it is a customparameter
-        if nontve != TYPE_CUSTOM:
-            return None, 0
-        param_value_offset = nontve_header_size + par_vendor_subtype_size
-        (vendor, subtype) = par_vendor_subtype_unpack(
-            data[nontve_header_size:param_value_offset])
-        try:
-            param_name, param_struct = custom_param_formats[vendor][subtype]
-        except KeyError:
-            logger.error('Unknown tlv custom parameter {vendor: %d, '
-                         'subtype:%d}', vendor, subtype)
-            logger.error("Size was: %d and remaining: %d", size - param_value_offset, len(data) - nontve_header_size - param_value_offset)
-            return None, 0
-
-    try:
-        unpacked = param_struct.unpack(
-            data[param_value_offset:param_value_offset+param_struct.size])
-        # return directly the value if only 1 element.
-        if len(unpacked) == 1:
-            unpacked = unpacked[0]
-        return {param_name: unpacked}, size
-    except StructError:
-        return None, 0
 
 
-def decode_parameter(data):
-    """Decode a single parameter."""
-    pass

@@ -58,9 +58,9 @@ def tag_report_cb(reader, tags):
         return
     for tag in tags:
         tagReport += tag['TagSeenCount']
-        if "OpSpecResult" in tag:
+        if "C1G2ReadOpSpecResult" in tag:
             # copy the binary data to the standard output stream
-            data = tag["OpSpecResult"].get("ReadData")
+            data = tag["C1G2ReadOpSpecResult"].get("ReadData")
             if data:
                 if sys.version_info.major < 3:
                     sys.stdout.write(data)
