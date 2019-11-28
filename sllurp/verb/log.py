@@ -31,7 +31,7 @@ class CsvLogger(object):
         reader = '{}:{}'.format(host, port)
         logger.info('RO_ACCESS_REPORT from %s', reader)
         for tag in tags:
-            epc = tag['EPCData']['EPC'] if 'EPCData' in tag else tag['EPC-96']
+            epc = tag['EPC']
             if self.epc is not None and epc != self.epc:
                 continue
             if self.reader_timestamp:
