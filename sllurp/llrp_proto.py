@@ -106,15 +106,21 @@ ubyte_size = struct.calcsize('!B')
 ushort_size = struct.calcsize('!H')
 uint_size = struct.calcsize('!I')
 ubyte_ushort_size = struct.calcsize('!BH')
+ubyte_uint_size = struct.calcsize('!BI')
 ushort_ubyte_size = struct.calcsize('!HB')
 ushort_ushort_size = struct.calcsize('!HH')
 ushort_uint_size = struct.calcsize('!HI')
 uint_ubyte_size = struct.calcsize('!IB')
 uint_uint_size = struct.calcsize('!II')
 ubyte_ubyte_ushort_size = struct.calcsize('!BBH')
+ubyte_ushort_ushort_size = struct.calcsize('!BHH')
+ubyte_ushort_short_size = struct.calcsize('!BHh')
+ubyte_ushort_uint_size = struct.calcsize('!BHI')
 ubyte_uint_ushort_size = struct.calcsize('!BIH')
 ubyte_uint_uint_size = struct.calcsize('!BII')
+ushort_ubyte_ubyte_size = struct.calcsize('!HBB')
 ushort_ushort_ushort_size = struct.calcsize('!HHH')
+ushort_ushort_uint_size = struct.calcsize('!HHI')
 
 short_unpack = struct.Struct('!h').unpack
 ubyte_unpack = struct.Struct('!B').unpack
@@ -122,15 +128,21 @@ ushort_unpack = struct.Struct('!H').unpack
 uint_unpack = struct.Struct('!I').unpack
 ulonglong_unpack = struct.Struct('!Q').unpack
 ubyte_ushort_unpack = struct.Struct('!BH').unpack
+ubyte_uint_unpack = struct.Struct('!BI').unpack
 ushort_ubyte_unpack = struct.Struct('!HB').unpack
 ushort_ushort_unpack = struct.Struct('!HH').unpack
 ushort_uint_unpack = struct.Struct('!HI').unpack
 uint_ubyte_unpack = struct.Struct('!IB').unpack
 uint_uint_unpack = struct.Struct('!II').unpack
 ubyte_ubyte_ushort_unpack = struct.Struct('!BBH').unpack
+ubyte_ushort_ushort_unpack = struct.Struct('!BHH').unpack
+ubyte_ushort_short_unpack = struct.Struct('!BHh').unpack
+ubyte_ushort_uint_unpack = struct.Struct('!BHI').unpack
 ubyte_uint_ushort_unpack = struct.Struct('!BIH').unpack
 ubyte_uint_uint_unpack = struct.Struct('!BII').unpack
+ushort_ubyte_ubyte_unpack = struct.Struct('!HBB').unpack
 ushort_ushort_ushort_unpack = struct.Struct('!HHH').unpack
+ushort_ushort_uint_unpack = struct.Struct('!HHI').unpack
 
 AirProtocol = {
     'UnspecifiedAirProtocol': 0,
@@ -184,6 +196,13 @@ TagObservationTrigger_Name2Type = {
     'UponNUniqueTags': 3,
     'UponUniqueSilenceMs': 4,
 }
+
+AccessReportTrigger_Name2Type = {
+    'Upon_ROReport': 0,
+    'Upon_End_Of_AccessSpec': 1
+}
+
+AccessReportTrigger_Type2Name = reverse_dict(AccessReportTrigger_Name2Type)
 
 # 13.2.6.11 Connection attemp events
 ConnEvent_Name2Type = {
@@ -241,13 +260,13 @@ EventState_Name2Value = {
     'AISpecEventWithSingulation': 7,
     'AntennaEvent': 8,
     # New event only available in llrp v.2:
-    #'SpecLoopEvent': 9,
+    'SpecLoopEvent': 9,
 }
 
 EventState_Value2Name = reverse_dict(EventState_Name2Value)
 
 # 13.2.1 ROReportTrigger
-ROReportTrigger_Name2Type = {
+ROReportTrigger_Name2Value = {
     'None': 0,
     'Upon_N_Tags_Or_End_Of_AISpec': 1,
     'Upon_N_Tags_Or_End_Of_ROSpec': 2,
@@ -256,6 +275,8 @@ ROReportTrigger_Name2Type = {
     'Upon_N_Milliseconds': 5,
     'Upon_N_Milliseconds_Or_End_Of_ROSpec': 6,
 }
+
+ROReportTrigger_Value2Name = reverse_dict(ROReportTrigger_Name2Value)
 
 # v1.0:16.2.1.1.2.1 UHFC1G2RFModeTable, to be filled in by capabilities parser
 ModeIndex_Name2Type = defaultdict(int)
@@ -293,7 +314,9 @@ for p_type, p_format in iteritems(TVE_PARAM_FORMATS):
     }
     Param_struct[p_name] = p_struct
 
+
 # Global helpers
+
 
 def basic_param_decode_generator(unpack_func, sub_list=None):
     """Generate a decode function for simple parameters"""
@@ -309,6 +332,28 @@ def basic_param_decode_generator(unpack_func, sub_list=None):
             unpacked = unpack_func(data)
             return dict(zip(sub_list, unpacked)), ''
     return generated_func
+
+
+def basic_auto_param_decode_generator(unpack_func, unpack_sub_list, unpack_size):
+    """Generate a decode function for simple parameters with auto decode
+
+    Generate a function that decode first a set of fixed parameters of size
+    unpack_size, using the unpack_func function and then, try to automatically
+    decode remaining dynamic parameter objects.
+    """
+    if not isinstance(unpack_sub_list, list):
+            unpack_sub_list = [unpack_sub_list]
+
+    def generated_func(data, name=None):
+        unpacked = unpack_func(data[:unpack_size])
+        par = dict(zip(unpack_sub_list, unpacked))
+        data = data[unpack_size:]
+        if data:
+            par, _ = decode_all_parameters(data, name, par)
+        return par, ''
+
+    return generated_func
+
 
 def get_message_name_from_type(msgtype, vendorid=0, subtype=0):
     name = Message_Type2Name[(msgtype, vendorid, subtype)]
@@ -479,34 +524,6 @@ Message_struct['GET_READER_CONFIG'] = {
 }
 
 
-"""Identification parameter (LLRP 1.1 Section 13.2.2)"""
-def decode_Identification(data):
-    ret = {}
-    idtype, bytecount = ubyte_ushort_unpack(data[:ubyte_ushort_size])
-
-    idtypes = ['MAC Address', 'EPC']
-    try:
-        ret['IDType'] = idtypes[idtype]
-    except IndexError:
-        ret['IDType'] = ''
-
-    # the remainder is ID value
-    ret['ReaderID'] = hexlify(
-        data[ubyte_ushort_size:ubyte_ushort_size + bytecount])
-
-    return ret, data[ubyte_ushort_size + bytecount:]
-
-
-Param_struct['Identification'] = {
-    'type': 218,
-    'fields': [
-        'IDType',
-        'ReaderID'
-    ],
-    'decode': decode_Identification,
-}
-
-
 Message_struct['GET_READER_CONFIG_RESPONSE'] = {
     'type': 12,
     'fields': [
@@ -540,9 +557,9 @@ def encode_SetReaderConfig(msg):
     if 'ReaderEventNotificationSpec' in msg:
         data += encode('ReaderEventNotificationSpec')(
             msg['ReaderEventNotificationSpec'])
-    if 'ImpinjAntennaConfigurationParameter' in msg:
-        data += encode('ImpinjAntennaConfigurationParameter')(
-            msg['ImpinjAntennaConfigurationParameter'])
+    if 'ImpinjAntennaConfiguration' in msg:
+        data += encode('ImpinjAntennaConfiguration')(
+            msg['ImpinjAntennaConfiguration'])
     # XXX other params
     return data
 
@@ -561,7 +578,7 @@ Message_struct['SET_READER_CONFIG'] = {
         'GPOWriteData',
         'GPIPortCurrentState',
         'EventsAndReports',
-        'ImpinjAntennaConfigurationParameter',
+        'ImpinjAntennaConfiguration',
     ],
     'encode': encode_SetReaderConfig,
 }
@@ -855,20 +872,6 @@ Param_struct['UTCTimestamp'] = {
 }
 
 
-def decode_RegulatoryCapabilities(data):
-    logger.debugfast('decode_RegulatoryCapabilities')
-    par = {}
-
-    # Decode fields
-    par['CountryCode'], par['CommunicationsStandard'] = \
-        ushort_ushort_unpack(data[:ushort_ushort_size])
-
-    data = data[ushort_ushort_size:]
-    par, _ = decode_all_parameters(data, 'RegulatoryCapabilities', par)
-
-    return par, ''
-
-
 Param_struct['RegulatoryCapabilities'] = {
     'type': 143,
     'fields': [
@@ -877,7 +880,10 @@ Param_struct['RegulatoryCapabilities'] = {
         'CommunicationsStandard',
         'UHFBandCapabilities'
     ],
-    'decode': decode_RegulatoryCapabilities
+    'decode': basic_auto_param_decode_generator(ushort_ushort_unpack,
+                                                ['CountryCode',
+                                                 'CommunicationsStandard'],
+                                                ushort_ushort_size)
 }
 
 
@@ -908,14 +914,15 @@ Param_struct['TransmitPowerLevelTableEntry'] = {
 
 def decode_FrequencyInformation(data):
     logger.debugfast('decode_FrequencyInformation')
-    par = {}
 
-    # Decode fields
     flags = ubyte_unpack(data[:ubyte_size])[0]
-    par['Hopping'] = flags & BIT(7) == BIT(7)
-    data = data[ubyte_size:]
+    par = {
+        'Hopping': flags & BIT(7) == BIT(7)
+    }
 
+    data = data[ubyte_size:]
     par, _ = decode_all_parameters(data, 'FrequencyInformation', par)
+
     return par, ''
 
 
@@ -1757,13 +1764,15 @@ def encode_AccessReportSpec(par):
     return data
 
 
+# TODO: Use/convert AccessReportTrigger_Name2Type
 Param_struct['AccessReportSpec'] = {
     'type': 239,
     'fields': [
         'Type',
         'AccessReportTrigger'
     ],
-    'encode': encode_AccessReportSpec
+    'encode': encode_AccessReportSpec,
+    'decode': basic_param_decode_generator(ubyte_unpack)
 }
 
 
@@ -2021,6 +2030,105 @@ Param_struct['InventoryParameterSpec'] = {
     'encode': encode_InventoryParameterSpec
 }
 
+# v1.1:17.2.6.1 LLRPConfigurationStateValue Parameter
+Param_struct['LLRPConfigurationStateValue'] = {
+    'type': 217,
+    'fields': [
+        'Type',
+        'LLRPConfigurationStateValue',
+    ],
+    'decode': basic_param_decode_generator(uint_unpack,
+                                           ['LLRPConfigurationStateValue'])
+}
+
+
+# v1.1:17.2.6.2 Identification Parameter
+def decode_Identification(data):
+    ret = {}
+    idtype, bytecount = ubyte_ushort_unpack(data[:ubyte_ushort_size])
+
+    idtypes = ['MAC Address', 'EPC']
+    try:
+        ret['IDType'] = idtypes[idtype]
+    except IndexError:
+        ret['IDType'] = ''
+
+    # the remainder is ID value
+    ret['ReaderID'] = hexlify(
+        data[ubyte_ushort_size:ubyte_ushort_size + bytecount])
+
+    return ret, data[ubyte_ushort_size + bytecount:]
+
+
+Param_struct['Identification'] = {
+    'type': 218,
+    'fields': [
+        'IDType',
+        'ReaderID'
+    ],
+    'decode': decode_Identification,
+}
+
+# v1.1:17.2.6.3 GPOWriteData Parameter
+def decode_GPOEvent(data):
+    logger.debugfast('decode_GPOEvent')
+    par = {}
+
+    par['GPOPortNumber'], flags = ushort_ubyte_unpack(data)
+    par['GPOData'] = flags & BIT(7) == BIT(7)
+
+    return par, ''
+
+
+Param_struct['GPOWriteData'] = {
+    'type': 219,
+    'fields': [
+        'Type',
+        'GPOPortNumber',
+        'GPOData',
+    ],
+    'decode': decode_GPOEvent
+}
+
+
+# v1.1:17.2.6.4 KeepaliveSpec Parameter
+Param_struct['KeepaliveSpec'] = {
+    'type': 220,
+    'fields': [
+        'Type',
+        'KeepaliveTriggerType',
+        'TimeInterval',
+    ],
+    'decode': basic_param_decode_generator(ubyte_uint_unpack,
+                                           ['KeepaliveTriggerType',
+                                            'TimeInterval'])
+}
+
+
+# v1.1:17.2.6.5 AntennaProperties Parammeter
+def decode_AntennaProperties(data):
+    logger.debugfast('decode_AntennaProperties')
+    par = {}
+
+    (flags,
+     par['AntennaID'],
+     par['AntennaGain']) = ubyte_ushort_short_unpack(data)
+    par['AntennaConnected'] = flags & BIT(7) == BIT(7)
+
+    return par, ''
+
+
+Param_struct['AntennaProperties'] = {
+    'type': 221,
+    'fields': [
+        'Type',
+        'AntennaConnected',
+        'AntennaID',
+        'AntennaGain',
+    ],
+    'decode': decode_AntennaProperties
+}
+
 
 # 16.2.6.6 AntennaConfiguration Parameter
 def encode_AntennaConfiguration(par):
@@ -2049,51 +2157,11 @@ Param_struct['AntennaConfiguration'] = {
         # C1G2InventoryCommand?
         'C1G2InventoryCommand'
     ],
-    'encode': encode_AntennaConfiguration
-}
+    'encode': encode_AntennaConfiguration,
+    'decode': basic_auto_param_decode_generator(ushort_unpack,
+                                                ['AntennaID'],
+                                                ushort_size)
 
-
-def encode_ImpinjAntennaEventConfigurationParameter(par):
-    msg_struct_param = Param_struct['ImpinjAntennaEventConfigurationParameter']
-    custom_par = {
-        'VendorID': msg_struct_param['vendorid'],
-        'Subtype': msg_struct_param['subtype'],
-    }
-    enabled_flags = (int(bool(par)) << 7) & 0xff
-    data = struct.pack('!B', enabled_flags)
-    custom_par['Payload'] = data
-
-    return encode('CustomParameter')(custom_par)
-
-
-Param_struct['ImpinjAntennaEventConfigurationParameter'] = {
-    'type': TYPE_CUSTOM,
-    'vendorid': VENDOR_ID_IMPINJ,
-    'subtype': 1576,
-    'fields': [],
-    'encode': encode_ImpinjAntennaEventConfigurationParameter
-}
-
-
-def encode_ImpinjAntennaConfigurationParameter(par):
-    msg_struct_param = Param_struct['ImpinjAntennaConfigurationParameter']
-    custom_par = {
-        'VendorID': msg_struct_param['vendorid'],
-        'Subtype': msg_struct_param['subtype'],
-    }
-    payload = encode('ImpinjAntennaEventConfigurationParameter')(
-        par.get('ImpinjAntennaEventConfigurationParameter', True))
-    custom_par['Payload'] = payload
-
-    return encode('CustomParameter')(custom_par)
-
-
-Param_struct['ImpinjAntennaConfigurationParameter'] = {
-    'type': TYPE_CUSTOM,
-    'vendorid': VENDOR_ID_IMPINJ,
-    'subtype': 1524,
-    'fields': [],
-    'encode': encode_ImpinjAntennaConfigurationParameter
 }
 
 
@@ -2113,11 +2181,13 @@ Param_struct['RFReceiver'] = {
         'Type',
         'ReceiverSensitivity',
     ],
-    'encode': encode_RFReceiver
+    'encode': encode_RFReceiver,
+    'decode': basic_param_decode_generator(ushort_unpack,
+                                           ['ReceiverSensitivity'])
 }
 
 
-# 16.2.6.8 RFTransmitter Parameter
+# V1.1:16.2.6.8 RFTransmitter Parameter
 def encode_RFTransmitter(par):
     msgtype = Param_struct['RFTransmitter']['type']
     msg_header = '!HH'
@@ -2137,7 +2207,56 @@ Param_struct['RFTransmitter'] = {
         'ChannelIndex',
         'TransmitPower',
     ],
-    'encode': encode_RFTransmitter
+    'encode': encode_RFTransmitter,
+    'decode': basic_param_decode_generator(ushort_ushort_ushort_unpack,
+                                           ['HopTableId',
+                                            'ChannelIndex',
+                                            'TransmitPower'])
+}
+
+
+# V1.1:17.2.6.9 GPOWriteData Parameter
+def decode_GPIPortCurrentState(data):
+    logger.debugfast('decode_GPIPortCurrentState')
+    par = {}
+
+    par['GPIPortNum'], flags, par['GPIState'] = ushort_ubyte_ubyte_unpack(data)
+    par['GPIConfig'] = flags & BIT(7) == BIT(7)
+
+    return par, ''
+
+
+Param_struct['GPIPortCurrentState'] = {
+    'type': 225,
+    'fields': [
+        'Type',
+        'GPIPortNum',
+        'GPIConfig',
+        'GPIState'
+    ],
+    'decode': decode_GPIPortCurrentState
+}
+
+
+# V1.1:17.2.6.10 EventsAndReports Parameter
+def decode_EventsAndReports(data):
+    logger.debugfast('decode_GPOEvent')
+
+    flags = ubyte_unpack(data)[0]
+    par = {
+        'HoldEventsAndReportsUponReconnect': flags & BIT(7) == BIT(7)
+    }
+
+    return par, ''
+
+
+Param_struct['EventsAndReports'] = {
+    'type': 226,
+    'fields': [
+        'Type',
+        'HoldEventsAndReportsUponReconnect',
+    ],
+    'decode': decode_EventsAndReports
 }
 
 
@@ -2157,19 +2276,32 @@ def encode_C1G2InventoryCommand(par):
         data += encode('C1G2RFControl')(par['C1G2RFControl'])
     if 'C1G2SingulationControl' in par:
         data += encode('C1G2SingulationControl')(par['C1G2SingulationControl'])
-    if 'ImpinjInventorySearchModeParameter' in par:
-        data += encode('ImpinjInventorySearchModeParameter')(
-            par['ImpinjInventorySearchModeParameter'])
-    if 'ImpinjIntelligentAntennaManagementParameter' in par:
-        data += encode('ImpinjIntelligentAntennaManagementParameter')(
-            par['ImpinjIntelligentAntennaManagementParameter'])
-    if 'ImpinjFixedFrequencyListParameter' in par:
-        data += encode('ImpinjFixedFrequencyListParameter')(
-            par['ImpinjFixedFrequencyListParameter'])
+    if 'ImpinjInventorySearchMode' in par:
+        data += encode('ImpinjInventorySearchMode')(
+            par['ImpinjInventorySearchMode'])
+    if 'ImpinjIntelligentAntennaManagement' in par:
+        data += encode('ImpinjIntelligentAntennaManagement')(
+            par['ImpinjIntelligentAntennaManagement'])
+    if 'ImpinjFixedFrequencyList' in par:
+        data += encode('ImpinjFixedFrequencyList')(
+            par['ImpinjFixedFrequencyList'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
     return data
+
+
+def decode_C1G2InventoryCommand(data):
+    logger.debugfast('decode_C1G2InventoryCommand')
+    par = {}
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+    par['TagInventoryStateAware'] = (flags & BIT(7) == BIT(7))
+
+    par, _ = decode_all_parameters(data[ubyte_size:], 'C1G2InventoryCommand',
+                                   par)
+
+    return par, ''
 
 
 Param_struct['C1G2InventoryCommand'] = {
@@ -2180,33 +2312,16 @@ Param_struct['C1G2InventoryCommand'] = {
         'C1G2RFControl',
         'C1G2SingulationControl',
         # XXX custom parameters
-        'ImpinjInventorySearchModeParameter',
-        'ImpinjIntelligentAntennaManagementParameter',
-        'ImpinjFixedFrequencyListParameter',
+        'ImpinjInventoryConfiguration',
+        'ImpinjInventorySearchMode',
+        'ImpinjIntelligentAntennaManagement',
+        'ImpinjFixedFrequencyList',
+        'ImpinjReducedPowerFrequencyList',
+        'ImpinjLowDutyCycle',
+        'ImpinjRFPowerSweep'
     ],
-    'encode': encode_C1G2InventoryCommand
-}
-
-
-def encode_ImpinjIntelligentAntennaManagementParameter(par):
-    msg_struct_param = Param_struct['ImpinjIntelligentAntennaManagementParameter']
-    custom_par = {
-        'VendorID': msg_struct_param['vendorid'],
-        'Subtype': msg_struct_param['subtype'],
-    }
-    enabled_flags = (int(bool(par)) << 7) & 0xff
-    data = struct.pack('!B', enabled_flags)
-    custom_par['Payload'] = data
-
-    return encode('CustomParameter')(custom_par)
-
-
-Param_struct['ImpinjIntelligentAntennaManagementParameter'] = {
-    'type': TYPE_CUSTOM,
-    'vendorid': VENDOR_ID_IMPINJ,
-    'subtype': 1554,
-    'fields': [],
-    'encode': encode_ImpinjIntelligentAntennaManagementParameter
+    'encode': encode_C1G2InventoryCommand,
+    'decode': decode_C1G2InventoryCommand
 }
 
 
@@ -2275,7 +2390,9 @@ Param_struct['C1G2RFControl'] = {
         'ModeIndex',
         'Tari',
     ],
-    'encode': encode_C1G2RFControl
+    'encode': encode_C1G2RFControl,
+    'decode': basic_param_decode_generator(ushort_ushort_unpack,
+                                           ['ModeIndex', 'Tari'])
 }
 
 
@@ -2291,14 +2408,56 @@ def encode_C1G2SingulationControl(par):
     return data
 
 
+def decode_C1G2SingulationControl(data):
+    logger.debugfast('decode_FrequencyInformation')
+    par = {}
+
+    (bitfield,
+     par['TagPopulation'],
+     par['TagTransitTime']) = ubyte_ushort_uint_unpack(
+        data[:ubyte_ushort_uint_size])
+
+    par['Session'] = int(bitfield >> 6)
+
+    data = data[ubyte_ushort_uint_size:]
+    par, _ = decode_all_parameters(data, 'C1G2SingulationControl', par)
+
+    return par, ''
+
+
 Param_struct['C1G2SingulationControl'] = {
     'type': 336,
     'fields': [
         'Session',
         'TagPopulation',
         'TagTransitTime',
+        'C1G2TagInventoryStateAwareSingulationAction'
     ],
-    'encode': encode_C1G2SingulationControl
+    'encode': encode_C1G2SingulationControl,
+    'decode': decode_C1G2SingulationControl
+}
+
+
+def decode_C1G2TagInventoryStateAwareSingulationAction(data):
+    logger.debugfast('decode_C1G2TagInventoryStateAwareSingulationAction')
+    par = {}
+
+    ISA = ubyte_unpack(data)
+    par['I'] = (RC >> 7) and 'State_B' or 'State_A'
+    par['S'] = ((RC >> 6) & 1) and 'Not_SL' or 'SL'
+    par['A'] = ((RC >> 5) & 1) and 'All' or 'No'
+
+    return par, ''
+
+
+Param_struct['C1G2TagInventoryStateAwareSingulationAction'] = {
+    'type': 337,
+    'fields': [
+        'I',
+        'S',
+        'A',
+    ],
+    'decode': decode_C1G2TagInventoryStateAwareSingulationAction
 }
 
 
@@ -2306,15 +2465,15 @@ Param_struct['C1G2SingulationControl'] = {
 def encode_ROReportSpec(par):
     msgtype = Param_struct['ROReportSpec']['type']
     n = int(par['N'])
-    roReportTrigger = ROReportTrigger_Name2Type[par['ROReportTrigger']]
+    roReportTrigger = ROReportTrigger_Name2Value[par['ROReportTrigger']]
 
     msg_header = '!HHBH'
     msg_header_len = struct.calcsize(msg_header)
 
     data = encode('TagReportContentSelector')(par['TagReportContentSelector'])
-    if 'ImpinjTagReportContentSelectorParameter' in par:
-        data += encode('ImpinjTagReportContentSelectorParameter')(
-            par['ImpinjTagReportContentSelectorParameter'])
+    if 'ImpinjTagReportContentSelector' in par:
+        data += encode('ImpinjTagReportContentSelector')(
+            par['ImpinjTagReportContentSelector'])
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -2323,15 +2482,27 @@ def encode_ROReportSpec(par):
     return data
 
 
+def decode_ROReportSpec(data):
+    logger.debugfast('decode_C1G2InventoryCommand')
+    par = {}
+
+    trigger_type, par['N'] = ubyte_ushort_unpack(data[:ubyte_ushort_size])
+    par['ROReportTrigger'] = ROReportTrigger_Value2Name[trigger_type]
+
+    par, _ = decode_all_parameters(data[ubyte_ushort_size:], 'ROReportSpec',
+                                   par)
+    return par, ''
+
 Param_struct['ROReportSpec'] = {
     'type': 237,
     'fields': [
-        'N',
         'ROReportTrigger',
+        'N',
         'TagReportContentSelector',
-        'ImpinjTagReportContentSelectorParameter',
+        'ImpinjTagReportContentSelector',
     ],
-    'encode': encode_ROReportSpec
+    'encode': encode_ROReportSpec,
+    'decode': decode_ROReportSpec
 }
 
 
@@ -2359,7 +2530,31 @@ Param_struct['ReaderEventNotificationSpec'] = {
     'fields': [
         'EventNotificationState',
     ],
-    'encode': encode_ReaderEventNotificationSpec
+    'encode': encode_ReaderEventNotificationSpec,
+    'decode': decode_all_parameters
+}
+
+
+def decode_EventNotificationState(data):
+    logger.debugfast('decode_EventNotificationState')
+    par = {}
+
+    event_type, flags = ushort_ubyte_unpack(data)
+    par = {
+        'EventType': EventState_Value2Name[event_type],
+        'NotificationState': flags & BIT(7) == BIT(7)
+    }
+
+    return par, ''
+
+
+Param_struct['EventNotificationState'] = {
+    'type': 245,
+    'fields': [
+        'EventType',
+        'NotificationState'
+    ],
+    'decode': decode_EventNotificationState
 }
 
 
@@ -2372,6 +2567,8 @@ def encode_TagReportContentSelector(par):
     flags = 0
     i = 15
     for field in Param_struct['TagReportContentSelector']['fields']:
+        if field == 'C1G2EPCMemorySelector':
+            continue
         if field in par and par[field]:
             flags = flags | (1 << i)
         i = i - 1
@@ -2386,6 +2583,23 @@ def encode_TagReportContentSelector(par):
     return data
 
 
+def decode_TagReportContentSelector(data):
+    logger.debugfast('decode_TagReportContentSelector')
+    par = {}
+
+    flags = ushort_unpack(data[:ushort_size])[0]
+    i = 15
+    for field in Param_struct['TagReportContentSelector']['fields']:
+        if field == 'C1G2EPCMemorySelector':
+            continue
+        par[field] = (flags & BIT(i) == BIT(i))
+        i = i - 1
+
+    data = data[ushort_size:]
+    par, _ = decode_all_parameters(data, 'TagReportContentSelector', par)
+    return par, ''
+
+
 Param_struct['TagReportContentSelector'] = {
     'type': 238,
     'fields': [
@@ -2398,10 +2612,13 @@ Param_struct['TagReportContentSelector'] = {
         'EnableFirstSeenTimestamp',
         'EnableLastSeenTimestamp',
         'EnableTagSeenCount',
-        'EnableAccessSpecID'
+        'EnableAccessSpecID',
+        'C1G2EPCMemorySelector'
     ],
-    'encode': encode_TagReportContentSelector
+    'encode': encode_TagReportContentSelector,
+    'decode': decode_TagReportContentSelector,
 }
+
 
 # 15.2.1.5.1 C1G2EPCMemorySelector Parameter
 def encode_C1G2EPCMemorySelector(par):
@@ -2422,16 +2639,31 @@ def encode_C1G2EPCMemorySelector(par):
     return data
 
 
+def decode_C1G2EPCMemorySelector(data):
+    logger.debugfast('decode_C1G2EPCMemorySelector')
+
+    flags = ubyte_unpack(data)[0]
+    par = {
+        'EnableCRC': flags & BIT(7) == BIT(7),
+        'EnablePCBits': flags & BIT(6) == BIT(6),
+        'EnableXPCBits': flags & BIT(5) == BIT(5)
+    }
+
+    return par, ''
+
+
 Param_struct['C1G2EPCMemorySelector'] = {
     'type': 348,
     'fields': [
         'EnableCRC',
         'EnablePCBits',
         # New in protocol v2 (llrp 1_1)
-        #'EnableXPCBits'
+        'EnableXPCBits'
     ],
-    'encode': encode_C1G2EPCMemorySelector
+    'encode': encode_C1G2EPCMemorySelector,
+    'decode': decode_C1G2EPCMemorySelector,
 }
+
 
 # 16.2.7.3 TagReportData Parameter
 def decode_TagReportData(data):
@@ -3010,19 +3242,6 @@ Param_struct['FieldError'] = {
 
 
 # 16.2.8.1.2 ParameterError Parameter
-def decode_ParameterError(data):
-    logger.debugfast('decode_ParameterError')
-    par = {}
-
-    offset = ushort_ushort_size
-    (par['ParameterType'],
-     par['ErrorCode']) = ushort_ushort_unpack(data[:offset])
-
-    par, _ = decode_all_parameters(data, 'ParameterError', par)
-
-    return par, ''
-
-
 Param_struct['ParameterError'] = {
     'type':   289,
     'fields': [
@@ -3032,7 +3251,10 @@ Param_struct['ParameterError'] = {
         'FieldError',
         'ParameterError'
     ],
-    'decode': decode_ParameterError
+    'decode': basic_auto_param_decode_generator(ushort_ushort_unpack,
+                                                ['ParameterType',
+                                                 'ErrorCode'],
+                                                ushort_ushort_size)
 }
 
 
@@ -3101,6 +3323,7 @@ Message_struct['IMPINJ_ENABLE_EXTENSIONS'] = {
     'encode': encode_ImpinjEnableExtensions
 }
 
+
 Message_struct['IMPINJ_ENABLE_EXTENSIONS_RESPONSE'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
@@ -3121,8 +3344,8 @@ Param_struct['ImpinjSubRegulatoryRegion'] = {
 }
 
 
-def encode_ImpinjInventorySearchModeParameter(par):
-    msg_struct_param = Param_struct['ImpinjInventorySearchModeParameter']
+def encode_ImpinjInventorySearchMode(par):
+    msg_struct_param = Param_struct['ImpinjInventorySearchMode']
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
@@ -3130,16 +3353,23 @@ def encode_ImpinjInventorySearchModeParameter(par):
     }
     return encode('CustomParameter')(custom_par)
 
-Param_struct['ImpinjInventorySearchModeParameter'] = {
+
+Param_struct['ImpinjInventorySearchMode'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 23,
-    'fields': [],
-    'encode': encode_ImpinjInventorySearchModeParameter
+    'fields': [
+        'InventorySearchMode'
+    ],
+    'encode': encode_ImpinjInventorySearchMode,
+    'decode': basic_auto_param_decode_generator(ushort_unpack,
+                                                ['InventorySearchMode'],
+                                                ushort_size)
 }
 
-def encode_ImpinjFixedFrequencyListParameter(par):
-    msg_struct_param = Param_struct['ImpinjFixedFrequencyListParameter']
+
+def encode_ImpinjFixedFrequencyList(par):
+    msg_struct_param = Param_struct['ImpinjFixedFrequencyList']
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype']
@@ -3154,7 +3384,27 @@ def encode_ImpinjFixedFrequencyListParameter(par):
 
     return encode('CustomParameter')(custom_par)
 
-Param_struct['ImpinjFixedFrequencyListParameter'] = {
+
+def decode_ImpinjFixedFrequencyList(data):
+    logger.debugfast('decode_ImpinjFixedFrequencyList')
+    par = {}
+
+    (par['FixedFrequencyMode'], _, par['ChannelListCount']) = \
+        ushort_ushort_ushort_unpack(data[:ushort_ushort_ushort_size])
+    data = data[ushort_ushort_ushort_size:]
+
+    num = int(par['ChannelListCount'])
+    if num:
+        par['ChannelListIndex'] = []
+        for x in range(1, num + 1):
+            par['ChannelListIndex'].append(
+                ushort_unpack(data[:ushort_size])[0])
+            data = data[ushort_size:]
+
+    return par, ''
+
+
+Param_struct['ImpinjFixedFrequencyList'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 26,
@@ -3164,7 +3414,57 @@ Param_struct['ImpinjFixedFrequencyListParameter'] = {
         'ChannelListCount',
         'ChannelListIndex'
     ],
-    'encode': encode_ImpinjFixedFrequencyListParameter
+    'encode': encode_ImpinjFixedFrequencyList,
+    'decode': decode_ImpinjFixedFrequencyList
+}
+
+
+def decode_ImpinjReducedPowerFrequencyList(data):
+    logger.debugfast('decode_ImpinjReducedPowerFrequencyList')
+    par = {}
+
+    (par['ReducedPowerMode'], _, par['ReducedPowerChannelListCount']) = \
+        ushort_ushort_ushort_unpack(data[:ushort_ushort_ushort_size])
+    data = data[ushort_ushort_ushort_size:]
+
+    num = int(par['ReducedPowerChannelListCount'])
+    if num:
+        par['ReducedPowerChannelListIndex'] = []
+        for x in range(1, num + 1):
+            par['ReducedPowerChannelListIndex'].append(
+                ushort_unpack(data[:ushort_size])[0])
+            data = data[ushort_size:]
+
+    return par, ''
+
+
+Param_struct['ImpinjReducedPowerFrequencyList'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 27,
+    'fields': [
+        'ReducedPowerMode',
+        'ReducedPowerChannelListCount',
+        'ReducedPowerChannelListIndex'
+    ],
+    'decode': decode_ImpinjReducedPowerFrequencyList
+}
+
+
+Param_struct['ImpinjLowDutyCycle'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 28,
+    'fields': [
+        'LowDutyCycleMode',
+        'EmptyFieldTimeout',
+        'FieldPingInterval'
+    ],
+    'decode': basic_auto_param_decode_generator(ushort_ushort_ushort_unpack,
+                                                ['LowDutyCycleMode',
+                                                 'EmptyFieldTimeout',
+                                                 'FieldPingInterval'],
+                                                ushort_ushort_ushort_size)
 }
 
 
@@ -3206,7 +3506,6 @@ def decode_ImpinjFrequencyCapabilities(data):
     logger.debugfast('decode_ImpinjFrequencyCapabilities')
     par = {}
 
-    # Decode fields
     par['NumFrequencies'] = ushort_unpack(data[:ushort_size])[0]
     data = data[ushort_size:]
 
@@ -3245,37 +3544,118 @@ Param_struct['ImpinjGPIDebounceConfiguration'] = {
                                             'GPIDebounceTimerMSec'])
 }
 
-def encode_ImpinjTagReportContentSelectorParameter(par):
-    msg_struct_param = Param_struct['ImpinjTagReportContentSelectorParameter']
+Param_struct['ImpinjReaderTemperature'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 37,
+    'fields': [
+        'Temperature',
+    ],
+    'decode': basic_auto_param_decode_generator(short_unpack,
+                                                ['Temperature'],
+                                                short_size)
+}
+
+
+Param_struct['ImpinjLinkMonitorConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 38,
+    'fields': [
+        'LinkMonitorMode',
+        'LinkDownThreshold'
+    ],
+    'decode': basic_auto_param_decode_generator(ushort_ushort_unpack,
+                                                ['LinkMonitorMode',
+                                                 'LinkDownThreshold'],
+                                                ushort_ushort_size)
+}
+
+
+Param_struct['ImpinjReportBufferConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 39,
+    'fields': [
+        'ReportBufferMode',
+    ],
+    'decode': basic_auto_param_decode_generator(ushort_unpack,
+                                                ['ReportBufferMode'],
+                                                ushort_size)
+}
+
+
+Param_struct['ImpinjAccessSpecConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 40,
+    'fields': [
+        'ImpinjBlockWriteWordCount',
+        'ImpinjOpSpecRetryCount',
+        'ImpinjAccessSpecOrdering'
+    ],
+    'decode': decode_all_parameters
+}
+
+
+Param_struct['ImpinjBlockWriteWordCount'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 41,
+    'fields': [
+        'WordCount',
+    ],
+    'decode': basic_auto_param_decode_generator(ushort_unpack,
+                                                ['WordCount'],
+                                                ushort_size)
+}
+
+
+def encode_ImpinjTagReportContentSelector(par):
+    msg_struct_param = Param_struct['ImpinjTagReportContentSelector']
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
     }
 
-    payload = encode('ImpinjEnableRFPhaseAngleParameter')(
-        par.get('ImpinjEnableRFPhaseAngleParameter', False))
-    payload += encode('ImpinjEnablePeakRSSIParameter')(
-        par.get('ImpinjEnablePeakRSSIParameter', False))
-    payload += encode('ImpinjEnableRFDopplerParameter')(
-        par.get('ImpinjEnableRFDopplerParameter', False))
+    payload = encode('ImpinjEnableRFPhaseAngle')(
+        par.get('ImpinjEnableRFPhaseAngle', False))
+    payload += encode('ImpinjEnablePeakRSSI')(
+        par.get('ImpinjEnablePeakRSSI', False))
+    payload += encode('ImpinjEnableRFDopplerFrequency')(
+        par.get('ImpinjEnableRFDopplerFrequency', False))
     custom_par['Payload'] = payload
 
     return encode('CustomParameter')(custom_par)
 
-Param_struct['ImpinjTagReportContentSelectorParameter'] = {
+
+Param_struct['ImpinjTagReportContentSelector'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 50,
     'fields': [
-        'ImpinjEnableRFPhaseAngleParameter',
-        'ImpinjEnablePeakRSSIParameter',
-        'ImpinjEnableRFDopplerParameter'
+        'ImpinjEnableSerializedTID',
+        'ImpinjEnableRFPhaseAngle',
+        'ImpinjEnablePeakRSSI',
+        'ImpinjEnableGPSCoordinates',
+        'ImpinjEnableOptimizedRead',
+        'ImpinjEnableRFDopplerFrequency',
+        'ImpinjEnableTxPower'
     ],
-    'encode': encode_ImpinjTagReportContentSelectorParameter
+    'encode': encode_ImpinjTagReportContentSelector,
+    'decode': decode_all_parameters
 }
 
-def encode_ImpinjEnableRFPhaseAngleParameter(par):
-    msg_struct_param = Param_struct['ImpinjEnableRFPhaseAngleParameter']
+Param_struct['ImpinjEnableSerializedTID'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 51,
+    'fields': [],
+    'decode': basic_param_decode_generator(ushort_unpack)
+}
+
+def encode_ImpinjEnableRFPhaseAngle(par):
+    msg_struct_param = Param_struct['ImpinjEnableRFPhaseAngle']
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
@@ -3283,16 +3663,19 @@ def encode_ImpinjEnableRFPhaseAngleParameter(par):
     }
     return encode('CustomParameter')(custom_par)
 
-Param_struct['ImpinjEnableRFPhaseAngleParameter'] = {
+
+Param_struct['ImpinjEnableRFPhaseAngle'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 52,
     'fields': [],
-    'encode': encode_ImpinjEnableRFPhaseAngleParameter
+    'encode': encode_ImpinjEnableRFPhaseAngle,
+    'decode': basic_param_decode_generator(ushort_unpack)
 }
 
-def encode_ImpinjEnablePeakRSSIParameter(par):
-    msg_struct_param = Param_struct['ImpinjEnablePeakRSSIParameter']
+
+def encode_ImpinjEnablePeakRSSI(par):
+    msg_struct_param = Param_struct['ImpinjEnablePeakRSSI']
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
@@ -3301,12 +3684,50 @@ def encode_ImpinjEnablePeakRSSIParameter(par):
     return encode('CustomParameter')(custom_par)
 
 
-Param_struct['ImpinjEnablePeakRSSIParameter'] = {
+Param_struct['ImpinjEnablePeakRSSI'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 53,
     'fields': [],
-    'encode': encode_ImpinjEnablePeakRSSIParameter
+    'encode': encode_ImpinjEnablePeakRSSI,
+    'decode': basic_param_decode_generator(ushort_unpack)
+}
+
+Param_struct['ImpinjEnableGPSCoordinates'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 54,
+    'fields': [],
+    'decode': basic_param_decode_generator(ushort_unpack)
+}
+
+
+def decode_ImpinjSerializedTID(data):
+    logger.debugfast('decode_ImpinjSerializedTID')
+    par = {}
+
+    par['TIDWordCount'] = ushort_unpack(data[:ushort_size])[0]
+    data = data[ushort_size:]
+
+    wordcnt = int(par['TIDWordCount'])
+    if num:
+        par['TID'] = data[:wordcnt * 2]
+
+    data = data[wordcnt * 2:]
+    par, _ = decode_all_parameters(data, 'ImpinjSerializedTID', par)
+
+    return par, ''
+
+
+Param_struct['ImpinjSerializedTID'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 55,
+    'fields': [
+        'TIDWordCount',
+        'TID'
+    ],
+    'decode': decode_ImpinjSerializedTID
 }
 
 
@@ -3328,8 +3749,138 @@ Param_struct['ImpinjPeakRSSI'] = {
 }
 
 
-def encode_ImpinjEnableRFDopplerParameter(par):
-    msg_struct_param = Param_struct['ImpinjEnableRFDopplerParameter']
+Param_struct['ImpinjGPSCoordinates'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 58,
+    'fields': [
+        'Latitude',
+        'Longitude'
+    ],
+    'decode': basic_auto_param_decode_generator(uint_uint_unpack,
+                                                ['Latitude', 'Longitude'],
+                                                uint_uint_size)
+}
+
+
+Param_struct['ImpinjGPSNMEASentences'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 60,
+    'fields': [
+        'ImpinjGGASentence',
+        'ImpinjRMCSentence'
+    ],
+    'decode': decode_all_parameters
+}
+
+
+def decode_ImpinjGGASentence(data):
+    logger.debugfast('decode_ImpinjGGASentence')
+
+    byte_count = ushort_unpack(data[:ushort_size])[0]
+    data = data[ushort_size:]
+    par = {
+        'GGASentence': data[:byte_count]
+    }
+    par = decode_all_parameters(data, 'ImpinjGGASentence', par)
+
+    return par, ''
+
+
+Param_struct['ImpinjGGASentence'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 61,
+    'fields': [
+        'GGASentence',
+    ],
+    'decode': decode_ImpinjGGASentence
+}
+
+
+def decode_ImpinjRMCSentence(data):
+    logger.debugfast('decode_ImpinjRMCSentence')
+
+    byte_count = ushort_unpack(data[:ushort_size])[0]
+    data = data[ushort_size:]
+    par = {
+        'RMCSentence': data[:byte_count]
+    }
+    par = decode_all_parameters(data, 'ImpinjRMCSentence', par)
+
+    return par, ''
+
+
+Param_struct['ImpinjRMCSentence'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 62,
+    'fields': [
+        'RMCSentence'
+    ],
+    'decode': decode_ImpinjRMCSentence
+}
+
+
+Param_struct['ImpinjOpSpecRetryCount'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 63,
+    'fields': [
+        'RetryCount',
+    ],
+    'decode': basic_auto_param_decode_generator(ushort_unpack,
+                                                ['RetryCount'],
+                                                ushort_size)
+}
+
+
+Param_struct['ImpinjAdvancedGPOConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 64,
+    'fields': [
+        'GPOPortNum',
+        'GPOMode',
+        'GPOPulseDurationMSec'
+    ],
+    'decode': basic_auto_param_decode_generator(ushort_ushort_uint_unpack,
+                                                ['GPOPortNum',
+                                                 'GPOMode',
+                                                 'GPOPulseDurationMSec'],
+                                                ushort_ushort_uint_size)
+}
+
+
+Param_struct['ImpinjEnableOptimizedRead'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 65,
+    'fields': [
+        'OptimizedReadMode',
+        'C1G2Read'
+    ],
+    'decode': basic_auto_param_decode_generator(ushort_unpack,
+                                                ['OptimizedReadMode'],
+                                                ushort_size)
+}
+
+
+# Note: values: 0: FIFO, 1: Ascending
+Param_struct['ImpinjAccessSpecOrdering'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 66,
+    'fields': [
+        'OrderingMode',
+    ],
+    'decode': basic_param_decode_generator(ushort_unpack, ['OrderingMode'])
+}
+
+
+def encode_ImpinjEnableRFDopplerFrequency(par):
+    msg_struct_param = Param_struct['ImpinjEnableRFDopplerFrequency']
     custom_par = {
         'VendorID': msg_struct_param['vendorid'],
         'Subtype': msg_struct_param['subtype'],
@@ -3338,12 +3889,13 @@ def encode_ImpinjEnableRFDopplerParameter(par):
     return encode('CustomParameter')(custom_par)
 
 
-Param_struct['ImpinjEnableRFDopplerParameter'] = {
+Param_struct['ImpinjEnableRFDopplerFrequency'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 67,
     'fields': [],
-    'encode': encode_ImpinjEnableRFDopplerParameter
+    'encode': encode_ImpinjEnableRFDopplerFrequency,
+    'decode': basic_param_decode_generator(ushort_unpack)
 }
 
 
@@ -3354,6 +3906,78 @@ Param_struct['ImpinjRFDopplerFrequency'] = {
     'fields': [],
     'decode': basic_param_decode_generator(short_unpack)
 }
+
+
+def decode_ImpinjInventoryConfiguration(data):
+    logger.debugfast('decode_ImpinjInventoryConfiguration')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+    par = {
+        'EnableAntDwellTimeLimit': flags & BIT(7) == BIT(7),
+        'EnableSelectGapClose': flags & BIT(6) == BIT(6)
+    }
+
+    data = data[ubyte_size:]
+    par, _ = decode_all_parameters(data, 'ImpinjInventoryConfiguration', par)
+
+    return par, ''
+
+
+Param_struct['ImpinjInventoryConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 69,
+    'fields': [
+        'EnableAntDwellTimeLimit',
+        'EnableSelectGapClose'
+    ],
+    'decode': decode_ImpinjInventoryConfiguration
+}
+
+
+Param_struct['ImpinjEnableTxPower'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 72,
+    'fields': [],
+    'decode': basic_param_decode_generator(ushort_unpack)
+}
+
+
+Param_struct['ImpinjTxPower'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 73,
+    'fields': [],
+    'decode': basic_param_decode_generator(ushort_unpack)
+}
+
+
+def encode_ImpinjAntennaConfiguration(par):
+    msg_struct_param = Param_struct['ImpinjAntennaConfiguration']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+    payload = encode('ImpinjAntennaEventConfiguration')(
+        par.get('ImpinjAntennaEventConfiguration', True))
+    custom_par['Payload'] = payload
+
+    return encode('CustomParameter')(custom_par)
+
+
+Param_struct['ImpinjAntennaConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1524,
+    'fields': [
+        'ImpinjAntennaEventHysteresis',
+        'ImpinjAntennaEventConfiguration'
+    ],
+    'encode': encode_ImpinjAntennaConfiguration,
+    'decode': decode_all_parameters
+}
+
 
 ImpinjHubConnectedType = {
     0: 'Unknown',
@@ -3398,6 +4022,127 @@ Param_struct['ImpinjHubConfiguration'] = {
         'Fault'
     ],
     'decode': decode_ImpinjHubConfiguration
+}
+
+
+def encode_ImpinjIntelligentAntennaManagement(par):
+    msg_struct_param = Param_struct['ImpinjIntelligentAntennaManagement']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+    enabled_flags = (int(bool(par)) << 7) & 0xff
+    data = struct.pack('!B', enabled_flags)
+    custom_par['Payload'] = data
+
+    return encode('CustomParameter')(custom_par)
+
+
+def decode_ImpinjIntelligentAntennaManagement(data):
+    logger.debugfast('decode_ImpinjIntelligentAntennaManagement')
+
+    flags = ubyte_unpack(data)[0]
+    par = {
+        'ManagementEnabled': flags & BIT(7) == BIT(7)
+    }
+
+    return par, ''
+
+
+Param_struct['ImpinjIntelligentAntennaManagement'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1554,
+    'fields': [
+        'ManagementEnabled'
+    ],
+    'encode': encode_ImpinjIntelligentAntennaManagement,
+    'decode': decode_ImpinjIntelligentAntennaManagement
+}
+
+def decode_ImpinjTIDParity(data):
+    logger.debugfast('decode_ImpinjTIDParity')
+
+    flags = ushort_unpack(data[:ushort_size])[0]
+    par = {
+        'ParityError': flags & BIT(15) == BIT(15),
+    }
+
+    return par, ''
+
+Param_struct['ImpinjTIDParity'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1566,
+    'fields': [
+        'ParityError'
+    ],
+    'decode': decode_ImpinjTIDParity
+}
+
+
+def encode_ImpinjAntennaEventConfiguration(par):
+    msg_struct_param = Param_struct['ImpinjAntennaEventConfiguration']
+    custom_par = {
+        'VendorID': msg_struct_param['vendorid'],
+        'Subtype': msg_struct_param['subtype'],
+    }
+    enabled_flags = (int(bool(par)) << 7) & 0xff
+    data = struct.pack('!B', enabled_flags)
+    custom_par['Payload'] = data
+
+    return encode('CustomParameter')(custom_par)
+
+
+def decode_ImpinjAntennaEventConfiguration(data):
+    logger.debugfast('decode_ImpinjAntennaEventConfiguration')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+    par = {
+        'EnableAntennaAttemptNotification': flags & BIT(7) == BIT(7)
+    }
+
+    data = data[ubyte_size:]
+    par, _ = decode_all_parameters(data, 'ImpinjAntennaEventConfiguration',
+                                   par)
+
+    return par, ''
+
+
+Param_struct['ImpinjAntennaEventConfiguration'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1576,
+    'fields': [
+        'EnableAntennaAttemptNotification'
+    ],
+    'encode': encode_ImpinjAntennaEventConfiguration,
+    'decode': decode_ImpinjAntennaEventConfiguration
+}
+
+
+def decode_ImpinjRFPowerSweep(data):
+    logger.debugfast('decode_ImpinjRFPowerSweep')
+    par = {}
+
+    (flags,
+     par['MinimumPowerLevel'],
+     par['PowerLevelStepSize']) = ubyte_ushort_ushort_unpack(data)
+    par['EnableRFPowerSweep'] = flags & BIT(7) == BIT(7)
+
+    return par, ''
+
+
+Param_struct['ImpinjRFPowerSweep'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1582,
+    'fields': [
+        'EnableRFPowerSweep',
+        'MinimumPowerLevel',
+        'PowerLevelStepSize'
+    ],
+    'decode': decode_ImpinjRFPowerSweep
 }
 
 
@@ -3559,12 +4304,12 @@ class LLRPROSpec(dict):
 
         if impinj_tag_content_selector:
             self['ROSpec']['ROReportSpec']\
-                ['ImpinjTagReportContentSelectorParameter'] = {
-                    'ImpinjEnableRFPhaseAngleParameter':
+                ['ImpinjTagReportContentSelector'] = {
+                    'ImpinjEnableRFPhaseAngle':
                         impinj_tag_content_selector['EnableRFPhaseAngle'],
-                    'ImpinjEnablePeakRSSIParameter':
+                    'ImpinjEnablePeakRSSI':
                         impinj_tag_content_selector['EnablePeakRSSI'],
-                    'ImpinjEnableRFDopplerParameter':
+                    'ImpinjEnableRFDopplerFrequency':
                         impinj_tag_content_selector['EnableRFDopplerFrequency']
                 }
 
@@ -3618,17 +4363,17 @@ class LLRPROSpec(dict):
             if impinj_search_mode is not None:
                 logger.info('impinj_search_mode: %s', impinj_search_mode)
                 antconf['C1G2InventoryCommand']\
-                    ['ImpinjInventorySearchModeParameter'] = int(impinj_search_mode)
+                    ['ImpinjInventorySearchMode'] = int(impinj_search_mode)
 
             if frequencies.get('Automatic', False):
                 antconf['C1G2InventoryCommand']\
-                    ['ImpinjFixedFrequencyListParameter'] = {
+                    ['ImpinjFixedFrequencyList'] = {
                         'FixedFrequencyMode': 1,
                         'ChannelListIndex': []
                     }
             elif len(freq_channel_list) > 1:
                 antconf['C1G2InventoryCommand']\
-                    ['ImpinjFixedFrequencyListParameter'] = {
+                    ['ImpinjFixedFrequencyList'] = {
                         'FixedFrequencyMode': 2,
                         'ChannelListIndex': freq_channel_list
                     }
