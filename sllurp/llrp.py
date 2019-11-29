@@ -901,9 +901,9 @@ class LLRPClient(object):
                 'AntennaAttemptEvent')
             if ant_event_enable is not None:
                 msg['SET_READER_CONFIG']\
-                   ['ImpinjAntennaConfigurationParameter']\
+                   ['ImpinjAntennaConfiguration']\
                     = {
-                        'ImpinjAntennaEventConfigurationParameter':
+                        'ImpinjAntennaEventConfiguration':
                             ant_event_enable
                     }
 
