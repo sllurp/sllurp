@@ -2,11 +2,9 @@
 """
 
 from __future__ import unicode_literals
-from pkg_resources import get_distribution
+from .version import __version__ as sllurp_version
 
 
 __all__ = ('llrp', 'llrp_decoder', 'llrp_errors', 'llrp_proto', 'util', 'log')
-try:
-    __version__ = get_distribution('sllurp').version
-except:
-    __version__ = "0.0.0"
+
+__version__ = sllurp_version
