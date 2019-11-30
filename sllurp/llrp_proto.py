@@ -490,7 +490,11 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
         'GeneralDeviceCapabilities',
         'LLRPCapabilities',
         'RegulatoryCapabilities',
-        'AirProtocolLLRPCapabilities'
+        'C1G2LLRPCapabilities',
+        'ImpinjDetailedVersion',
+        'ImpinjFrequencyCapabilities',
+        'ImpinjAntennaCapabilities',
+        'ImpinjxArrayCapabilities'
     ],
     'decode': decode_generic_message_with_status_check
 }
@@ -948,8 +952,8 @@ def decode_FrequencyHopTable(data):
     data = data[ubyte_ubyte_ushort_size:]
 
     num = int(par['NumHops'])
-    for x in range(1, num + 1):
-        par['Frequency' + str(x)] = uint_unpack(data[:uint_size])[0]
+    for _ in range(1, num + 1):
+        par['Frequency'] = uint_unpack(data[:uint_size])[0]
         data = data[uint_size:]
 
     return par, ''
@@ -961,7 +965,7 @@ Param_struct['FrequencyHopTable'] = {
         'Type',
         'HopTableId',
         'NumHops',
-        'Frequencies'
+        'Frequency'
     ],
     'decode': decode_FrequencyHopTable
 }
@@ -978,7 +982,7 @@ def decode_FixedFrequencyTable(data):
     num = int(par['NumFrequencies'])
     if num:
         par['Frequency'] = []
-        for x in range(1, num + 1):
+        for _ in range(1, num + 1):
             par['Frequency'].append(uint_unpack(data[:uint_size])[0])
             data = data[uint_size:]
 
@@ -990,7 +994,7 @@ Param_struct['FixedFrequencyTable'] = {
     'fields': [
         'Type',
         'NumFrequencies',
-        'Frequencies'
+        'Frequency'
     ],
     'decode': decode_FixedFrequencyTable
 }
@@ -3479,7 +3483,7 @@ def decode_ImpinjDetailedVersion(data):
         par[field] = data[:byte_count]
         data = data[byte_count:]
 
-    par = decode_all_parameters(data, 'ImpinjDetailedVersion', par)
+    par, _ = decode_all_parameters(data, 'ImpinjDetailedVersion', par)
     return par, ''
 
 
@@ -3511,9 +3515,9 @@ def decode_ImpinjFrequencyCapabilities(data):
 
     num = int(par['NumFrequencies'])
     if num:
-        par['Frequency'] = []
+        par['FrequencyList'] = []
         for x in range(1, num + 1):
-            par['Frequency'].append(uint_unpack(data[:uint_size])[0])
+            par['FrequencyList'].append(uint_unpack(data[:uint_size])[0])
             data = data[uint_size:]
 
     return par, ''
@@ -3525,7 +3529,7 @@ Param_struct['ImpinjFrequencyCapabilities'] = {
     'subtype': 30,
     'fields': [
         'NumFrequencies',
-        'Frequencies'
+        'FrequencyList'
     ],
     'decode': decode_ImpinjFrequencyCapabilities
 }
@@ -3783,7 +3787,7 @@ def decode_ImpinjGGASentence(data):
     par = {
         'GGASentence': data[:byte_count]
     }
-    par = decode_all_parameters(data, 'ImpinjGGASentence', par)
+    par, _ = decode_all_parameters(data, 'ImpinjGGASentence', par)
 
     return par, ''
 
@@ -3807,7 +3811,7 @@ def decode_ImpinjRMCSentence(data):
     par = {
         'RMCSentence': data[:byte_count]
     }
-    par = decode_all_parameters(data, 'ImpinjRMCSentence', par)
+    par, _ = decode_all_parameters(data, 'ImpinjRMCSentence', par)
 
     return par, ''
 
