@@ -312,7 +312,9 @@ class LLRPClient(object):
         self.state = LLRPReaderState.STATE_DISCONNECTED
 
         self.capabilities = {}
-        self.configuration = {}
+        # Configuration reported by the reader.
+        # Not to be confused with the client config.
+        self.reader_config = {}
         self.reader_mode = None
 
         self.peername = None
@@ -360,42 +362,11 @@ class LLRPClient(object):
         if self.state_change_callback:
             self.state_change_callback(newstate)
 
-    def parseCapabilities(self, capdict):
-        """Parse a capabilities dictionary and adjust instance settings
+    def parseReaderConfig(self, confdict):
+        """Parse a reader configuration dictionary and adjust instance settings.
 
-        Examples:
-        {
-            Type: 23,
-            Data: b'\x00'
-        }
-        {
-            Type: TYPE_CUSTOM,
-            VendorID: VENDOR_ID_IMPINJ,
-            Subtype: 21,
-            Data: b'\x00'
-        }
         """
-        logger.debug('parseReaderConfig input: %s', confdict)
-        conf = {}
-        for k, v in confdict.items():
-            if not k.startswith('Parameter'):
-                continue
-            ty = v['Type']
-            data = v['Data']
-            vendor = None
-            subtype = None
-            try:
-                vendor, subtype = v['VendorID'], v['Subtype']
-            except KeyError:
-                pass
-
-            if ty == TYPE_CUSTOM:
-                if vendor == VENDOR_ID_IMPINJ and subtype == 37:
-                    tempc = struct.unpack('!H', data)[0]
-                    conf.update(temperature=tempc)
-            else:
-                conf[ty] = data
-        return conf
+        return
 
     def parseCapabilities(self, capdict):
         """Parse a capabilities dictionary and adjust instance settings.
@@ -634,9 +605,12 @@ class LLRPClient(object):
                 return
 
             if msgName == 'GET_READER_CONFIG_RESPONSE':
-                config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
-                self.configuration = self.parseReaderConfig(config)
-                logger.debug('Reader configuration: %s', self.configuration)
+                self.reader_config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
+                try:
+                    self.parseReaderConfig(self.reader_config)
+                except LLRPError as err:
+                    logger.exception('Reader config mismatch')
+                    raise err
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
