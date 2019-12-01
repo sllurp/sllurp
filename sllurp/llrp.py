@@ -1052,7 +1052,7 @@ class LLRPClient(object):
             'AccessSpecID': accessSpecID,
             'AntennaID': 0,  # all antennas
             'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
-            'C': False,  # disabled by default
+            'CurrentState': False,  # disabled by default
             'ROSpecID': 0,  # all ROSpecs
             'AccessSpecStopTrigger': accessStopParam,
             'AccessCommand': {
@@ -1778,7 +1778,7 @@ class LLRPReaderClient(object):
                 read_sockets, write_sockets, error_sockets = \
                     select.select(socket_list, [], [])
                 for sock in read_sockets:
-                    #incoming message from remote server
+                    # Incoming message from remote server
                     if sock == self._socket:
                         try:
                             data = sock.recv(4096)

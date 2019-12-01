@@ -494,6 +494,7 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
         'ImpinjDetailedVersion',
         'ImpinjFrequencyCapabilities',
         'ImpinjAntennaCapabilities',
+        # Decoder not yet implemented:
         'ImpinjxArrayCapabilities'
     ],
     'decode': decode_generic_message_with_status_check
@@ -545,7 +546,27 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'GPOWriteData',
         'EventsAndReports',
         # Optional N custom parameters after
-        'ImpinjHubConfiguration'
+        'ImpinjHubConfiguration',
+        'ImpinjLinkMonitorConfiguration',
+        'ImpinjSubRegulatoryRegion',
+        'ImpinjAdvancedGPOConfiguration',
+        'ImpinjAntennaConfiguration',
+        'ImpinjAccessSpecConfiguration',
+        'ImpinjGPSNMEASentences',
+        'ImpinjGPIDebounceConfiguration',
+        'ImpinjReaderTemperature',
+        'ImpinjReportBufferConfiguration',
+        # Custom parameter without decoder yet
+        'ImpinjBeaconConfiguration',
+        'ImpinjTiltConfiguration',
+        'ImpinjPlacementConfiguration',
+        'ImpinjLocationConfig',
+        'ImpinjC1G2LocationConfig',
+        'ImpinjLocationReporting',
+        'ImpinjDirectionConfig',
+        'ImpinjC1G2DirectionConfig',
+        'ImpinjDirectionReporting',
+        'ImpinjPolarizationControl',
     ],
     'decode': decode_generic_message_with_status_check
 }
@@ -1064,8 +1085,8 @@ def decode_UHFC1G2RFModeTableEntry(data):
      par['StepTari']) = mode_table_entry_unpack(data)
 
     # parse RC
-    par['R'] = RC >> 7
-    par['C'] = (RC >> 6) & 1
+    par['DR'] = RC >> 7
+    par['EPCHAGTCConformance'] = RC & BIT(6) == BIT(6)
 
     return par, ''
 
@@ -1075,6 +1096,8 @@ Param_struct['UHFC1G2RFModeTableEntry'] = {
     'fields': [
         'Type',
         'ModeIdentifier',
+        'DR',
+        'EPCHAGTCConformance',
         'Mod',
         'FLM',
         'M',
@@ -1260,7 +1283,7 @@ Param_struct['PerAntennaAirProtocol'] = {
         'Type',
         'AntennaID',
         'NumProtocols',
-        'ProtocolIDs'
+        'ProtocolID'
     ],
     'decode': decode_PerAntennaAirProtocol
 }
@@ -1336,7 +1359,7 @@ def encode_AccessSpec(par):
     data = struct.pack('!I', int(par['AccessSpecID']))
     data += struct.pack('!H', int(par['AntennaID']))
     data += struct.pack('!B', par['ProtocolID'])
-    data += struct.pack('!B', par['C'] and (1 << 7) or 0)
+    data += struct.pack('!B', par['CurrentState'] and (1 << 7) or 0)
     data += struct.pack('!I', par['ROSpecID'])
 
     data += encode('AccessSpecStopTrigger')(par['AccessSpecStopTrigger'])
@@ -1358,11 +1381,12 @@ Param_struct['AccessSpec'] = {
         'AccessSpecID',
         'AntennaID',
         'ProtocolID',
-        'C',
+        'CurrentState',
         'ROSpecID',
         'AccessSpecStopTrigger',
         'AccessCommand',
-        'AccessReportSpec'
+        'AccessReportSpec',
+        'ImpinjAccessSpecConfiguration',
     ],
     'encode': encode_AccessSpec
 }
@@ -2721,9 +2745,9 @@ Param_struct['TagReportData'] = {
         'C1G2BlockEraseOpSpecResult',
         'C1G2BlockWriteOpSpecResult',
         'C1G2BlockPermalockOpSpecResult',
-        'C1G2GetBlockPermalockStatusOpSpecResult'
+        'C1G2GetBlockPermalockStatusOpSpecResult',
         ## Custom parameters:
-        'ImpinjPhase',
+        'ImpinjRFPhaseAngle',
         'ImpinjPeakRSSI',
         'ImpinjRFDopplerFrequency'
     ],
@@ -3332,6 +3356,10 @@ Message_struct['IMPINJ_ENABLE_EXTENSIONS_RESPONSE'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 22,
+    'fields': [
+        'Ver', 'Type', 'ID',
+        'LLRPStatus',
+    ],
     'decode': decode_generic_message_with_status_check
 }
 
@@ -3497,7 +3525,7 @@ Param_struct['ImpinjDetailedVersion'] = {
         'SoftwareVersion',
         'FirmwareVersion',
         'FPGAVersion',
-        'PCBAVersion'
+        'PCBAVersion',
         'ImpinjHubVersions',
         'ImpinjArrayVersion',
         'ImpinjBLEVersion',
@@ -3735,7 +3763,7 @@ Param_struct['ImpinjSerializedTID'] = {
 }
 
 
-Param_struct['ImpinjPhase'] = {
+Param_struct['ImpinjRFPhaseAngle'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
     'subtype': 56,
@@ -4199,6 +4227,13 @@ def llrp_data2xml(msg):
                 ret += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
         ret += tabs + '</%s>\n' % name
+
+        # To check for fields missing in parameter field lists:
+        #if is_general_debug_enabled():
+        #    for k in msg:
+        #        if k in fields:
+        #            continue
+        #        ret += tabs + '<MissingParameter>%s</MissingParameter>\n' % k
 
         return ret
 
