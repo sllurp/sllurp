@@ -601,9 +601,6 @@ class LLRPClient(object):
 
             self.capabilities = \
                 lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
-            if is_general_debug_enabled():
-                logger.debugfast('Capabilities: %s',
-                                 pprint.pformat(self.capabilities))
             try:
                 self.parseCapabilities(self.capabilities)
             except LLRPError as err:
