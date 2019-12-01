@@ -20,6 +20,7 @@ from .log import get_logger, is_general_debug_enabled
 from .util import BITMASK, natural_keys, iterkeys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
+LLRP_MSG_ID_MAX = 4294967295
 
 logger = get_logger(__name__)
 
@@ -445,7 +446,7 @@ class LLRPClient(object):
             return
         if is_general_debug_enabled():
             logger.debugfast('running %d Deferreds for %s; '
-                            'isSuccess=%s', len(deferreds), msgName, isSuccess)
+                             'isSuccess=%s', len(deferreds), msgName, isSuccess)
         for deferred_cb in deferreds:
             deferred_cb(self.state, isSuccess)
         del self._deferreds[msgName]
@@ -1360,7 +1361,10 @@ class LLRPClient(object):
         """
         sent_ids = []
         for name in msg_dict:
-            self.last_msg_id += 1
+            if self.last_msg_id < LLRP_MSG_ID_MAX:
+                self.last_msg_id += 1
+            else:
+                self.last_msg_id = 1
             msg_dict[name]['ID'] = self.last_msg_id
             sent_ids.append((name, self.last_msg_id))
         llrp_msg = LLRPMessage(msgdict=msg_dict)
@@ -1575,7 +1579,6 @@ class LLRPReaderClient(object):
     def clear_tag_report_callback(self, cb):
         self._tag_report_callbacks = []
 
-
     def add_event_callback(self, cb):
         if not self._llrp_message_callbacks['READER_EVENT_NOTIFICATION']:
             self._llrp_message_callbacks['READER_EVENT_NOTIFICATION'].append(
@@ -1590,7 +1593,6 @@ class LLRPReaderClient(object):
 
     def clear_event_callback(self, cb):
         self._event_notification_callbacks = []
-
 
     def add_disconnected_callback(self, cb):
         if cb not in self._disconnected_callbacks:
@@ -1779,7 +1781,6 @@ class LLRPReaderClient(object):
 
         self._socket_thread = None
 
-
     def send_data(self, data):
         if not self._socket:
             raise ReaderConfigurationError('Not connected')
@@ -1862,7 +1863,6 @@ class LLRPReaderClient(object):
                               targetSpec=target_spec,
                               stopAfterCount=stop_after_count,
                               accessSpecID=access_spec_id)
-
 
     def _on_disconnected(self):
         for fn in self._disconnected_callbacks:
