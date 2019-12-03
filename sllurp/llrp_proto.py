@@ -3078,14 +3078,14 @@ def encode_TagReportData(msg):
         data += encode('PeakRSSI')(msg['PeakRSSI'])
     if 'ChannelIndex' in msg.keys():
         data += encode('ChannelIndex')(msg['ChannelIndex'])
-    if 'FirstSeenTimeStampUTC' in msg.keys():
-        data += encode('FirstSeenTimeStampUTC')(msg['FirstSeenTimeStampUTC'])
-    if 'FirstSeenTimeStampUptime' in msg.keys():
-        data += encode('FirstSeenTimeStampUptime')(msg['FirstSeenTimeStampUptime'])
-    if 'LastSeenTimeStampUTC' in msg.keys():
-        data += encode('LastSeenTimeStampUTC')(msg['LastSeenTimeStampUTC'])
-    if 'LastSeenTimeStampUptime' in msg.keys():
-        data += encode('LastSeenTimeStampUptime')(msg['LastSeenTimeStampUptime'])
+    if 'FirstSeenTimestampUTC' in msg.keys():
+        data += encode('FirstSeenTimestampUTC')(msg['FirstSeenTimestampUTC'])
+    if 'FirstSeenTimestampUptime' in msg.keys():
+        data += encode('FirstSeenTimestampUptime')(msg['FirstSeenTimestampUptime'])
+    if 'LastSeenTimestampUTC' in msg.keys():
+        data += encode('LastSeenTimestampUTC')(msg['LastSeenTimestampUTC'])
+    if 'LastSeenTimestampUptime' in msg.keys():
+        data += encode('LastSeenTimestampUptime')(msg['LastSeenTimestampUptime'])
     if 'TagSeenCount' in msg.keys():
         data += encode('TagSeenCount')(msg['TagSeenCount'])
     if 'AirProtocolTagData' in msg.keys():
