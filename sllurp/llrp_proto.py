@@ -3401,6 +3401,24 @@ Message_struct['ROSpecID'] = {
     'tv_encoded': True,
 }
 
+# 16.2.7.3.11 LastSeenTimestampUTC Parameter
+def encode_LastSeenTimestampUTC(msg):
+    # TODO this is a general solution for all TV encoded timestamps
+    data = struct.pack('!BQ', msg['Type'] | BIT(7), msg['Microseconds'])
+    return data
+
+
+Message_struct['LastSeenTimestampUTC'] = {
+    'type': 4,
+    'fields': [
+        'Type',
+        'Microseconds'
+    ],
+    'encode': encode_LastSeenTimestampUTC,
+    'tv_encoded': True,
+}
+
+
 # 16.2.7.6.1 HoppingEvent Parameter
 def decode_HoppingEvent(data):
     logger.debug(func())
