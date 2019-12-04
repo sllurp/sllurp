@@ -4520,6 +4520,8 @@ for source_struct, dest_dict, obj_name in [
         if 'n_fields' not in msgstruct:
             msgstruct['n_fields'] = []
 
+        # fields = fields + optional + multiples
+        # if fields = fields + o_fields + n_fields
         msgstruct['fields'].extend(msgstruct['o_fields'])
         msgstruct['fields'].extend(msgstruct['n_fields'])
 
