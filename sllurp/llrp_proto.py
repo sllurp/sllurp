@@ -1597,11 +1597,11 @@ def encode_GeneralDeviceCapabilities(msg):
                        bytes(msg['ReaderFirmwareVersion']))
     fwversion_bytecount = len(fwversion)
     # CanSetAntennaProperties (C) and HasUTCClockCapability (T) are single bits
-    # using the space  of a !H
-    CTbits = str(msg['CanSetAntennaProperties']) + str(msg['HasUTCClockCapability']) + '00'
+    # using the space of a !H
+    CTbits = str(msg['CanSetAntennaProperties']) + str(msg['HasUTCClockCapability'])
+    CTbits += '00000000000000' # reserved bits.
 
-    data = unhexlify(CTbits)
-    data += struct.pack('!IIH', msg['DeviceManufacturerName'],
+    data = struct.pack('!HIIH', int(CTbits,2), msg['DeviceManufacturerName'],
                         msg['ModelName'], fwversion_bytecount) + fwversion
 
 
@@ -3401,23 +3401,47 @@ Message_struct['ROSpecID'] = {
     'tv_encoded': True,
 }
 
-# 16.2.7.3.11 LastSeenTimestampUTC Parameter
-def encode_LastSeenTimestampUTC(msg):
+def encode_TVTimestamp(msg):
     # TODO this is a general solution for all TV encoded timestamps
     data = struct.pack('!BQ', msg['Type'] | BIT(7), msg['Microseconds'])
     return data
 
+# 16.2.7.3.9 FirsttSeenTimestampUTC Parameter
+Message_struct['FirstSeenTimestampUTC'] = {
+    'type': 2,
+    'fields': [
+        'Type',
+        'Microseconds'
+    ],
+    'encode': encode_TVTimestamp,
+    'tv_encoded': True,
+}
 
+# 16.2.7.3.11 LastSeenTimestampUTC Parameter
 Message_struct['LastSeenTimestampUTC'] = {
     'type': 4,
     'fields': [
         'Type',
         'Microseconds'
     ],
-    'encode': encode_LastSeenTimestampUTC,
+    'encode': encode_TVTimestamp,
     'tv_encoded': True,
 }
 
+# 16.2.7.3.7 PeakRSSI Parameter
+def encode_PeakRSSI(msg):
+    data = struct.pack('!BB', msg['Type'] | BIT(7), msg['PeakRSSI'])
+    return data
+
+Message_struct['PeakRSSI'] = {
+    'type': 6,
+    'fields': [
+        'Type',
+        'PeakRSSI'
+    ],
+    'encode': encode_PeakRSSI,
+    'tv_encoded': True,
+}
 
 # 16.2.7.6.1 HoppingEvent Parameter
 def decode_HoppingEvent(data):
