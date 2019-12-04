@@ -11,13 +11,14 @@ from threading import Thread, Event
 
 from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ
 from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct, Param_struct,
+                         msg_header_len, msg_header_pack, msg_header_unpack,
                          msg_header_decode, get_message_name_from_type,
                          Capability_Name2Type, AirProtocol,
                          llrp_data2xml, LLRPMessageDict,
                          DEFAULT_CHANNEL_INDEX, DEFAULT_HOPTABLE_INDEX)
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger, is_general_debug_enabled
-from .util import BITMASK, natural_keys, iterkeys, find_closest
+from .util import natural_keys, iteritems, iterkeys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
 LLRP_MSG_ID_MAX = 4294967295
@@ -27,14 +28,6 @@ logger = get_logger(__name__)
 
 
 class LLRPMessage(object):
-    hdr_fmt = '!HI'
-    hdr_struct = struct.Struct(hdr_fmt)
-    hdr_len = hdr_struct.size  # == 6 bytes
-
-    full_hdr_fmt = hdr_fmt + 'I'
-    full_hdr_struct = struct.Struct(full_hdr_fmt)
-    full_hdr_len = full_hdr_struct.size  # == 10 bytes
-
     def __init__(self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
             raise LLRPError('Provide either a message dict or a sequence'
@@ -43,9 +36,9 @@ class LLRPMessage(object):
         self.peername = None
         self.msgdict = None
         self.msgbytes = None
+        self.msgname = None
         if msgdict:
             self.msgdict = LLRPMessageDict(msgdict)
-
             if not msgbytes:
                 self.serialize()
         if msgbytes:
@@ -54,25 +47,31 @@ class LLRPMessage(object):
                 self.deserialize()
 
     def serialize(self):
+        """Turns a message dictionnary into a sequence of bytes"""
         if self.msgdict is None:
             raise LLRPError('No message dict to serialize.')
-        msgdict_iter = iterkeys(self.msgdict)
-        name = next(msgdict_iter)
+        msgdict_iter = iteritems(self.msgdict)
+        name, msgitem = next(msgdict_iter)
         logger.debugfast('serializing %s command', name)
-        ver = self.msgdict[name]['Ver'] & BITMASK(3)
-        msgtype = self.msgdict[name]['Type'] & BITMASK(10)
-        msgid = self.msgdict[name]['ID']
+
+        # & BITMASK(3)
+        ver = msgitem['Ver'] & 0x07
+        # & BITMASK(10)
+        msgtype = msgitem['Type'] & 0x03FF
+        msgid = msgitem['ID']
         try:
             encoder = Message_struct[name]['encode']
         except KeyError:
             raise LLRPError('Cannot find encoder for message type '
                             '{}'.format(name))
-        data = encoder(self.msgdict[name])
-        self.msgbytes = self.full_hdr_struct.pack(
-            (ver << 10) | msgtype, len(data) + self.full_hdr_len, msgid) + data
+        data = encoder(msgitem)
+        self.msgbytes = msg_header_pack((ver << 10) | msgtype,
+                                        msg_header_len + len(data),
+                                        msgid) + data
         if is_general_debug_enabled():
             logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
             logger.debugfast('done serializing %s command', name)
+        self.msgname = name
 
     def deserialize(self):
         """Turns a sequence of bytes into a message dictionary."""
@@ -119,6 +118,7 @@ class LLRPMessage(object):
             ## FIXME This should probably be raised
             logger.exception('Problem with %s message format', name)
             return ''
+        self.msgname = name
         return ''
 
     def isSuccess(self):
@@ -141,10 +141,7 @@ class LLRPMessage(object):
             return False
 
     def getName(self):
-        if not self.msgdict:
-            return None
-        msgdict_iter = iterkeys(self.msgdict)
-        return next(msgdict_iter)
+        return self.msgname
 
     def __repr__(self):
         try:
@@ -1496,8 +1493,8 @@ class LLRPReaderClient(object):
         self._stop_main_loop = Event()
 
         # for partial data transfers
-        self.expectingRemainingBytes = 0
-        self.partialData = ''
+        self.expected_bytes = 0
+        self.partial_data = b''
 
         if config:
             self.config = config
@@ -1762,7 +1759,7 @@ class LLRPReaderClient(object):
                         try:
                             data = sock.recv(4096)
                             if data:
-                                self.rawDataReceived(data)
+                                self.raw_data_received(data)
                             else:
                                 # Zero byte received == disconnected
                                 logger.warning('\nDisconnected from server')
@@ -1792,54 +1789,50 @@ class LLRPReaderClient(object):
             raise ReaderConfigurationError('Not connected')
         self._socket.sendall(data)
 
-    def rawDataReceived(self, data):
+    def raw_data_received(self, data):
         data_len = len(data)
         if is_general_debug_enabled():
             logger.debugfast('got %d bytes from reader: %s', data_len,
                              hexlify(data))
 
-        if self.expectingRemainingBytes:
-            if data_len >= self.expectingRemainingBytes:
-                data = self.partialData + data
-                data_len = len(data)
-                self.partialData = ''
-                self.expectingRemainingBytes -= data_len
-            else:
+        if self.expected_bytes:
+            self.partial_data += data
+            data = self.partial_data
+            data_len = len(data)
+            if data_len < self.expected_bytes:
                 # still not enough; wait until next time
-                self.partialData += data
-                self.expectingRemainingBytes -= data_len
                 return
 
-        while data:
+        start_pos = 0
+        while data_len > 0:
             # parse the message header to grab its length
-            if data_len >= LLRPMessage.full_hdr_len:
-                msg_type, msg_len, message_id = \
-                    LLRPMessage.full_hdr_struct.unpack(
-                        data[:LLRPMessage.full_hdr_len])
+            if data_len >= msg_header_len:
+                msg_type, msg_len, message_id = msg_header_unpack(
+                    data[start_pos:start_pos + msg_header_len])
             else:
                 logger.warning('Too few bytes (%d) to unpack message header',
                                data_len)
-                self.partialData = data
-                self.expectingRemainingBytes = \
-                    LLRPMessage.full_hdr_len - data_len
+                self.partial_data = data[start_pos:]
+                self.expected_bytes = msg_header_len
                 break
 
             logger.debugfast('expect %d bytes (have %d)', msg_len, data_len)
 
             if data_len < msg_len:
                 # got too few bytes
-                self.partialData = data
-                self.expectingRemainingBytes = msg_len - data_len
+                self.partial_data = data[start_pos:]
+                self.expected_bytes = msg_len
                 break
             else:
                 # got at least the right number of bytes
-                self.expectingRemainingBytes = 0
+                self.expected_bytes = 0
                 try:
-                    lmsg = LLRPMessage(msgbytes=data[:msg_len])
+                    lmsg = LLRPMessage(
+                        msgbytes=data[start_pos:start_pos + msg_len])
                     self._on_llrp_message_received(lmsg)
                     self.llrp.handleMessage(lmsg)
-                    data = data[msg_len:]
-                    data_len = data_len - msg_len
+                    start_pos += msg_len
+                    data_len -= msg_len
                 except LLRPError:
                     ## FIXME, ReaderConfigurationError should be
                     ## notified in some way
@@ -1847,6 +1840,8 @@ class LLRPReaderClient(object):
                                      'will not decode %d remaining bytes',
                                      data_len)
                     break
+        if self.expected_bytes <= 0:
+            self.partial_data = b''
 
     def start_access_spec(self, op_spec, target_spec=None, stop_after_count=0,
                           access_spec_id=1):
