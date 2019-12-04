@@ -40,7 +40,6 @@ from tornado.web import RequestHandler, Application
 from tornado.websocket import WebSocketClosedError, WebSocketHandler
 
 from sllurp.llrp import LLRP_DEFAULT_PORT, LLRPReaderConfig, LLRPReaderClient
-from sllurp.llrp_proto import Modulation_DefaultTari
 from sllurp.log import get_logger
 
 
@@ -196,24 +195,13 @@ def main(args):
 
 
     # Special case default Tari values
-    tari = args.tari
-    if args.modulation in Modulation_DefaultTari:
-        t_suggested = Modulation_DefaultTari[args.modulation]
-        if args.tari:
-            logger.warn('recommended Tari for %s is %d', args.modulation,
-                        t_suggested)
-        else:
-            tari = t_suggested
-            logger.info('selected recommended Tari of %d for %s', args.tari,
-                        args.modulation)
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
     factory_args = dict(
         report_every_n_tags=args.every_n,
         antennas=enabled_antennas,
         tx_power=args.tx_power,
-        modulation=args.modulation,
-        tari=tari,
+        tari=args.tari,
         session=args.session,
         mode_identifier=args.mode_identifier,
         tag_population=args.tag_population,
