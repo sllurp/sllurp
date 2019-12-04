@@ -103,7 +103,7 @@ class TestReaderEventNotification(unittest.TestCase):
         config = sllurp.llrp.LLRPReaderConfig({'start_inventory': False})
         reader = sllurp.llrp.LLRPReaderClient('localhost', config=config)
         reader._socket = MockConn('')
-        reader.rawDataReceived(data)
+        reader.raw_data_received(data)
 
 
 class TestDecodeROAccessReport (unittest.TestCase):
@@ -184,7 +184,7 @@ class TestDecodeROAccessReport (unittest.TestCase):
     def test_start(self):
         """Parse the above pile of bytes into a series of LLRP messages."""
         self._reader.state = sllurp.llrp.LLRPReaderState.STATE_INVENTORYING
-        self._reader.rawDataReceived(self._binr)
+        self._reader.raw_data_received(self._binr)
         self.assertEqual(self._tags_seen, 45)
 
     def tearDown(self):

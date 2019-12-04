@@ -91,14 +91,20 @@ DECODE_ERROR_PARNAME = "SllurpDecodeError"
 
 msg_header = '!HII'
 msg_header_len = struct.calcsize(msg_header)
+msg_header_pack = struct.Struct(msg_header).pack
 msg_header_unpack = struct.Struct(msg_header).unpack
 
 par_header = '!HH'
 par_header_len = struct.calcsize(par_header)
+par_header_pack = struct.Struct(par_header).pack
 par_header_unpack = struct.Struct(par_header).unpack
 tve_header = '!B'
 tve_header_len = struct.calcsize(tve_header)
+tve_header_pack = struct.Struct(tve_header).pack
 tve_header_unpack = struct.Struct(tve_header).unpack
+par_custom_header = "!HHII"
+par_custom_header_len = struct.calcsize(par_custom_header)
+par_custom_header_pack = struct.Struct(par_custom_header).pack
 
 # Common types unpacks
 short_size = struct.calcsize('!h')
