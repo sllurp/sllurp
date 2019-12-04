@@ -1,7 +1,6 @@
 from __future__ import unicode_literals
 from struct import Struct, error as StructError
 
-from .util import BITMASK
 from .log import get_logger
 
 logger = get_logger(__name__)
@@ -79,8 +78,10 @@ TVE_PARAM_FORMATS = {
 def msg_header_decode(data):
     msgtype, length, msgid = msg_header_unpack(data[:msg_header_size])
     hdr_len = msg_header_size
-    version = (msgtype >> 10) & BITMASK(3)
-    msgtype = msgtype & BITMASK(10)
+    # & BITMASK(3)
+    version = (msgtype >> 10) & 0x07
+    # & BITMASK(10)
+    msgtype = msgtype & 0x03FF
     if msgtype == TYPE_CUSTOM:
         vendorid, subtype = msg_vendor_subtype_unpack(
             data[hdr_len:hdr_len + msg_vendor_subtype_size])
@@ -95,14 +96,14 @@ def tlv_param_header_decode(data):
     # Decode for normal param header (non-tve)
     partype, length = tlv_par_header_unpack(data[:tlv_par_header_size])
     hdr_len = tlv_par_header_size
-    partype = partype & BITMASK(10)
-    if partype == TYPE_CUSTOM:
-        vendorid, subtype = par_vendor_subtype_unpack(
-            data[hdr_len:hdr_len + par_vendor_subtype_size])
-        hdr_len += par_vendor_subtype_size
-    else:
-        vendorid = 0
-        subtype = 0
+    # ie partype & BITMASK(10)
+    partype = partype & 0x03FF
+    if partype != TYPE_CUSTOM:
+        return partype, 0, 0, hdr_len, length
+
+    vendorid, subtype = par_vendor_subtype_unpack(
+        data[hdr_len:hdr_len + par_vendor_subtype_size])
+    hdr_len += par_vendor_subtype_size
     return partype, vendorid, subtype, hdr_len, length
 
 
@@ -152,17 +153,3 @@ def param_header_decode(data):
          full_length) = tlv_param_header_decode(data)
 
     return partype, vendorid, subtype, hdr_len, full_length
-
-
-def tve_param_body_decode(data):
-        try:
-            param_name, param_struct = TVE_PARAM_FORMATS[tve_msgtype]
-            #logger.debugfast('found %s (type=%s)', param_name, tve_msgtype)
-        except KeyError:
-            return None, 0
-
-        # decode the body
-        size = tve_header_size + param_struct.size
-        param_value_offset = tve_header_size
-
-
