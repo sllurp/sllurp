@@ -379,23 +379,20 @@ def basic_auto_param_encode_generator(pack_func=None, *args):
     return generated_func
 
 
-def basic_param_decode_generator(unpack_func, sub_list=None):
+def basic_param_decode_generator(unpack_func, *args):
     """Generate a decode function for simple parameters"""
-    if sub_list is None:
+    if args:
+        def generated_func(data, name=None):
+            unpacked = unpack_func(data)
+            return dict(zip(args, unpacked)), ''
+    else:
         def generated_func(data, name=None):
             unpacked = unpack_func(data)
             return unpacked[0], ''
-    else:
-        if not isinstance(sub_list, list):
-            sub_list = [sub_list]
-
-        def generated_func(data, name=None):
-            unpacked = unpack_func(data)
-            return dict(zip(sub_list, unpacked)), ''
     return generated_func
 
 
-def basic_auto_param_decode_generator(unpack_func, unpack_sub_list, unpack_size):
+def basic_auto_param_decode_generator_old(unpack_func, unpack_sub_list, unpack_size):
     """Generate a decode function for simple parameters with auto decode
 
     Generate a function that decode first a set of fixed parameters of size
@@ -408,6 +405,28 @@ def basic_auto_param_decode_generator(unpack_func, unpack_sub_list, unpack_size)
     def generated_func(data, name=None):
         unpacked = unpack_func(data[:unpack_size])
         par = dict(zip(unpack_sub_list, unpacked))
+        data = data[unpack_size:]
+        if data:
+            par, _ = decode_all_parameters(data, name, par)
+        return par, ''
+
+    return generated_func
+
+
+def basic_auto_param_decode_generator(unpack_func, unpack_size, *args):
+    """Generate a decode function for simple parameters with auto decode
+
+    Generate a function that decode first a set of fixed parameters of size
+    unpack_size, using the unpack_func function and then, try to automatically
+    decode remaining dynamic parameter objects.
+    """
+    if not args:
+        raise LLRPError('Error basic_auto_param_decode_generator used with a '
+                        'unpack function but no argument.')
+
+    def generated_func(data, name=None):
+        unpacked = unpack_func(data[:unpack_size])
+        par = dict(zip(args, unpacked))
         data = data[unpack_size:]
         if data:
             par, _ = decode_all_parameters(data, name, par)
@@ -1002,7 +1021,7 @@ Param_struct['UTCTimestamp'] = {
         'Microseconds'
     ],
     'encode': basic_param_encode_generator(ulonglong_pack, 'Microseconds'),
-    'decode': basic_param_decode_generator(ulonglong_unpack, ['Microseconds']),
+    'decode': basic_param_decode_generator(ulonglong_unpack, 'Microseconds'),
 }
 
 
@@ -1019,9 +1038,9 @@ Param_struct['RegulatoryCapabilities'] = {
                                                 'CountryCode',
                                                 'CommunicationsStandard'),
     'decode': basic_auto_param_decode_generator(ushort_ushort_unpack,
-                                                ['CountryCode',
-                                                 'CommunicationsStandard'],
-                                                ushort_ushort_size)
+                                                ushort_ushort_size,
+                                                'CountryCode',
+                                                'CommunicationsStandard')
 
 }
 
@@ -1047,7 +1066,7 @@ Param_struct['TransmitPowerLevelTableEntry'] = {
         'TransmitPowerValue'
     ],
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           ['Index', 'TransmitPowerValue'])
+                                           'Index', 'TransmitPowerValue')
 }
 
 
@@ -1235,8 +1254,8 @@ Param_struct['RFSurveyFrequencyCapabilities'] = {
         'MaximumFrequency'
     ],
     'decode': basic_param_decode_generator(uint_uint_unpack,
-                                           ['MinimumFrequency',
-                                            'MaximumFrequency'])
+                                           'MinimumFrequency',
+                                           'MaximumFrequency')
 }
 
 
@@ -1343,7 +1362,7 @@ Param_struct['MaximumReceiveSensitivity'] = {
         'MaximumSensitivityValue'
     ],
     'decode': basic_param_decode_generator(ushort_unpack,
-                                           ['MaximumSensitivityValue'])
+                                           'MaximumSensitivityValue')
 }
 
 
@@ -1354,8 +1373,8 @@ Param_struct['ReceiveSensitivityTableEntry'] = {
         'ReceiveSensitivityValue'
     ],
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           ['Index',
-                                            'ReceiveSensitivityValue'])
+                                           'Index',
+                                           'ReceiveSensitivityValue')
 }
 
 
@@ -1367,9 +1386,9 @@ Param_struct['PerAntennaReceiveSensitivityRange'] = {
         'ReceiveSensitivityIndexMax'
     ],
     'decode': basic_param_decode_generator(ushort_ushort_ushort_unpack,
-                                           ['AntennaID',
-                                            'ReceiveSensitivityIndexMin',
-                                            'ReceiveSensitivityIndexMax'])
+                                           'AntennaID',
+                                           'ReceiveSensitivityIndexMin',
+                                           'ReceiveSensitivityIndexMax')
 }
 
 
@@ -1410,7 +1429,7 @@ Param_struct['GPIOCapabilities'] = {
         'NumGPOs'
     ],
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           ['NumGPIs', 'NumGPOs'])
+                                           'NumGPIs', 'NumGPOs')
 }
 
 
@@ -1985,7 +2004,7 @@ Param_struct['LLRPConfigurationStateValue'] = {
         'LLRPConfigurationStateValue',
     ],
     'decode': basic_param_decode_generator(uint_unpack,
-                                           ['LLRPConfigurationStateValue'])
+                                           'LLRPConfigurationStateValue')
 }
 
 
@@ -2045,8 +2064,8 @@ Param_struct['KeepaliveSpec'] = {
         'TimeInterval',
     ],
     'decode': basic_param_decode_generator(ubyte_uint_unpack,
-                                           ['KeepaliveTriggerType',
-                                            'TimeInterval'])
+                                           'KeepaliveTriggerType',
+                                           'TimeInterval')
 }
 
 
@@ -2090,9 +2109,8 @@ Param_struct['AntennaConfiguration'] = {
         'C1G2InventoryCommand'
     ],
     'encode': basic_auto_param_encode_generator(ushort_pack, 'AntennaID'),
-    'decode': basic_auto_param_decode_generator(ushort_unpack,
-                                                ['AntennaID'],
-                                                ushort_size)
+    'decode': basic_auto_param_decode_generator(ushort_unpack, ushort_size,
+                                                'AntennaID')
 
 }
 
@@ -2105,7 +2123,7 @@ Param_struct['RFReceiver'] = {
     ],
     'encode': basic_param_encode_generator(ushort_pack, 'ReceiverSensitivity'),
     'decode': basic_param_decode_generator(ushort_unpack,
-                                           ['ReceiverSensitivity'])
+                                           'ReceiverSensitivity')
 }
 
 
@@ -2122,9 +2140,9 @@ Param_struct['RFTransmitter'] = {
                                            'ChannelIndex',
                                            'TransmitPower'),
     'decode': basic_param_decode_generator(ushort_ushort_ushort_unpack,
-                                           ['HopTableId',
-                                            'ChannelIndex',
-                                            'TransmitPower'])
+                                           'HopTableId',
+                                           'ChannelIndex',
+                                           'TransmitPower')
 }
 
 
@@ -2274,7 +2292,7 @@ Param_struct['C1G2RFControl'] = {
                                            'ModeIndex',
                                            'Tari'),
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           ['ModeIndex', 'Tari'])
+                                           'ModeIndex', 'Tari')
 }
 
 
@@ -2750,8 +2768,8 @@ Param_struct['C1G2SingulationDetails'] = {
         'NumEmptySlots',
     ],
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           ['NumCollisionSlots',
-                                            'NumEmptySlots'])
+                                           'NumCollisionSlots',
+                                           'NumEmptySlots')
 }
 
 
@@ -2763,7 +2781,7 @@ Param_struct['HoppingEvent'] = {
         'NextChannelIndex'
     ],
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           ['HopTableID', 'NextChannelIndex'])
+                                           'HopTableID', 'NextChannelIndex')
 }
 
 
@@ -2824,7 +2842,7 @@ Param_struct['ReportBufferLevelWarning'] = {
         'ReportBufferPercentageFull'
     ],
     'decode': basic_param_decode_generator(ubyte_unpack,
-                                           ['ReportBufferPercentageFull'])
+                                           'ReportBufferPercentageFull')
 }
 
 
@@ -2987,8 +3005,8 @@ Param_struct['SpecLoopEvent'] = {
         'ROSpecID',
         'LoopCount'
     ],
-    'decode': basic_param_decode_generator(uint_uint_unpack, ['ROSpecID',
-                                                              'LoopCount'])
+    'decode': basic_param_decode_generator(uint_uint_unpack,
+                                           'ROSpecID', 'LoopCount')
 }
 
 
@@ -3059,7 +3077,7 @@ Param_struct['FieldError'] = {
         'FieldNum',
     ],
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           ['FieldNum', 'ErrorCode'])
+                                           'FieldNum', 'ErrorCode')
 }
 
 
@@ -3075,9 +3093,8 @@ Param_struct['ParameterError'] = {
         'ParameterError'
     ],
     'decode': basic_auto_param_decode_generator(ushort_ushort_unpack,
-                                                ['ParameterType',
-                                                 'ErrorCode'],
-                                                ushort_ushort_size)
+                                                ushort_ushort_size,
+                                                'ParameterType', 'ErrorCode')
 }
 
 
@@ -3176,7 +3193,7 @@ Param_struct['ImpinjSubRegulatoryRegion'] = {
         'RegulatoryRegion',
     ],
     'decode': basic_param_decode_generator(ushort_unpack,
-                                           ['RegulatoryRegion'])
+                                           'RegulatoryRegion')
 }
 
 
@@ -3190,8 +3207,8 @@ Param_struct['ImpinjInventorySearchMode'] = {
     'encode': basic_auto_param_encode_generator(ushort_pack,
                                                 'InventorySearchMode'),
     'decode': basic_auto_param_decode_generator(ushort_unpack,
-                                                ['InventorySearchMode'],
-                                                ushort_size)
+                                                ushort_size,
+                                                'InventorySearchMode')
 }
 
 
@@ -3279,10 +3296,10 @@ Param_struct['ImpinjLowDutyCycle'] = {
         'FieldPingInterval'
     ],
     'decode': basic_auto_param_decode_generator(ushort_ushort_ushort_unpack,
-                                                ['LowDutyCycleMode',
-                                                 'EmptyFieldTimeout',
-                                                 'FieldPingInterval'],
-                                                ushort_ushort_ushort_size)
+                                                ushort_ushort_ushort_size,
+                                                'LowDutyCycleMode',
+                                                'EmptyFieldTimeout',
+                                                'FieldPingInterval')
 }
 
 
@@ -3358,8 +3375,8 @@ Param_struct['ImpinjGPIDebounceConfiguration'] = {
         'GPIDebounceTimerMSec',
     ],
     'decode': basic_param_decode_generator(ushort_uint_unpack,
-                                           ['GPIPortNum',
-                                            'GPIDebounceTimerMSec'])
+                                           'GPIPortNum',
+                                           'GPIDebounceTimerMSec')
 }
 
 Param_struct['ImpinjReaderTemperature'] = {
@@ -3370,8 +3387,8 @@ Param_struct['ImpinjReaderTemperature'] = {
         'Temperature',
     ],
     'decode': basic_auto_param_decode_generator(short_unpack,
-                                                ['Temperature'],
-                                                short_size)
+                                                short_size,
+                                                'Temperature')
 }
 
 
@@ -3384,9 +3401,9 @@ Param_struct['ImpinjLinkMonitorConfiguration'] = {
         'LinkDownThreshold'
     ],
     'decode': basic_auto_param_decode_generator(ushort_ushort_unpack,
-                                                ['LinkMonitorMode',
-                                                 'LinkDownThreshold'],
-                                                ushort_ushort_size)
+                                                ushort_ushort_size,
+                                                'LinkMonitorMode',
+                                                'LinkDownThreshold')
 }
 
 
@@ -3398,8 +3415,8 @@ Param_struct['ImpinjReportBufferConfiguration'] = {
         'ReportBufferMode',
     ],
     'decode': basic_auto_param_decode_generator(ushort_unpack,
-                                                ['ReportBufferMode'],
-                                                ushort_size)
+                                                ushort_size,
+                                                'ReportBufferMode')
 }
 
 
@@ -3424,8 +3441,8 @@ Param_struct['ImpinjBlockWriteWordCount'] = {
         'WordCount',
     ],
     'decode': basic_auto_param_decode_generator(ushort_unpack,
-                                                ['WordCount'],
-                                                ushort_size)
+                                                ushort_size,
+                                                'WordCount')
 }
 
 
@@ -3454,8 +3471,7 @@ Param_struct['ImpinjEnableSerializedTID'] = {
         'SerializedTIDMode'
     ],
     'encode': basic_param_encode_generator(ushort_pack, 'SerializedTIDMode'),
-    'decode': basic_param_decode_generator(ushort_unpack,
-                                           ['SerializedTIDMode'])
+    'decode': basic_param_decode_generator(ushort_unpack, 'SerializedTIDMode')
 }
 
 Param_struct['ImpinjEnableRFPhaseAngle'] = {
@@ -3466,7 +3482,7 @@ Param_struct['ImpinjEnableRFPhaseAngle'] = {
         'RFPhaseAngleMode'
     ],
     'encode': basic_param_encode_generator(ushort_pack, 'RFPhaseAngleMode'),
-    'decode': basic_param_decode_generator(ushort_unpack, ['RFPhaseAngleMode'])
+    'decode': basic_param_decode_generator(ushort_unpack, 'RFPhaseAngleMode')
 }
 
 
@@ -3478,7 +3494,7 @@ Param_struct['ImpinjEnablePeakRSSI'] = {
         'PeakRSSIMode'
     ],
     'encode': basic_param_encode_generator(ushort_pack, 'PeakRSSIMode'),
-    'decode': basic_param_decode_generator(ushort_unpack, ['PeakRSSIMode'])
+    'decode': basic_param_decode_generator(ushort_unpack, 'PeakRSSIMode')
 }
 
 
@@ -3490,8 +3506,7 @@ Param_struct['ImpinjEnableGPSCoordinates'] = {
         'GPSCoordinatesMode'
     ],
     'encode': basic_param_encode_generator(ushort_pack, 'GPSCoordinatesMode'),
-    'decode': basic_param_decode_generator(ushort_unpack,
-                                           ['GPSCoordinatesMode'])
+    'decode': basic_param_decode_generator(ushort_unpack, 'GPSCoordinatesMode')
 }
 
 
@@ -3550,8 +3565,8 @@ Param_struct['ImpinjGPSCoordinates'] = {
         'Longitude'
     ],
     'decode': basic_auto_param_decode_generator(uint_uint_unpack,
-                                                ['Latitude', 'Longitude'],
-                                                uint_uint_size)
+                                                uint_uint_size,
+                                                'Latitude', 'Longitude')
 }
 
 
@@ -3624,8 +3639,8 @@ Param_struct['ImpinjOpSpecRetryCount'] = {
         'RetryCount',
     ],
     'decode': basic_auto_param_decode_generator(ushort_unpack,
-                                                ['RetryCount'],
-                                                ushort_size)
+                                                ushort_size,
+                                                'RetryCount')
 }
 
 
@@ -3639,10 +3654,10 @@ Param_struct['ImpinjAdvancedGPOConfiguration'] = {
         'GPOPulseDurationMSec'
     ],
     'decode': basic_auto_param_decode_generator(ushort_ushort_uint_unpack,
-                                                ['GPOPortNum',
-                                                 'GPOMode',
-                                                 'GPOPulseDurationMSec'],
-                                                ushort_ushort_uint_size)
+                                                ushort_ushort_uint_size,
+                                                'GPOPortNum',
+                                                'GPOMode',
+                                                'GPOPulseDurationMSec')
 }
 
 
@@ -3659,8 +3674,8 @@ Param_struct['ImpinjEnableOptimizedRead'] = {
     'encode': basic_auto_param_encode_generator(ushort_pack,
                                                 'OptimizedReadMode'),
     'decode': basic_auto_param_decode_generator(ushort_unpack,
-                                                ['OptimizedReadMode'],
-                                                ushort_size)
+                                                ushort_size,
+                                                'OptimizedReadMode')
 }
 
 
@@ -3672,7 +3687,7 @@ Param_struct['ImpinjAccessSpecOrdering'] = {
     'fields': [
         'OrderingMode',
     ],
-    'decode': basic_param_decode_generator(ushort_unpack, ['OrderingMode'])
+    'decode': basic_param_decode_generator(ushort_unpack, 'OrderingMode')
 }
 
 
@@ -3686,7 +3701,7 @@ Param_struct['ImpinjEnableRFDopplerFrequency'] = {
     'encode': basic_param_encode_generator(ushort_pack,
                                            'RFDopplerFrequencyMode'),
     'decode': basic_param_decode_generator(ushort_unpack,
-                                           ['RFDopplerFrequencyMode'])
+                                           'RFDopplerFrequencyMode')
 }
 
 
@@ -3734,7 +3749,7 @@ Param_struct['ImpinjEnableTxPower'] = {
         'TxPowerMode'
     ],
     'encode': basic_param_encode_generator(ushort_pack, 'TxPowerMode'),
-    'decode': basic_param_decode_generator(ushort_unpack, ['TxPowerMode'])
+    'decode': basic_param_decode_generator(ushort_unpack, 'TxPowerMode')
 }
 
 
@@ -3772,9 +3787,9 @@ Param_struct['ImpinjAntennaEventHysteresis'] = {
                                                 'AntennaEventConnected',
                                                 'AntennaEventDisconnected'),
     'decode': basic_auto_param_decode_generator(ulonglong_ulonglong_unpack,
-                                                ['AntennaEventConnected',
-                                                 'AntennaEventDisconnected'],
-                                                ulonglong_ulonglong_size)
+                                                ulonglong_ulonglong_size,
+                                                'AntennaEventConnected',
+                                                'AntennaEventDisconnected')
 }
 
 
@@ -3916,7 +3931,7 @@ Param_struct['ImpinjAntennaAttemptEvent'] = {
     'fields': [
         'AntennaID'
     ],
-    'decode': basic_param_decode_generator(ushort_unpack, ['AntennaID'])
+    'decode': basic_param_decode_generator(ushort_unpack, 'AntennaID')
 }
 
 
