@@ -8,11 +8,17 @@ logger = get_logger(__name__)
 
 msg_header_struct = Struct('!HII')
 msg_header_size = msg_header_struct.size
+msg_header_pack = msg_header_struct.pack
 msg_header_unpack = msg_header_struct.unpack
 
 msg_vendor_subtype_struct = Struct('!IB')
 msg_vendor_subtype_size = msg_vendor_subtype_struct.size
+msg_vendor_subtype_pack = msg_vendor_subtype_struct.pack
 msg_vendor_subtype_unpack = msg_vendor_subtype_struct.unpack
+
+msg_header_custom_struct = Struct('!HIIIB')
+msg_header_custom_pack = msg_header_custom_struct.pack
+msg_header_custom_size = msg_header_custom_struct.size
 
 
 # TV param header: Type
@@ -74,6 +80,18 @@ TVE_PARAM_FORMATS = {
     20: ('C1G2XPCW2', struct_ushort),
 }
 
+
+def msg_header_encode(msgtype, version, length, msgid, vendorid=0, subtype=0):
+    ver = version & 0x07
+    msgtype = msgtype & 0x03FF
+
+    if msgtype == TYPE_CUSTOM:
+        return msg_header_custom_pack((ver << 10) | msgtype,
+                                      msg_header_custom_size + length, msgid,
+                                      vendorid, subtype)
+    else:
+        return msg_header_pack((ver << 10) | msgtype,
+                               msg_header_size + length, msgid)
 
 def msg_header_decode(data):
     msgtype, length, msgid = msg_header_unpack(data[:msg_header_size])

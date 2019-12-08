@@ -12,9 +12,9 @@ from threading import Thread, Event
 from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ
 from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct, Param_struct,
                          msg_header_len, msg_header_pack, msg_header_unpack,
-                         msg_header_decode, get_message_name_from_type,
-                         Capability_Name2Type, AirProtocol,
-                         llrp_data2xml, LLRPMessageDict,
+                         msg_header_encode, msg_header_decode,
+                         get_message_name_from_type, Capability_Name2Type,
+                         AirProtocol, llrp_data2xml, LLRPMessageDict,
                          DEFAULT_CHANNEL_INDEX, DEFAULT_HOPTABLE_INDEX)
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger, is_general_debug_enabled
@@ -54,20 +54,30 @@ class LLRPMessage(object):
         name, msgitem = next(msgdict_iter)
         logger.debugfast('serializing %s command', name)
 
-        # & BITMASK(3)
-        ver = msgitem['Ver'] & 0x07
-        # & BITMASK(10)
-        msgtype = msgitem['Type'] & 0x03FF
-        msgid = msgitem['ID']
         try:
-            encoder = Message_struct[name]['encode']
+            msg_info = Message_struct[name]
         except KeyError:
-            raise LLRPError('Cannot find encoder for message type '
-                            '{}'.format(name))
-        data = encoder(msgitem)
-        self.msgbytes = msg_header_pack((ver << 10) | msgtype,
-                                        msg_header_len + len(data),
-                                        msgid) + data
+            raise LLRPError('Unknown message type: %s. Cannot encode.' % name)
+
+        try:
+            encoder = msg_info['encode']
+        except KeyError:
+            raise LLRPError('Cannot find encoder for message type %s' % name)
+
+        version = msgitem.get('Ver', 1)
+        msgtype = msg_info['type']
+        if name == "CUSTOM_MESSAGE":
+            vendorid = msgitem['VendorID']
+            subtype = msgitem['Subtype']
+        else:
+            vendorid = msg_info.get('vendorid', 0)
+            subtype = msg_info.get('subtype', 0)
+        msgid = msgitem['ID']
+        data = encoder(msgitem, msg_info)
+
+        self.msgbytes = msg_header_encode(msgtype, version, len(data), msgid,
+                                          vendorid, subtype)
+        self.msgbytes += data
         if is_general_debug_enabled():
             logger.debugfast('serialized bytes: %s', hexlify(self.msgbytes))
             logger.debugfast('done serializing %s command', name)
@@ -993,42 +1003,11 @@ class LLRPClient(object):
             'OperationCountValue': stopAfterCount,
         }
 
-        if isinstance(opSpec, C1G2Read):
-            opSpecParam = {
-                'OpSpecID': opSpec.OpSpecID,
-                'AccessPassword': opSpec.AccessPassword,
-                'MB': opSpec.MB,
-                'WordPtr': opSpec.WordPtr,
-                'WordCount': opSpec.WordCount
-            }
-        elif isinstance(opSpec, (C1G2Write, C1G2BlockWrite)):
-            opSpecParam = {
-                'OpSpecID': opSpec.OpSpecID,
-                'AccessPassword': opSpec.AccessPassword,
-                'MB': opSpec.MB,
-                'WordPtr': opSpec.WordPtr,
-                'WriteDataWordCount': opSpec.WriteDataWordCount,
-                'WriteData': opSpec.WriteData
-            }
-        elif isinstance(opSpec, C1G2Lock):
-            opSpecParam = {
-                'OpSpecID': opSpec.OpSpecID,
-                'AccessPassword': opSpec.AccessPassword,
-                'LockPayload': []
-            }
-            for payload in opSpec.LockPayload:
-                opSpecParam['LockPayload'].append({
-                    'Privilege': payload.Privilege,
-                    'DataField': payload.DataField
-                })
-        else:
-            raise LLRPError('Selected opSpec type is not yet supported.')
-
         m = Param_struct['AccessSpec']
         accessSpec = {
             'Type': m['type'],
             'AccessSpecID': accessSpecID,
-            'AntennaID': 0,  # all antennas
+            'AntennaID': [0],  # all antennas
             'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
             'CurrentState': False,  # disabled by default
             'ROSpecID': 0,  # all ROSpecs
@@ -1037,12 +1016,62 @@ class LLRPClient(object):
                 'TagSpecParameter': {
                     'C1G2TargetTag': targetParam,
                 },
-                'OpSpecParameter': opSpecParam,
+                'OpSpecParameter': [],
             },
             'AccessReportSpec': {
                 'AccessReportTrigger': 1  # report at end of access
             }
         }
+
+        if isinstance(opSpec, C1G2Read):
+            accessSpec['AccessCommand']['OpSpecParameter'].append({
+                'C1G2Read': {
+                    'OpSpecID': opSpec.OpSpecID,
+                    'AccessPassword': opSpec.AccessPassword,
+                    'MB': opSpec.MB,
+                    'WordPtr': opSpec.WordPtr,
+                    'WordCount': opSpec.WordCount
+                }
+            })
+        elif isinstance(opSpec, C1G2Write):
+            accessSpec['AccessCommand']['OpSpecParameter'].append({
+                'C1G2Write': {
+                    'OpSpecID': opSpec.OpSpecID,
+                    'AccessPassword': opSpec.AccessPassword,
+                    'MB': opSpec.MB,
+                    'WordPtr': opSpec.WordPtr,
+                    'WriteDataWordCount': opSpec.WriteDataWordCount,
+                    'WriteData': opSpec.WriteData
+                }
+            })
+        elif isinstance(opSpec, C1G2BlockWrite):
+            accessSpec['AccessCommand']['OpSpecParameter'].append({
+                'C1G2BlockWrite': {
+                    'OpSpecID': opSpec.OpSpecID,
+                    'AccessPassword': opSpec.AccessPassword,
+                    'MB': opSpec.MB,
+                    'WordPtr': opSpec.WordPtr,
+                    'WriteDataWordCount': opSpec.WriteDataWordCount,
+                    'WriteData': opSpec.WriteData
+                }
+            })
+        elif isinstance(opSpec, C1G2Lock):
+            accessSpec['AccessCommand']['OpSpecParameter'].append({
+                'C1G2Lock': {
+                    'OpSpecID': opSpec.OpSpecID,
+                    'AccessPassword': opSpec.AccessPassword,
+                    'C1G2LockPayload': []
+                }
+            })
+            for payload in opSpec.LockPayload:
+                opSpecParam['C1G2LockPayload'].append({
+                    'Privilege': payload.Privilege,
+                    'DataField': payload.DataField
+                })
+        else:
+            raise LLRPError('Selected opSpec type is not yet supported.')
+
+
         logger.debugfast('AccessSpec: %s', accessSpec)
 
         def add_accessspec_cb(state, is_success, *args):
@@ -1077,7 +1106,7 @@ class LLRPClient(object):
             logger.warn('ignoring startInventory() while already inventorying')
             return None
 
-        rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
+        rospec = self.getROSpec(force_new=force_regen_rospec)
 
         logger.info('starting inventory')
 
@@ -1132,9 +1161,8 @@ class LLRPClient(object):
             rospec_kwargs['impinj_tag_content_selector'] = \
                 config.impinj_tag_content_selector
 
-
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
-        logger.debugfast('ROSpec: %s', self.rospec)
+        logger.debugfast('ROSpec:\n%s', self.rospec)
         return self.rospec
 
     def stopPolitely(self, onCompletion=None, disconnect=False):
@@ -1300,7 +1328,7 @@ class LLRPClient(object):
         if duration_seconds:
             logger.info('pausing for %s seconds', duration_seconds)
 
-        rospec = self.getROSpec(force_new=force_regen_rospec)['ROSpec']
+        rospec = self.getROSpec(force_new=force_regen_rospec)
 
         self.sendMessage({
             'DISABLE_ROSPEC': {
@@ -1354,7 +1382,7 @@ class LLRPClient(object):
             else:
                 self.complain(None, 'resume() failed')
 
-        self.send_ENABLE_ROSPEC(None, self.rospec['ROSpec'],
+        self.send_ENABLE_ROSPEC(None, self.rospec,
                                 onCompletion=enable_rospec_resume_cb)
 
     def sendMessage(self, msg_dict):

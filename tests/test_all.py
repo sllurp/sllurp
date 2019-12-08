@@ -88,8 +88,8 @@ class TestROSpec(unittest.TestCase):
             fx.reader_mode, 1,
             tag_filter_mask=masks)
         rospec_str = repr(rospec)
-        filters = rospec['ROSpec']['AISpec']['InventoryParameterSpec'][
-            'AntennaConfiguration'][0]['C1G2InventoryCommand']['C1G2Filter']
+        filters = rospec['AISpec']['InventoryParameterSpec'][0][
+            'AntennaConfiguration'][0]['C1G2InventoryCommand'][0]['C1G2Filter']
         self.assertEqual(len(filters), 2)
         self.assertEqual(
             [f['C1G2TagInventoryMask']['TagMask'] for f in filters],
@@ -208,11 +208,11 @@ class TestEncodings(unittest.TestCase):
         par = {'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_ROSpec',
                'N': 1}
         par['TagReportContentSelector'] = self.tagReportContentSelector
-        sllurp.llrp_proto.encode_ROReportSpec(par)
+        sllurp.llrp_proto.encode_param('ROReportSpec', par)
 
     def test_tagreportcontentselector(self):
         par = self.tagReportContentSelector
-        data = sllurp.llrp_proto.encode_TagReportContentSelector(par)
+        data = sllurp.llrp_proto.encode_param('TagReportContentSelector', par)
         self.assertEqual(len(data), 48 / 8)
         ty = int(binascii.hexlify(data[0:2]), 16) & (2**10 - 1)
         self.assertEqual(ty, 238)
