@@ -10,7 +10,7 @@ from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
 from threading import Thread, Event
 
 from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ
-from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct, Param_struct,
+from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
                          msg_header_len, msg_header_pack, msg_header_unpack,
                          msg_header_encode, msg_header_decode,
                          get_message_name_from_type, Capability_Name2Type,
@@ -72,7 +72,7 @@ class LLRPMessage(object):
         else:
             vendorid = msg_info.get('vendorid', 0)
             subtype = msg_info.get('subtype', 0)
-        msgid = msgitem['ID']
+        msgid = msgitem.get('ID', 0)
         data = encoder(msgitem, msg_info)
 
         self.msgbytes = msg_header_encode(msgtype, version, len(data), msgid,
@@ -778,29 +778,19 @@ class LLRPClient(object):
 
     def send_KEEPALIVE_ACK(self):
         self.sendMessage({
-            'KEEPALIVE_ACK': {
-                'Ver':  1,
-                'Type': 72,
-                'ID':   0,
-            }})
+            'KEEPALIVE_ACK': {}
+        })
 
     def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
         self.sendMessage({
-            'IMPINJ_ENABLE_EXTENSIONS': {
-                'Ver': 1,
-                'Type': TYPE_CUSTOM,
-                'ID': 0,
-                # skip payload
-            }})
+            'IMPINJ_ENABLE_EXTENSIONS': {}
+        })
         self.setState(LLRPReaderState.STATE_SENT_ENABLE_IMPINJ_EXTENSIONS)
         self._deferreds['IMPINJ_ENABLE_EXTENSIONS_RESPONSE'].append(onCompletion)
 
     def send_GET_READER_CAPABILITIES(self, _, onCompletion):
         self.sendMessage({
             'GET_READER_CAPABILITIES': {
-                'Ver':  1,
-                'Type': 1,
-                'ID':   0,
                 'RequestedData': Capability_Name2Type['All']
             }})
         self.setState(LLRPReaderState.STATE_SENT_GET_CAPABILITIES)
@@ -809,41 +799,31 @@ class LLRPClient(object):
 
     def send_GET_READER_CONFIG(self, onCompletion):
         cfg = {
-            'Ver':  1,
-            'Type': 2,
-            'ID':   0,
             'RequestedData': Capability_Name2Type['All']
         }
         if self.config.impinj_extended_configuration:
-            cfg['CustomParameters'] = [
-                {
-                    'VendorID': VENDOR_ID_IMPINJ,
+            # NOTE: Not really usefull, as default value when impinj extensions
+            # are enabled.
+            cfg['ImpinjRequestedData'] = {
                     # per Octane LLRP guide:
-                    # 21 = ImpinjRequestedData
                     # 2000 = All configuration params
-                    'Subtype': 21,
-                    'Payload': struct.pack('!I', 2000)
-                }
-            ]
-        self.sendMessage({'GET_READER_CONFIG': cfg})
+                    'RequestedData': 2000
+            }
+        self.sendMessage({
+            'GET_READER_CONFIG': cfg
+        })
         self.setState(LLRPReaderState.STATE_SENT_GET_CONFIG)
         self._deferreds['GET_READER_CONFIG_RESPONSE'].append(
             onCompletion)
 
     def send_ENABLE_EVENTS_AND_REPORTS(self):
         self.sendMessage({
-            'ENABLE_EVENTS_AND_REPORTS': {
-                'Ver': 1,
-                'Type': 64,
-                'ID': 0,
-            }})
+            'ENABLE_EVENTS_AND_REPORTS': {}
+        })
 
     def send_SET_READER_CONFIG(self, onCompletion):
         msg = {
             'SET_READER_CONFIG': {
-                'Ver':  1,
-                'Type': 3,
-                'ID':   0,
                 'ResetToFactoryDefaults': False,
                 'ReaderEventNotificationSpec': {
                     'EventNotificationState': {
@@ -870,12 +850,9 @@ class LLRPClient(object):
             ant_event_enable = self.config.impinj_event_selector.get(
                 'AntennaAttemptEvent')
             if ant_event_enable is not None:
-                msg['SET_READER_CONFIG']\
-                   ['ImpinjAntennaConfiguration']\
-                    = {
-                        'ImpinjAntennaEventConfiguration':
-                            ant_event_enable
-                    }
+                msg['SET_READER_CONFIG']['ImpinjAntennaConfiguration'] = {
+                    'ImpinjAntennaEventConfiguration': ant_event_enable
+                }
 
         self.sendMessage(msg)
         self.setState(LLRPReaderState.STATE_SENT_SET_CONFIG)
@@ -886,9 +863,6 @@ class LLRPClient(object):
         logger.debugfast('about to send_ADD_ROSPEC')
         self.sendMessage({
             'ADD_ROSPEC': {
-                'Ver':  1,
-                'Type': 20,
-                'ID':   0,
                 'ROSpecID': rospec['ROSpecID'],
                 'ROSpec': rospec,
             }
@@ -900,9 +874,6 @@ class LLRPClient(object):
     def send_ENABLE_ROSPEC(self, _, rospec, onCompletion):
         self.sendMessage({
             'ENABLE_ROSPEC': {
-                'Ver':  1,
-                'Type': 24,
-                'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
             }})
         self.setState(LLRPReaderState.STATE_SENT_ENABLE_ROSPEC)
@@ -911,9 +882,6 @@ class LLRPClient(object):
     def send_START_ROSPEC(self, _, rospec, onCompletion):
         self.sendMessage({
             'START_ROSPEC': {
-                'Ver':  1,
-                'Type': 22,
-                'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
             }})
         self.setState(LLRPReaderState.STATE_SENT_START_ROSPEC)
@@ -922,9 +890,6 @@ class LLRPClient(object):
     def send_ADD_ACCESSSPEC(self, accessSpec, onCompletion):
         self.sendMessage({
             'ADD_ACCESSSPEC': {
-                'Ver':  1,
-                'Type': 40,
-                'ID':   0,
                 'AccessSpec': accessSpec,
             }})
         self._deferreds['ADD_ACCESSSPEC_RESPONSE'].append(onCompletion)
@@ -932,9 +897,6 @@ class LLRPClient(object):
     def send_DISABLE_ACCESSSPEC(self, accessSpecID=1, onCompletion=None):
         self.sendMessage({
             'DISABLE_ACCESSSPEC': {
-                'Ver':  1,
-                'Type': 43,
-                'ID':   0,
                 'AccessSpecID': accessSpecID,
             }})
 
@@ -944,9 +906,6 @@ class LLRPClient(object):
     def send_ENABLE_ACCESSSPEC(self, _, accessSpecID, onCompletion=None):
         self.sendMessage({
             'ENABLE_ACCESSSPEC': {
-                'Ver':  1,
-                'Type': 42,
-                'ID':   0,
                 'AccessSpecID': accessSpecID,
             }})
 
@@ -958,9 +917,6 @@ class LLRPClient(object):
         # logger.info('Deleting current accessSpec.')
         self.sendMessage({
             'DELETE_ACCESSSPEC': {
-                'Ver': 1,
-                'Type': 41,
-                'ID': 0,
                 'AccessSpecID': accessSpecID  # ONE AccessSpec
             }})
 
@@ -994,9 +950,7 @@ class LLRPClient(object):
             'OperationCountValue': stopAfterCount,
         }
 
-        m = Param_struct['AccessSpec']
         accessSpec = {
-            'Type': m['type'],
             'AccessSpecID': accessSpecID,
             'AntennaID': [0],  # all antennas
             'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
@@ -1051,14 +1005,12 @@ class LLRPClient(object):
                 'C1G2Lock': {
                     'OpSpecID': opSpec.OpSpecID,
                     'AccessPassword': opSpec.AccessPassword,
-                    'C1G2LockPayload': []
+                    'C1G2LockPayload': [{
+                        'Privilege': payload.Privilege,
+                        'DataField': payload.DataField
+                    } for payload in opSpec.LockPayload]
                 }
             })
-            for payload in opSpec.LockPayload:
-                opSpecParam['C1G2LockPayload'].append({
-                    'Privilege': payload.Privilege,
-                    'DataField': payload.DataField
-                })
         else:
             raise LLRPError('Selected opSpec type is not yet supported.')
 
@@ -1166,10 +1118,8 @@ class LLRPClient(object):
             self.disconnecting = True
         self.sendMessage({
             'DELETE_ACCESSSPEC': {
-                'Ver': 1,
-                'Type': 41,
-                'ID': 0,
-                'AccessSpecID': 0  # all AccessSpecs
+                # all AccessSpecs
+                'AccessSpecID': 0,
             }})
         self.setState(LLRPReaderState.STATE_SENT_DELETE_ACCESSSPEC)
 
@@ -1187,9 +1137,6 @@ class LLRPClient(object):
     def stopAllROSpecs(self, onCompletion=None):
         self.sendMessage({
             'DELETE_ROSPEC': {
-                'Ver':  1,
-                'Type': 21,
-                'ID':   0,
                 'ROSpecID': 0
             }})
         self.setState(LLRPReaderState.STATE_SENT_DELETE_ROSPEC)
@@ -1325,9 +1272,6 @@ class LLRPClient(object):
 
         self.sendMessage({
             'DISABLE_ROSPEC': {
-                'Ver':  1,
-                'Type': 25,
-                'ID':   0,
                 'ROSpecID': rospec['ROSpecID']
             }})
         self.setState(LLRPReaderState.STATE_PAUSING)

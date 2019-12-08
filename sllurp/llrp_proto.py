@@ -529,7 +529,7 @@ def decode_generic_message_with_status_check(data, msg_name=None):
 
 
 def encode_param(name, par):
-    logger.debug("Encode: %s", name)
+    logger.debugfast("Encode: %s", name)
     try:
         param_info = Param_struct[name]
     except KeyError:
@@ -605,7 +605,10 @@ Message_struct['GET_READER_CAPABILITIES'] = {
         'ID',
         'RequestedData'
     ],
-    'encode': basic_param_encode_generator(ubyte_pack, 'RequestedData')
+    'o_fields': [
+        'ImpinjRequestedData'
+    ],
+    'encode': basic_auto_param_encode_generator(ubyte_pack, 'RequestedData')
 }
 
 
@@ -4170,7 +4173,6 @@ class LLRPROSpec(dict):
 
             # impinj extension: single mode or dual mode (XXX others?)
             if impinj_search_mode is not None:
-                logger.info('impinj_search_mode: %s', impinj_search_mode)
                 antconf['C1G2InventoryCommand'][0]\
                     ['ImpinjInventorySearchMode'] = {
                         'InventorySearchMode': int(impinj_search_mode)
