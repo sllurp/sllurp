@@ -28,12 +28,12 @@ logger = get_logger(__name__)
 
 
 class LLRPMessage(object):
+    __slots__ = ['msgdict', 'msgbytes', 'msgname']
+
     def __init__(self, msgdict=None, msgbytes=None):
         if not (msgdict or msgbytes):
             raise LLRPError('Provide either a message dict or a sequence'
                             ' of bytes.')
-        self.proto = None
-        self.peername = None
         self.msgdict = None
         self.msgbytes = None
         self.msgname = None
