@@ -392,27 +392,6 @@ def basic_param_decode_generator(unpack_func, *args):
     return generated_func
 
 
-def basic_auto_param_decode_generator_old(unpack_func, unpack_sub_list, unpack_size):
-    """Generate a decode function for simple parameters with auto decode
-
-    Generate a function that decode first a set of fixed parameters of size
-    unpack_size, using the unpack_func function and then, try to automatically
-    decode remaining dynamic parameter objects.
-    """
-    if not isinstance(unpack_sub_list, list):
-            unpack_sub_list = [unpack_sub_list]
-
-    def generated_func(data, name=None):
-        unpacked = unpack_func(data[:unpack_size])
-        par = dict(zip(unpack_sub_list, unpacked))
-        data = data[unpack_size:]
-        if data:
-            par, _ = decode_all_parameters(data, name, par)
-        return par, ''
-
-    return generated_func
-
-
 def basic_auto_param_decode_generator(unpack_func, unpack_size, *args):
     """Generate a decode function for simple parameters with auto decode
 
@@ -3045,7 +3024,7 @@ def decode_LLRPStatus(data, name=None):
     try:
         par['StatusCode'] = Error_Type2Name[code]
     except KeyError:
-        logger.warning('Unknown field code %s', code)
+        logger.warning('Unknown Status code %s', code)
     par['ErrorDescription'] = data[offset:offset + n]
 
     data = data[offset + n:]
@@ -3055,7 +3034,7 @@ def decode_LLRPStatus(data, name=None):
 
 
 Param_struct['LLRPStatus'] = {
-    'type':   287,
+    'type': 287,
     'fields': [
         'StatusCode',
         'ErrorDescription',
@@ -3071,7 +3050,7 @@ Param_struct['LLRPStatus'] = {
 # 16.2.8.1.1 FieldError Parameter
 
 Param_struct['FieldError'] = {
-    'type':   288,
+    'type': 288,
     'fields': [
         'ErrorCode',
         'FieldNum',
@@ -3083,7 +3062,7 @@ Param_struct['FieldError'] = {
 
 # 16.2.8.1.2 ParameterError Parameter
 Param_struct['ParameterError'] = {
-    'type':   289,
+    'type': 289,
     'fields': [
         'ParameterType',
         'ErrorCode',
@@ -4268,7 +4247,7 @@ for source_struct, dest_dict, obj_name in [
         if msgtype == TYPE_CUSTOM and (not vendorid or not subtype) \
            and msgname not in ['CUSTOM_MESSAGE', 'CustomParameter']:
             logger.warning('Pseudo-warning: %s type %s lacks "vendorid" or '
-                            '"subtype" fields', obj_name, msgname)
+                           '"subtype" fields', obj_name, msgname)
             continue
 
         # Add optional and multiple fields to the full fields list
