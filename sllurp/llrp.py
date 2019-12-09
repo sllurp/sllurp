@@ -1,13 +1,13 @@
 from __future__ import print_function, unicode_literals
-from collections import defaultdict
-import pprint
-import struct
+
 import select
 
 from binascii import hexlify
+from collections import defaultdict
 from socket import (AF_INET, SOCK_STREAM, SHUT_RDWR, SOL_SOCKET, SO_KEEPALIVE,
                     IPPROTO_TCP, TCP_NODELAY, socket, error as SocketError)
 from threading import Thread, Event
+from weakref import WeakSet
 
 from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ
 from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
@@ -24,6 +24,7 @@ LLRP_DEFAULT_PORT = 5084
 LLRP_MSG_ID_MAX = 4294967295
 THREAD_NAME_PREFIX = 'sllurp-reader'
 
+all_reader_refs = WeakSet()
 logger = get_logger(__name__)
 
 
@@ -1453,6 +1454,8 @@ class LLRPReaderConfig(object):
 
 class LLRPReaderClient(object):
     def __init__(self, host, port=None, config=None, timeout=5.0):
+        global all_reader_refs
+
         if port is None:
             port = LLRP_DEFAULT_PORT
         self._port = port
@@ -1495,6 +1498,8 @@ class LLRPReaderClient(object):
         self._tag_report_callbacks = []
         self._event_notification_callbacks = []
         self._disconnected_callbacks = []
+
+        all_reader_refs.add(self)
 
     def update_config(self, new_config):
         self.config = new_config
@@ -1615,8 +1620,17 @@ class LLRPReaderClient(object):
                                                    str(self._port)]))
         self._socket_thread.start()
 
-    def disconnect(self):
-        """Clean the reader before disconnecting"""
+    def disconnect(self, timeout=0):
+        """Clean the reader before disconnecting
+
+        By default, disconnect is "non-blocking".
+        Timeout argument can be set to have a "blocking" disconnect behavior.
+        When the timeout argument is present and not 0 or None, it should be a
+        floating point number specifying a timeout for the operation in seconds
+        (or fractions thereof).
+        When the timeout argument is None, the operation will block until
+        the reader connection thread terminates.
+        """
         if not self._socket_thread and not self._socket:
             logger.warning('Reader not connected. Disconnect is not needed.')
 
@@ -1638,6 +1652,9 @@ class LLRPReaderClient(object):
 
         self.llrp.stopPolitely(onCompletion=on_politely_stopped_cb,
                                disconnect=True)
+        # Block until disconnection is completed if needed
+        if timeout != 0:
+            self.join(timeout)
 
     def hard_disconnect(self):
         """Stop the recv worker, and close sockets"""
@@ -1650,6 +1667,39 @@ class LLRPReaderClient(object):
                 pass
             self._socket.close()
             self._socket = None
+
+    @staticmethod
+    def disconnect_all_readers(timeout_per_reader=1, force=True):
+        """Disconnect all readers that are connected
+
+        timeout_per_reader: How long to wait in (s)econds for gracefull shutdown
+        force: if True, a Hard shutdown of the connection is done if the gracefull
+        shutdown does not finish after "timeout_per_reader".
+        """
+        # Ask politely first any remaining active reader to stop
+        for reader in all_reader_refs:
+            try:
+                if reader is None:
+                    continue
+                if not reader.disconnect_requested.is_set():
+                    reader.disconnect()
+            except:
+                pass
+
+        # Be patient...
+        for reader in all_reader_refs:
+            try:
+                reader.join(timeout_per_reader)
+            except:
+                pass
+
+        if force:
+            # Go nuclear to reader instances that would still be connected.
+            for reader in all_reader_refs:
+                try:
+                    reader.hard_disconnect()
+                except:
+                    pass
 
     def on_lost_connection(self):
         """ On lost connection, attempt retries if reconnect enabled
