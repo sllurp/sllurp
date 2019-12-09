@@ -2569,7 +2569,10 @@ Param_struct['TagReportData'] = {
         ## Custom parameters:
         'ImpinjRFPhaseAngle',
         'ImpinjPeakRSSI',
-        'ImpinjRFDopplerFrequency'
+        'ImpinjRFDopplerFrequency',
+        'ImpinjSerializedTID',
+        'ImpinjGPSCoordinates',
+        'ImpinjTxPower',
     ],
     'decode': decode_TagReportData
 }
