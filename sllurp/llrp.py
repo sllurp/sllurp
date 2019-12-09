@@ -22,6 +22,7 @@ from .util import natural_keys, iteritems, iterkeys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
 LLRP_MSG_ID_MAX = 4294967295
+THREAD_NAME_PREFIX = 'sllurp-reader'
 
 logger = get_logger(__name__)
 
@@ -1608,7 +1609,10 @@ class LLRPReaderClient(object):
 
         self._stop_main_loop.clear()
         # then create thread that wait on read for this reader
-        self._socket_thread = Thread(target=self.main_loop)
+        self._socket_thread = Thread(target=self.main_loop,
+                                     name="-".join([THREAD_NAME_PREFIX,
+                                                   str(self._host),
+                                                   str(self._port)]))
         self._socket_thread.start()
 
     def disconnect(self):
