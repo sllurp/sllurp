@@ -2339,10 +2339,10 @@ Param_struct['C1G2TagInventoryStateAwareSingulationAction'] = {
 
 # 16.2.7.1 ROReportSpec Parameter
 def encode_ROReportSpec(par, param_info):
-    n = int(par['N'])
     roReportTrigger = ROReportTrigger_Name2Value[par['ROReportTrigger']]
+    n = int(par['N'])
 
-    packed = ubyte_ushort_pack(n, roReportTrigger)
+    packed = ubyte_ushort_pack(roReportTrigger, n)
     return encode_all_parameters(par, param_info, packed)
 
 
