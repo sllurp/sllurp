@@ -569,29 +569,22 @@ def encode_all_parameters(par_dict, param_info=None, data=None, par_name=None):
         data_list = [data]
     if param_info is None:
         param_info = Param_struct[par_name]
-    o_fields = param_info['o_fields']
-    n_fields = param_info['n_fields']
 
-    # NOTE: Possible evolution:
-    # Field order might be important for some readers, in that case, iter
-    # based on "fields" and only keep o and n fields.
     data_block_list = []
-    for key in o_fields:
-        if key not in par_dict:
-            continue
-        value = par_dict[key]
-        data_list.append(encode_param(key, value))
 
-    for key in n_fields:
+    for key, is_multiple in param_info['auto_fields']:
         if key not in par_dict:
             continue
         value = par_dict[key]
-        if not isinstance(value, list):
-            logger.warning('Encoding error: "%s" parameter content should '
+        if not is_multiple:
+            data_list.append(encode_param(key, value))
+        else:
+            if not isinstance(value, list):
+                logger.warning('Encoding error: "%s" parameter content should '
                             'be a list. Skipping...', key)
-            continue
-        for sub_value in value:
-            data_list.append(encode_param(key, sub_value))
+                continue
+            for sub_value in value:
+                data_list.append(encode_param(key, sub_value))
 
     return b''.join(data_list)
 
@@ -1439,12 +1432,19 @@ Param_struct['ROSpec'] = {
         'ROSpecID',
         'Priority',
         'CurrentState',
-    ],
-    'o_fields': [
         'ROBoundarySpec',
         'AISpec',
         'RFSurveySpec',
+        'LoopSpec',
         'ROReportSpec',
+    ],
+    'o_fields': [
+        'ROBoundarySpec',
+        'ROReportSpec',
+    ],
+    'n_fields': [
+        'AISpec',
+        'RFSurveySpec',
         # Not yet implemented, llrp v1.1
         'LoopSpec',
     ],
@@ -4086,7 +4086,7 @@ class LLRPROSpec(dict):
                     'DurationTriggerValue': 0,
                 },
             },
-            'AISpec': {
+            'AISpec': [{
                 'AntennaID': antennas,
                 'AISpecStopTrigger': {
                     'AISpecStopTriggerType': 'Null',
@@ -4097,7 +4097,7 @@ class LLRPROSpec(dict):
                     'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
                     'AntennaConfiguration': [],
                 }],
-            },
+            }],
             'ROReportSpec': {
                 'ROReportTrigger': 'Upon_N_Tags_Or_End_Of_AISpec',
                 'TagReportContentSelector': tagReportContentSelector,
@@ -4122,8 +4122,7 @@ class LLRPROSpec(dict):
                     },
                 }
 
-        ips = self['AISpec']['InventoryParameterSpec'][0]
-
+        ips = self['AISpec'][0]['InventoryParameterSpec'][0]
 
         freq_channel_list = frequencies.get('ChannelList',
                                           [DEFAULT_CHANNEL_INDEX])
@@ -4195,7 +4194,7 @@ class LLRPROSpec(dict):
                 'ROSpecStopTriggerType': 'Duration',
                 'DurationTriggerValue': int(duration_sec * 1000)
             }
-            self['AISpec']['AISpecStopTrigger'] = {
+            self['AISpec'][0]['AISpecStopTrigger'] = {
                 'AISpecStopTriggerType': 'Duration',
                 'DurationTriggerValue': int(duration_sec * 1000)
             }
@@ -4207,7 +4206,7 @@ class LLRPROSpec(dict):
             else:
                 logger.info('will report every ~N=%d tags',
                             report_every_n_tags)
-            self['AISpec']['AISpecStopTrigger'].update({
+            self['AISpec'][0]['AISpecStopTrigger'].update({
                 'AISpecStopTriggerType': 'Tag observation',
                 'TagObservationTrigger': {
                     'TriggerType': 'UponNTags',
@@ -4254,21 +4253,28 @@ for source_struct, dest_dict, obj_name in [
             continue
 
         # Add optional and multiple fields to the full fields list
-        if 'fields' not in msgstruct:
-            msgstruct['fields'] = []
+        fields = msgstruct.setdefault('fields', [])
         # Optional fields:
-        if 'o_fields' not in msgstruct:
-            msgstruct['o_fields'] = []
+        o_fields = msgstruct.setdefault('o_fields', [])
         # Multiple entries fields
-        if 'n_fields' not in msgstruct:
-            msgstruct['n_fields'] = []
+        n_fields = msgstruct.setdefault('n_fields', [])
+
 
         msgstruct['n_fields'].append('CustomParameter')
 
         # fields = fields + optional + multiples
         # if fields = fields + o_fields + n_fields
-        msgstruct['fields'].extend(msgstruct['o_fields'])
-        msgstruct['fields'].extend(msgstruct['n_fields'])
+        fields.extend([x for x in o_fields if x not in fields])
+        fields.extend([x for x in n_fields if x not in fields])
+
+        # Field order might be important for some readers
+        o_n_ordered_fields = []
+        for entry in fields:
+            if entry in o_fields:
+                o_n_ordered_fields.append((entry, False))
+            elif entry in n_fields:
+                o_n_ordered_fields.append((entry, True))
+        msgstruct['auto_fields'] = o_n_ordered_fields
 
         # Fill reverse dict
         dest_dict[(msgtype, vendorid, subtype)] = msgname
