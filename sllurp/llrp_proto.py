@@ -953,26 +953,32 @@ Message_struct['RO_ACCESS_REPORT'] = {
 def decode_Keepalive(msg):
     return b''
 
+def encode_Keepalive(msg):
+    return b''
 
 Message_struct['KEEPALIVE'] = {
     'type': 62,
     'fields': [
         'Ver', 'Type', 'ID',
     ],
-    'decode': decode_Keepalive
+    'decode': decode_Keepalive,
+    'encode': encode_Keepalive
 }
 
 
 # 16.1.36 KEEPALIVE_ACK
-def encode_KeepaliveAck(msg):
+def decode_KeepaliveAck(msg):
     return b''
 
+def encode_KeepaliveAck(msg):
+    return b''
 
 Message_struct['KEEPALIVE_ACK'] = {
     'type': 72,
     'fields': [
         'Ver', 'Type', 'ID',
     ],
+    'decode': decode_KeepaliveAck,
     'encode': encode_KeepaliveAck
 }
 
