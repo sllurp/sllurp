@@ -1909,7 +1909,7 @@ Param_struct['AISpec'] = {
 # 16.2.4.2.1 AISpecStopTrigger Parameter
 def encode_AISpecStopTrigger(par, param_info):
     t_type = StopTrigger_Name2Type[par['AISpecStopTriggerType']]
-    duration = int(par['DurationTriggerValue'])
+    duration = int(par.get('DurationTriggerValue', 0))
     packed = ubyte_uint_pack(t_type, duration)
     return encode_all_parameters(par, param_info, packed)
 
@@ -3289,13 +3289,15 @@ def decode_ImpinjDetailedVersion(data, name=None):
     logger.debugfast('decode_ImpinjDetailedVersion')
     par = {}
 
+    offset = 0
     for field in ['ModelName', 'SerialNumber', 'SoftwareVersion',
                   'FirmwareVersion', 'FPGAVersion', 'PCBAVersion']:
-        byte_count = ushort_unpack(data[:ushort_size])[0]
-        data = data[ushort_size:]
-        par[field] = data[:byte_count]
-        data = data[byte_count:]
+        byte_count = ushort_unpack(data[offset:offset + ushort_size])[0]
+        offset += ushort_size
+        par[field] = data[offset:offset + byte_count]
+        offset += byte_count
 
+    data = data[offset:]
     par, _ = decode_all_parameters(data, 'ImpinjDetailedVersion', par)
     return par, ''
 
@@ -3744,6 +3746,35 @@ Param_struct['ImpinjTxPower'] = {
 }
 
 
+def decode_ImpinjArrayVersion(data, name=None):
+    logger.debugfast('decode_ImpinjArrayVersion')
+    par = {}
+
+    offset = 0
+    for field in ['SerialNumber', 'FirmwareVersion', 'PCBAVersion']:
+        byte_count = ushort_unpack(data[offset:offset + ushort_size])[0]
+        offset += ushort_size
+        par[field] = data[offset:offset + byte_count]
+        offset += byte_count
+
+    data = data[offset:]
+    par, _ = decode_all_parameters(data, 'ImpinjArrayVersion', par)
+    return par, ''
+
+
+Param_struct['ImpinjArrayVersion'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1520,
+    'fields': [
+        'SerialNumber',
+        'FirmwareVersion',
+        'PCBAVersion',
+    ],
+    'decode': decode_ImpinjArrayVersion
+}
+
+
 Param_struct['ImpinjAntennaConfiguration'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
@@ -3772,6 +3803,51 @@ Param_struct['ImpinjAntennaEventHysteresis'] = {
                                                 ulonglong_ulonglong_size,
                                                 'AntennaEventConnected',
                                                 'AntennaEventDisconnected')
+}
+
+
+# Note: Dirty hack decoder due to Impinj bug
+# Based on doc, there should only be a ImpinjArrayVersion field inside
+# ImpinjHubVersions.
+# But my r420, v5.12 (maybe buggy?) sometimes send ImpinjArrayVersion Params
+# but use the wrong type and pretends that it is a ImpinjBLEVersion
+
+def decode_ImpinjHubVersions(data, name=None):
+    arrayversion_type = Param_struct['ImpinjArrayVersion']
+    bleversion_type = Param_struct['ImpinjBLEVersion']
+    arrayversion_decoder = Param_struct['ImpinjArrayVersion']['decode']
+    start_pos = 0
+    data_len = len(data)
+    versions_info_list = []
+    while start_pos < data_len:
+        (partype,
+         vendorid,
+         subtype,
+         hdr_len,
+         full_length) = param_header_decode(data[start_pos:])
+        if subtype == bleversion_type:
+            logger.debug('ImpinjHubVersions decoding HACK: sub field reported '
+                         'by the reader is wrong. Force changing it to '
+                         '"ImpinjArrayVersion"')
+            subtype = arrayversion_type
+        pardata = data[start_pos + hdr_len:start_pos + full_length]
+        versions_info_list.append(
+            arrayversion_decoder(pardata, 'ImpinjArrayVersion')[0])
+        start_pos += full_length
+        if full_length == 0:
+            break
+
+    return {'ImpinjArrayVersion': versions_info_list}, ''
+
+Param_struct['ImpinjHubVersions'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1537,
+    'n_fields': [
+        'ImpinjArrayVersion',
+    ],
+    'encode': encode_all_parameters,
+    'decode': decode_ImpinjHubVersions
 }
 
 
@@ -3914,6 +3990,29 @@ Param_struct['ImpinjAntennaAttemptEvent'] = {
         'AntennaID'
     ],
     'decode': basic_param_decode_generator(ushort_unpack, 'AntennaID')
+}
+
+
+def decode_ImpinjBLEVersion(data, name=None):
+    logger.debugfast('decode_ImpinjBLEVersion')
+    par = {}
+
+    byte_count = ushort_unpack(data[:ushort_size])[0]
+    par['FirmwareVersion'] = data[ushort_size:ushort_size + byte_count]
+    data = data[ushort_size + byte_count:]
+
+    par, _ = decode_all_parameters(data, 'ImpinjBLEVersion', par)
+    return par, ''
+
+
+Param_struct['ImpinjBLEVersion'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_IMPINJ,
+    'subtype': 1520,
+    'fields': [
+        'FirmwareVersion',
+    ],
+    'decode': decode_ImpinjBLEVersion
 }
 
 
@@ -4260,7 +4359,7 @@ for source_struct, dest_dict, obj_name in [
         n_fields = msgstruct.setdefault('n_fields', [])
 
 
-        msgstruct['n_fields'].append('CustomParameter')
+        n_fields.append('CustomParameter')
 
         # fields = fields + optional + multiples
         # if fields = fields + o_fields + n_fields
