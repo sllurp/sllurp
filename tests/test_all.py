@@ -88,7 +88,7 @@ class TestROSpec(unittest.TestCase):
             fx.reader_mode, 1,
             tag_filter_mask=masks)
         rospec_str = repr(rospec)
-        filters = rospec['AISpec']['InventoryParameterSpec'][0][
+        filters = rospec['AISpec'][0]['InventoryParameterSpec'][0][
             'AntennaConfiguration'][0]['C1G2InventoryCommand'][0]['C1G2Filter']
         self.assertEqual(len(filters), 2)
         self.assertEqual(
