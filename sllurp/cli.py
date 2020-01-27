@@ -8,6 +8,7 @@ import click
 from . import __version__
 from . import log as loggie
 from .verb import reset as _reset
+from .verb import capabilities as _capabilities
 from .verb import inventory as _inventory
 from .verb import log as _log
 from .verb import access as _access
@@ -169,3 +170,15 @@ def reset(host, port):
     Args = namedtuple('Args', ['host', 'port'])
     args = Args(host=host, port=port)
     _reset.main(args)
+
+
+@cli.command()
+@click.argument('host', type=str, nargs=-1)
+@click.option('-p', '--port', type=int, default=5084)
+def capabilities(host, port):
+    Args = namedtuple('Args', ['host', 'port'])
+    args = Args(host=host, port=port)
+    _capabilities.main(args)
+
+
+
