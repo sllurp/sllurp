@@ -17,7 +17,7 @@ def shutdown(reader, state):
 def main(args):
     if not args.host:
         logger.info('No readers specified.')
-        return 0
+        return 1
 
     factory_args = {
         'start_inventory': False,
