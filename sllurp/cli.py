@@ -179,6 +179,3 @@ def capabilities(host, port):
     Args = namedtuple('Args', ['host', 'port'])
     args = Args(host=host, port=port)
     _capabilities.main(args)
-
-
-
