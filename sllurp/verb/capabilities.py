@@ -1,4 +1,4 @@
-"""Reset command.
+"""Capabilities command.
 """
 
 import logging
