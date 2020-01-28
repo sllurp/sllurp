@@ -8,7 +8,6 @@ import time
 
 from sllurp.util import monotonic
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
-
 from sllurp.log import get_logger
 from sllurp.log import is_general_debug_enabled, set_general_debug
 
@@ -17,11 +16,10 @@ start_time = None
 numtags = 0
 logger = get_logger(__name__)
 
-
 def finish_cb(reader):
     runtime = monotonic() - start_time
-    logger.info("total # of tags seen: %d (%d tags/second)", numtags, numtags / runtime)
-
+    logger.info('total # of tags seen: %d (%d tags/second)', numtags,
+                numtags/runtime)
 
 def inventory_start_cb(reader, state):
     global start_time
@@ -32,22 +30,21 @@ def tag_report_cb(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     global numtags
     if len(tags):
-        logger.info("saw tag(s): %s", pprint.pformat(tags))
+        logger.info('saw tag(s): %s', pprint.pformat(tags))
         for tag in tags:
-            numtags += tag["TagSeenCount"]
+            numtags += tag['TagSeenCount']
     else:
-        logger.info("no tags seen")
+        logger.info('no tags seen')
         return
-
 
 def main(args):
     global start_time
 
     if not args.host:
-        logger.info("No readers specified.")
+        logger.info('No readers specified.')
         return 0
 
-    enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
+    enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
 
     factory_args = dict(
         duration=args.time,
@@ -63,38 +60,42 @@ def main(args):
         reconnect=args.reconnect,
         tag_filter_mask=args.tag_filter_mask,
         tag_content_selector={
-            "EnableROSpecID": False,
-            "EnableSpecIndex": False,
-            "EnableInventoryParameterSpecID": False,
-            "EnableAntennaID": False,
-            "EnableChannelIndex": True,
-            "EnablePeakRSSI": False,
-            "EnableFirstSeenTimestamp": False,
-            "EnableLastSeenTimestamp": True,
-            "EnableTagSeenCount": True,
-            "EnableAccessSpecID": False,
-            "C1G2EPCMemorySelector": {"EnableCRC": False, "EnablePCBits": False},
+            'EnableROSpecID': False,
+            'EnableSpecIndex': False,
+            'EnableInventoryParameterSpecID': False,
+            'EnableAntennaID': False,
+            'EnableChannelIndex': True,
+            'EnablePeakRSSI': False,
+            'EnableFirstSeenTimestamp': False,
+            'EnableLastSeenTimestamp': True,
+            'EnableTagSeenCount': True,
+            'EnableAccessSpecID': False,
+            'C1G2EPCMemorySelector': {
+                'EnableCRC': False,
+                'EnablePCBits': False,
+            }
         },
         impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
     )
     if args.impinj_reports:
-        factory_args["impinj_tag_content_selector"] = {
-            "EnableRFPhaseAngle": True,
-            "EnablePeakRSSI": True,
-            "EnableRFDopplerFrequency": True,
+        factory_args['impinj_tag_content_selector'] = {
+            'EnableRFPhaseAngle': True,
+            'EnablePeakRSSI': True,
+            'EnableRFDopplerFrequency': True
         }
     if args.impinj_fixed_freq:
-        factory_args["impinj_fixed_frequency_param"] = {
-            "FixedFrequencyMode": 2,
-            "ChannelListIndex": [1],
+        factory_args['impinj_fixed_frequency_param'] = {
+            'FixedFrequencyMode': 2,
+            'ChannelListIndex': [1]
         }
+
 
     reader_clients = []
     for host in args.host:
-        if ":" in host:
-            host, port = host.split(":", 1)
+        if ':' in host:
+            host, port = host.split(':', 1)
             port = int(port)
         else:
             port = args.port
@@ -105,6 +106,7 @@ def main(args):
         reader.add_tag_report_callback(tag_report_cb)
         reader.add_state_callback(LLRPReaderState.STATE_INVENTORYING, inventory_start_cb)
         reader_clients.append(reader)
+
 
     start_time = monotonic()
     try:

@@ -5,8 +5,8 @@ import pprint
 import sys
 
 from sllurp.util import monotonic
-from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState, C1G2Read, C1G2Write
-
+from sllurp.llrp import (LLRPReaderConfig, LLRPReaderClient, LLRPReaderState,
+                         C1G2Read, C1G2Write)
 from sllurp.log import get_logger
 
 start_time = None
@@ -21,17 +21,14 @@ def finish_cb(_):
     # stop runtime measurement to determine rates
     runTime = monotonic() - start_time
 
-    logger.info("total # of tags seen: %d (%d tags/second)", tagReport, tagReport / runTime)
+    logger.info('total # of tags seen: %d (%d tags/second)', tagReport,
+                tagReport/runTime)
 
 
 def access_cb(reader, state):
     if args.read_words:
-        opspec = C1G2Read(
-            AccessPassword=args.access_password,
-            MB=args.mb,
-            WordPtr=args.word_ptr,
-            WordCount=args.read_words,
-        )
+        opspec = C1G2Read(AccessPassword=args.access_password, MB=args.mb,
+                          WordPtr=args.word_ptr, WordCount=args.read_words)
     elif args.write_words:
         if sys.version_info.major < 3:
             data = sys.stdin.read(args.write_words * 2)
@@ -39,13 +36,10 @@ def access_cb(reader, state):
             # bytes
             data = sys.stdin.buffer.read(args.write_words * 2)
 
-        opspec = C1G2Write(
-            AccessPassword=args.access_password,
-            MB=args.mb,
-            WordPtr=args.word_ptr,
-            WriteDataWordCount=args.write_words,
-            WriteData=data,
-        )
+        opspec = C1G2Write(AccessPassword=args.access_password, MB=args.mb,
+                           WordPtr=args.word_ptr,
+                           WriteDataWordCount=args.write_words,
+                           WriteData=data)
     else:
         # Unexpected situation
         return
@@ -53,16 +47,17 @@ def access_cb(reader, state):
     return reader.start_access_spec(opspec, stop_after_count=args.count)
 
 
+
 def tag_report_cb(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     global tagReport
     if len(tags):
-        logger.info("saw tag(s): %s", pprint.pformat(tags))
+        logger.info('saw tag(s): %s', pprint.pformat(tags))
     else:
-        logger.info("no tags seen")
+        logger.info('no tags seen')
         return
     for tag in tags:
-        tagReport += tag["TagSeenCount"]
+        tagReport += tag['TagSeenCount']
         if "OpSpecResult" in tag:
             # copy the binary data to the standard output stream
             data = tag["OpSpecResult"].get("ReadData")
@@ -70,7 +65,7 @@ def tag_report_cb(reader, tags):
                 if sys.version_info.major < 3:
                     sys.stdout.write(data)
                 else:
-                    sys.stdout.buffer.write(data)  # bytes
+                    sys.stdout.buffer.write(data) # bytes
                 logger.debug("hex data: %s", binascii.hexlify(data))
 
 
@@ -80,14 +75,15 @@ def main(main_args):
     args = main_args
 
     if not args.host:
-        logger.info("No readers specified.")
+        logger.info('No readers specified.')
         return 0
 
     if not args.read_words and not args.write_words:
-        logger.info("Error: Either --read-words or --write-words has to be" " chosen.")
+        logger.info("Error: Either --read-words or --write-words has to be"
+                    " chosen.")
         return 0
 
-    enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
+    enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
 
     factory_args = dict(
         report_every_n_tags=args.every_n,
@@ -100,23 +96,23 @@ def main(main_args):
         start_inventory=True,
         disconnect_when_done=True,
         tag_content_selector={
-            "EnableROSpecID": False,
-            "EnableSpecIndex": False,
-            "EnableInventoryParameterSpecID": False,
-            "EnableAntennaID": True,
-            "EnableChannelIndex": False,
-            "EnablePeakRSSI": True,
-            "EnableFirstSeenTimestamp": False,
-            "EnableLastSeenTimestamp": True,
-            "EnableTagSeenCount": True,
-            "EnableAccessSpecID": True,
-        },
+            'EnableROSpecID': False,
+            'EnableSpecIndex': False,
+            'EnableInventoryParameterSpecID': False,
+            'EnableAntennaID': True,
+            'EnableChannelIndex': False,
+            'EnablePeakRSSI': True,
+            'EnableFirstSeenTimestamp': False,
+            'EnableLastSeenTimestamp': True,
+            'EnableTagSeenCount': True,
+            'EnableAccessSpecID': True,
+        }
     )
 
     reader_clients = []
     for host in args.host:
-        if ":" in host:
-            host, port = host.split(":", 1)
+        if ':' in host:
+            host, port = host.split(':', 1)
             port = int(port)
         else:
             port = args.port
@@ -160,4 +156,6 @@ def main(main_args):
                 except:
                     logger.exception("Error during disconnect. Ignoring...")
                     pass
+
+
 
