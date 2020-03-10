@@ -714,6 +714,15 @@ Message_struct['SET_READER_CONFIG'] = {
     'fields': [
         'ID',
         'ResetToFactoryDefaults',
+        'ReaderEventNotificationSpec',
+        'AntennaProperties',
+        'AntennaConfiguration',
+        'AccessReportSpec',
+        'KeepaliveSpec',
+        'GPOWriteData',
+        'GPIPortCurrentState',
+        'EventsAndReports',
+        'ImpinjAntennaConfiguration',
     ],
     'o_fields': [
         'ReaderEventNotificationSpec',
@@ -1020,6 +1029,7 @@ Param_struct['RegulatoryCapabilities'] = {
 Param_struct['UHFBandCapabilities'] = {
     'type': 144,
     'o_fields': [
+        'TransmitPowerLevelTableEntry',
         'FrequencyInformation',
         'UHFC1G2RFModeTable',
         'RFSurveyFrequencyCapabilities'
@@ -1060,6 +1070,8 @@ Param_struct['FrequencyInformation'] = {
     'type': 146,
     'fields': [
         'Hopping',
+        'FrequencyHopTable',
+        'FixedFrequencyTable'
     ],
     'o_fields': [
         'FixedFrequencyTable'
@@ -1314,6 +1326,12 @@ Param_struct['GeneralDeviceCapabilities'] = {
         'ModelName',
         'FirmwareVersionByteCount',
         'ReaderFirmwareVersion',
+        'ReceiveSensitivityTableEntry',
+        'PerAntennaReceiveSensitivityRange',
+        'GPIOCapabilities',
+        'PerAntennaAirProtocol',
+        'MaximumReceiveSensitivity'
+
     ],
     'o_fields': [
         'GPIOCapabilities',
@@ -1919,7 +1937,6 @@ Param_struct['AISpecStopTrigger'] = {
     'fields': [
         'AISpecStopTriggerType',
         'DurationTriggerValue',
-        'GPITriggerValue',
     ],
     'o_fields': [
         'GPITriggerValue',
@@ -2191,6 +2208,16 @@ Param_struct['C1G2InventoryCommand'] = {
     'type': 330,
     'fields': [
         'TagInventoryStateAware',
+        'C1G2Filter',
+        'C1G2RFControl',
+        'C1G2SingulationControl',
+        'ImpinjInventoryConfiguration',
+        'ImpinjInventorySearchMode',
+        'ImpinjIntelligentAntennaManagement',
+        'ImpinjFixedFrequencyList',
+        'ImpinjReducedPowerFrequencyList',
+        'ImpinjLowDutyCycle',
+        'ImpinjRFPowerSweep'
     ],
     'o_fields': [
         'C1G2RFControl',
