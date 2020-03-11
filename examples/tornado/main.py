@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2014 Johnny Sheeley
 # Copyright (C) 2013-2018 Benjamin Ransford <ransford@cs.washington.edu>
-# Copyright (C) 2019 Florent Viard <fviard@cxignited.com>
+# Copyright (C) 2019 Florent Viard <florent@sodria.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
