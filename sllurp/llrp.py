@@ -1702,9 +1702,15 @@ class LLRPReaderClient(object):
                 False if it was somehow recovered (reconnected).
         """
         max_retry = 5
-        retry_delay = 60 # seconds
+        retry_delay = 60  # seconds
 
         logger.info('Lost connection detected')
+        # When the connection is lost, reset the reader known state
+        # so, rospec and config will be restored in case of
+        # reconnection
+        if self.llrp:
+            self.llrp.setState(LLRPReaderState.STATE_DISCONNECTED)
+
         if self.disconnect_requested.is_set():
             return True
 
