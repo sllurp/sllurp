@@ -326,6 +326,7 @@ class LLRPClient(object):
         # Not to be confused with the client config.
         self.reader_config = {}
         self.reader_mode = None
+        self.max_ant=0
 
         self.peername = None
 
@@ -399,6 +400,7 @@ class LLRPClient(object):
         # check requested antenna set
         gdc = capdict['GeneralDeviceCapabilities']
         max_ant = gdc['MaxNumberOfAntennaSupported']
+        self.max_ant = max_ant
         if max(self.config.antennas) > max_ant:
             reqd = ','.join(map(str, self.config.antennas))
             avail = ','.join(map(str, range(1, max_ant + 1)))
