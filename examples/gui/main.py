@@ -77,7 +77,7 @@ class Gui(QtCore.QObject):
         self.powerTableChanged.connect(self.updatePowerTableParameterUI)
         self.antennaIDListChanged.connect(self.updateAntennaParameterUI)
         self.readerConfigChanged.connect(self.readerConfigChangedEvent)
-        
+
         self.resetWindowWidgets()
 
 
@@ -122,7 +122,8 @@ class Gui(QtCore.QObject):
             config = LLRPReaderConfig(factory_args)
             self.reader = LLRPReaderClient(host, PORT, config)
             self.reader.add_tag_report_callback(self.tag_report_cb)
-            self.reader.add_state_callback(LLRPReaderState.STATE_CONNECTED, self.onConnection)
+            self.reader.add_state_callback(LLRPReaderState.STATE_CONNECTED,
+                                           self.onConnection)
             try:
                 self.reader.connect()
             except:
@@ -167,11 +168,10 @@ class Gui(QtCore.QObject):
             if duration is None and self.readerParam.param("time").value() > 0.0:
                 duration = self.readerParam.param("time").value()
             if report_every_n_tags is None:
-                report_every_n_tags = self.readerParam.param("report_every_n_tags").value()
+                report_every_n_tags = \
+                    self.readerParam.param("report_every_n_tags").value()
             if antennas is None:
-                antennas = (
-                    self.currentAntennaId(),
-                )
+                antennas = (self.currentAntennaId(),)
             if tx_power is None:
                 tx_power = {
                     self.currentAntennaId(): self.currentPower()
@@ -181,13 +181,12 @@ class Gui(QtCore.QObject):
             if session is None:
                 session = self.readerParam.param("session").value()
             if mode_identifier is None:
-                mode_identifier = self.readerParam.param("mode_identifier").value()
+                mode_identifier = \
+                    self.readerParam.param("mode_identifier").value()
             if tag_population is None:
-                tag_population = self.readerParam.param("tag_population").value()
-            if (
-                tag_filter_mask is None
-                and self.currentTagFilterMask() != ""
-            ):
+                tag_population = \
+                    self.readerParam.param("tag_population").value()
+            if tag_filter_mask is None:
                 tag_filter_mask = self.currentTagFilterMask()
 
             factory_args = dict(
@@ -231,7 +230,7 @@ class Gui(QtCore.QObject):
             self.reader.join(0.1)
 
     def tag_report_cb(self, reader, tags):
-        """sllurp tag report callback, it emits a signal in order to perform 
+        """sllurp tag report callback, it emits a signal in order to perform
         the report parsing on the QT loop to avoid GUI freezing
         """
         self.lock.acquire()
@@ -322,7 +321,7 @@ class Gui(QtCore.QObject):
         self.readerConfigChangedEvent()
 
     def runInventoryEvent(self):
-        """called when the user clicks on the button to start or stop 
+        """called when the user clicks on the button to start or stop
         an inventory
         """
         if self.isConnected() == True:
@@ -342,7 +341,7 @@ class Gui(QtCore.QObject):
         self.window.treeview.resizeColumnToContents(0)
 
     def delayreaderConfigChangedEvent(self):
-        """used to delay the power applying when the user slides 
+        """used to delay the power applying when the user slides
         the cursor of the power slide bar
         """
         self.txPowerChangedTimer.stop()
@@ -439,7 +438,7 @@ class Gui(QtCore.QObject):
         """return connection status
         """
         return self.window.connectionStatusCheckbox.isChecked()
-    
+
     def host(self):
         """return ip address set by the user
         """
@@ -452,7 +451,7 @@ class Gui(QtCore.QObject):
         # parse reader capabilities
         self.powerTableChanged.emit(reader.llrp.tx_power_table)
         self.antennaIDListChanged.emit(list(range(1, reader.llrp.max_ant + 1)))
-    
+
     def currentAntennaId(self):
         """return the current antenna ID set by the user
         """
@@ -466,7 +465,12 @@ class Gui(QtCore.QObject):
     def currentTagFilterMask(self):
         """return the current taf filter mask set by the user
         """
-        return self.window.tagFilterMasklineEdit.text()
+        txt_value = self.window.tagFilterMasklineEdit.text()
+        if txt_value:
+            list_value = txt_value.split(',')
+        else:
+            list_value = []
+        return list_value
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -481,7 +485,7 @@ class MainWindow(QtWidgets.QMainWindow):
         centralW = QtWidgets.QWidget(self)
         centralL = QtWidgets.QVBoxLayout(centralW)
         self.setCentralWidget(centralW)
-        # create header widget/layout 
+        # create header widget/layout
         headerW = QtWidgets.QWidget(parent=centralW)
         headerL = QtWidgets.QHBoxLayout(headerW)
         centralL.addWidget(headerW)
@@ -550,9 +554,9 @@ class MainWindow(QtWidgets.QMainWindow):
         tagFilterMaskL.addWidget(QtWidgets.QLabel("Tag Filter Mask", parent=tagFilterMaskW))
         self.tagFilterMasklineEdit=QtWidgets.QLineEdit(parent=tagFilterMaskW)
         tagFilterMaskL.addWidget(self.tagFilterMasklineEdit)
-        validator = QtGui.QRegExpValidator(QtCore.QRegExp("[0-9A-Fa-f]+"))
+        validator = QtGui.QRegExpValidator(QtCore.QRegExp("[0-9A-Fa-f,]+"))
         self.tagFilterMasklineEdit.setValidator(validator)
-        # create bottom widget/layout 
+        # create bottom widget/layout
         bottomW = QtWidgets.QWidget(parent=centralW)
         bottomL = QtWidgets.QHBoxLayout(bottomW)
         centralL.addWidget(bottomW)
@@ -574,7 +578,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.treeview.setModel(self.listModel)
         self.treeview.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.treeview.customContextMenuRequested.connect(self.openMenu)
-        
+
     def element(self, name):
         return self.centralUI.element(name)
 
