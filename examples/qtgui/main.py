@@ -1,4 +1,4 @@
-import initExample # just to work with sllurp of this repo
+import initExample  # just to work with sllurp of this repo
 import sys
 import logging as logger
 import os
@@ -19,13 +19,20 @@ PORT = 5084
 DEFAULT_POWER_TABLE = [index for index in range(15, 25, 1)]
 DEFAULT_ANTENNA_LIST = [1]
 readerSettingsParams = [
-    {'name': 'time', "title": "Time (seconds to inventory)", 'type': 'float', 'value': 10},
-    {'name': 'report_every_n_tags', "title": "Report every N tags (issue a TagReport every N tags)", 'type': 'int', 'value': 1},
-    {'name': 'tari', "title": "Tari (Tari value (default 0=auto))", 'type': 'int', 'value': 0},
-    {'name': 'session', "title": "Session (Gen2 session (default 2))", 'type': 'int', 'value': 2},
-    {'name': 'mode_identifier', "title": "Mode identifier (ModeIdentifier value)", 'type': 'int', 'value': 2},
-    {'name': 'tag_population', "title": "Tag population (Tag Population value (default 4))", 'type': 'int', 'value': 4},
+    {'name': 'time',
+        "title": "Time (seconds to inventory)", 'type': 'float', 'value': 10},
+    {'name': 'report_every_n_tags',
+        "title": "Report every N tags (issue a TagReport every N tags)", 'type': 'int', 'value': 1},
+    {'name': 'tari',
+        "title": "Tari (Tari value (default 0=auto))", 'type': 'int', 'value': 0},
+    {'name': 'session',
+        "title": "Session (Gen2 session (default 2))", 'type': 'int', 'value': 2},
+    {'name': 'mode_identifier',
+        "title": "Mode identifier (ModeIdentifier value)", 'type': 'int', 'value': 2},
+    {'name': 'tag_population',
+        "title": "Tag population (Tag Population value (default 4))", 'type': 'int', 'value': 4},
 ]
+
 
 class Gui(QtCore.QObject):
     """graphical unit interface to open connection with a LLRP reader
@@ -36,13 +43,15 @@ class Gui(QtCore.QObject):
     powerTableChanged = QtCore.pyqtSignal(list)
     antennaIDListChanged = QtCore.pyqtSignal(list)
     readerConfigChanged = QtCore.pyqtSignal()
+
     def __init__(self):
         QtCore.QObject.__init__(self)
         # variables
         self.knownTagList = []
         self.lock = threading.Lock()
         self.reader = None
-        self.readerParam = Parameter.create(name='params', type='group', children=readerSettingsParams)
+        self.readerParam = Parameter.create(
+            name='params', type='group', children=readerSettingsParams)
         self.txPowerChangedTimer = QtCore.QTimer()
         self.txPowerChangedTimer.timeout.connect(self.readerConfigChangedEvent)
         self.txPowerChangedTimer.setSingleShot(True)
@@ -72,14 +81,13 @@ class Gui(QtCore.QObject):
             self.clearInventoryEvent
         )
         self.inventoryReportReceived.connect(self.parseInventoryReport)
-         # connect event to handlers
+        # connect event to handlers
         self.inventoryReportParsed.connect(self.updateInventoryReport)
         self.powerTableChanged.connect(self.updatePowerTableParameterUI)
         self.antennaIDListChanged.connect(self.updateAntennaParameterUI)
         self.readerConfigChanged.connect(self.readerConfigChangedEvent)
 
         self.resetWindowWidgets()
-
 
     def connect(self):
         """open connection with the reader through LLRP protocol
@@ -93,7 +101,8 @@ class Gui(QtCore.QObject):
             )
             factory_args = dict(
                 duration=duration,
-                report_every_n_tags=self.readerParam.param("report_every_n_tags").value(),
+                report_every_n_tags=self.readerParam.param(
+                    "report_every_n_tags").value(),
                 antennas=(DEFAULT_ANTENNA_LIST[0],),
                 tx_power={
                     DEFAULT_ANTENNA_LIST[0]: 0
@@ -101,7 +110,8 @@ class Gui(QtCore.QObject):
                 tari=self.readerParam.param("tari").value(),
                 session=self.readerParam.param("session").value(),
                 # mode_identifier=args.mode_identifier,
-                tag_population=self.readerParam.param("tag_population").value(),
+                tag_population=self.readerParam.param(
+                    "tag_population").value(),
                 start_inventory=False,
                 # disconnect_when_done=True,
                 # tag_filter_mask=args.tag_filter_mask
@@ -147,7 +157,6 @@ class Gui(QtCore.QObject):
                 logger.exception("Error during disconnect. Ignoring...")
                 pass
             self.resetWindowWidgets()
-
 
     def startInventory(
         self,
@@ -243,7 +252,8 @@ class Gui(QtCore.QObject):
         """
         tagList = []  # use to display all tags on the window
         logger.info(
-            str(tags) + " tag_filter_mask=<" + str(self.reader.llrp.config.tag_filter_mask) + ">"
+            str(tags) + " tag_filter_mask=<" +
+            str(self.reader.llrp.config.tag_filter_mask) + ">"
         )
         epc = None
         # parsing each tag in the report
@@ -257,7 +267,8 @@ class Gui(QtCore.QObject):
                 epc = tag["EPCData"]["EPC"].decode("utf-8")
                 strepc = tag["EPCData"]["EPC"]
             else:
-                logger.warning("Unknown inventory report fomartting:%s" % str(tags))
+                logger.warning(
+                    "Unknown inventory report fomartting:%s" % str(tags))
             # append tag seen in the list
             tagList.append((epc, tag["TagSeenCount"]))
             # # parse data if it is an OpSpec report
@@ -295,7 +306,7 @@ class Gui(QtCore.QObject):
         """called when the user clicks on the button to open the reader advanced settings
         """
         dlg = QtWidgets.QDialog()
-        dlg.resize(800,500)
+        dlg.resize(800, 500)
         dlg.setWindowTitle("Reader Settings")
         QBtn = QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
         layout = QtWidgets.QVBoxLayout()
@@ -336,7 +347,8 @@ class Gui(QtCore.QObject):
         """
         self.window.listModel.clear()
         self.knownTagList.clear()
-        self.window.listModel.setHorizontalHeaderLabels(["EPC", "Tag Seen Count"])
+        self.window.listModel.setHorizontalHeaderLabels(
+            ["EPC", "Tag Seen Count"])
         self.window.treeview.resizeColumnToContents(1)
         self.window.treeview.resizeColumnToContents(0)
 
@@ -375,13 +387,14 @@ class Gui(QtCore.QObject):
                     tagSeenCountItem = QStandardItem(str(tagSeenCount))
                     tagSeenCountItem.setEditable(False)
                     tagSeenCountItem.setSelectable(False)
-                    self.window.listModel.appendRow([epcItem, tagSeenCountItem])
+                    self.window.listModel.appendRow(
+                        [epcItem, tagSeenCountItem])
                     self.window.treeview.resizeColumnToContents(1)
                     self.window.treeview.resizeColumnToContents(0)
                 else:
                     rowId = self.knownTagList.index(epc)
-                    self.window.listModel.item(rowId, 1).setText(str(tagSeenCount))
-
+                    self.window.listModel.item(
+                        rowId, 1).setText(str(tagSeenCount))
 
     def resetWindowWidgets(self):
         """set UI to default apparence state
@@ -389,7 +402,8 @@ class Gui(QtCore.QObject):
         self.window.connectionButton.setText("Connect")
         self.window.connectionButton.setChecked(False)
         self.window.connectionStatusCheckbox.setChecked(False)
-        self.window.connectionStatusCheckbox.setStyleSheet("QCheckBox::indicator{border: 1px solid #999999; background-color: #FFFFFF;}")
+        self.window.connectionStatusCheckbox.setStyleSheet(
+            "QCheckBox::indicator{border: 1px solid #999999; background-color: #FFFFFF;}")
         self.window.runInventoryButton.setText("Start inventory")
         self.window.runInventoryButton.setChecked(False)
         self.clearInventoryEvent()
@@ -400,11 +414,13 @@ class Gui(QtCore.QObject):
         if self.window.connectionButton.isChecked() == True:
             self.window.connectionButton.setText("Disconnect")
             self.window.connectionStatusCheckbox.setChecked(True)
-            self.window.connectionStatusCheckbox.setStyleSheet("QCheckBox::indicator{border: 1px solid #999999; background-color: #00FF00;}")
+            self.window.connectionStatusCheckbox.setStyleSheet(
+                "QCheckBox::indicator{border: 1px solid #999999; background-color: #00FF00;}")
         else:
             self.window.connectionButton.setText("Connect")
             self.window.connectionStatusCheckbox.setChecked(False)
-            self.window.connectionStatusCheckbox.setStyleSheet("QCheckBox::indicator{border: 1px solid #999999; background-color: #FFFFFF;}")
+            self.window.connectionStatusCheckbox.setStyleSheet(
+                "QCheckBox::indicator{border: 1px solid #999999; background-color: #FFFFFF;}")
 
     def updaterunInventoryButton(self):
         """update the state of the run inventory button
@@ -423,9 +439,11 @@ class Gui(QtCore.QObject):
         index = self.window.powerSlider.value()
         power_dB = powerTable[index]
         if power_dB == 0:
-            self.window.powerLabel.setText("TX Power: maximum power of the reader")
+            self.window.powerLabel.setText(
+                "TX Power: maximum power of the reader")
         else:
-            self.window.powerLabel.setText("TX Power: " + str(power_dB) + " dB")
+            self.window.powerLabel.setText(
+                "TX Power: " + str(power_dB) + " dB")
 
     def updateAntennaParameterUI(self, antennaIdList):
         """update the state of the antenna combobox
@@ -472,6 +490,7 @@ class Gui(QtCore.QObject):
             list_value = []
         return list_value
 
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
@@ -494,30 +513,37 @@ class MainWindow(QtWidgets.QMainWindow):
         readerControlL = QtWidgets.QVBoxLayout(readerControlW)
         headerL.addWidget(readerControlW)
         # create connect/disconnect button
-        self.connectionButton = QtWidgets.QPushButton("Connect", parent=readerControlW)
+        self.connectionButton = QtWidgets.QPushButton(
+            "Connect", parent=readerControlW)
         self.connectionButton.setCheckable(True)
         readerControlL.addWidget(self.connectionButton)
         # create connection status widget
         connectionStatusW = QtWidgets.QWidget(parent=readerControlW)
         connectionStatusL = QtWidgets.QHBoxLayout(connectionStatusW)
         readerControlL.addWidget(connectionStatusW)
-        connectionStatusL.addWidget(QtWidgets.QLabel("Connection status", parent=connectionStatusW))
-        self.connectionStatusCheckbox = QtWidgets.QCheckBox(parent=connectionStatusW)
+        connectionStatusL.addWidget(QtWidgets.QLabel(
+            "Connection status", parent=connectionStatusW))
+        self.connectionStatusCheckbox = QtWidgets.QCheckBox(
+            parent=connectionStatusW)
         connectionStatusL.addWidget(self.connectionStatusCheckbox)
         self.connectionStatusCheckbox.setDisabled(True)
         self.connectionStatusCheckbox.setChecked(False)
         # create open advanced reader settings
-        self.openAdvancedReaderConfigButton = QtWidgets.QPushButton("Open advanced settings", parent=readerControlW)
+        self.openAdvancedReaderConfigButton = QtWidgets.QPushButton(
+            "Open advanced settings", parent=readerControlW)
         readerControlL.addWidget(self.openAdvancedReaderConfigButton)
         # create start/stop inventory button
-        self.runInventoryButton = QtWidgets.QPushButton("Start inventory", parent=readerControlW)
+        self.runInventoryButton = QtWidgets.QPushButton(
+            "Start inventory", parent=readerControlW)
         self.runInventoryButton.setCheckable(True)
         readerControlL.addWidget(self.runInventoryButton)
         # create clear inventory button
-        self.clearInventoryButton = QtWidgets.QPushButton("Clear inventory report", parent=readerControlW)
+        self.clearInventoryButton = QtWidgets.QPushButton(
+            "Clear inventory report", parent=readerControlW)
         readerControlL.addWidget(self.clearInventoryButton)
         # create reader settings button
-        readerSettingsW = QtWidgets.QGroupBox("Reader Settings", parent=readerControlW)
+        readerSettingsW = QtWidgets.QGroupBox(
+            "Reader Settings", parent=readerControlW)
         readerSettingsL = QtWidgets.QVBoxLayout(readerSettingsW)
         headerL.addWidget(readerSettingsW)
         # create ip parameter widget
@@ -551,8 +577,9 @@ class MainWindow(QtWidgets.QMainWindow):
         tagFilterMaskW = QtWidgets.QWidget(parent=readerSettingsW)
         tagFilterMaskL = QtWidgets.QHBoxLayout(tagFilterMaskW)
         readerSettingsL.addWidget(tagFilterMaskW)
-        tagFilterMaskL.addWidget(QtWidgets.QLabel("Tag Filter Mask", parent=tagFilterMaskW))
-        self.tagFilterMasklineEdit=QtWidgets.QLineEdit(parent=tagFilterMaskW)
+        tagFilterMaskL.addWidget(QtWidgets.QLabel(
+            "Tag Filter Mask", parent=tagFilterMaskW))
+        self.tagFilterMasklineEdit = QtWidgets.QLineEdit(parent=tagFilterMaskW)
         tagFilterMaskL.addWidget(self.tagFilterMasklineEdit)
         validator = QtGui.QRegExpValidator(QtCore.QRegExp("[0-9A-Fa-f,]+"))
         self.tagFilterMasklineEdit.setValidator(validator)
@@ -615,7 +642,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def openMenu(self, pos):
         action = QtGui.QAction(QtGui.QIcon(""), "copy", self)
-        action.triggered.connect(lambda: self.itemValueToClipboard(self.treeview.indexAt(pos)))
+        action.triggered.connect(
+            lambda: self.itemValueToClipboard(self.treeview.indexAt(pos)))
         menu = QtWidgets.QMenu()
         menu.addAction(action)
         pt = QtCore.QPoint(pos)
@@ -623,7 +651,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def itemValueToClipboard(self, index):
         QApplication.clipboard().setText(self.treeview.model().itemFromIndex(index).text())
-
 
 
 if __name__ == "__main__":
