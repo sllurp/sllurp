@@ -326,7 +326,7 @@ class LLRPClient(object):
         # Not to be confused with the client config.
         self.reader_config = {}
         self.reader_mode = None
-        self.max_ant=0
+        self.max_ant = 0
 
         self.peername = None
 
