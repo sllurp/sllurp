@@ -2346,7 +2346,7 @@ def decode_C1G2TagInventoryStateAwareSingulationAction(data, name=None):
     logger.debugfast('decode_C1G2TagInventoryStateAwareSingulationAction')
     par = {}
 
-    ISA = ubyte_unpack(data)
+    ISA = ubyte_unpack(data)[0]
     par['I'] = (ISA >> 7) and 'State_B' or 'State_A'
     par['S'] = ((ISA >> 6) & 1) and 'Not_SL' or 'SL'
     par['A'] = ((ISA >> 5) & 1) and 'All' or 'No'
