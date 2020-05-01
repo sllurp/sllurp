@@ -3079,19 +3079,52 @@ Param_struct['LLRPStatus'] = {
 
 
 # 16.2.8.1.1 FieldError Parameter
+def decode_FieldError(data, name=None):
+    field_num, err_code = ushort_ushort_unpack(data)
+
+    par = {'FieldNum': field_num}
+
+    try:
+        par['ErrorCode'] = Error_Type2Name[int(err_code)]
+    except KeyError:
+        logger.warning('Unknown Error code %s', err_code)
+        par['ErrorCode'] = err_code
+
+    return par, ''
 
 Param_struct['FieldError'] = {
     'type': 288,
     'fields': [
-        'ErrorCode',
         'FieldNum',
+        'ErrorCode',
     ],
-    'decode': basic_param_decode_generator(ushort_ushort_unpack,
-                                           'FieldNum', 'ErrorCode')
+    'decode': decode_FieldError
 }
 
 
 # 16.2.8.1.2 ParameterError Parameter
+def decode_ParameterError(data, name=None):
+    par = {}
+    par_type, par_errcode = ushort_ushort_unpack(data[:ushort_ushort_size])
+
+    # Param type that caused this error 0 - 1023.
+    # Custom params are ignored by the spec, they will have type 1023
+    if par_type != 1023:
+        par['ParameterType'] = Param_Type2Name.get((par_type, 0, 0), par_type)
+    else:
+        par['ParameterType'] = 'CustomParameter'
+
+    try:
+        par['ErrorCode'] = Error_Type2Name[int(par_errcode)]
+    except KeyError:
+        logger.warning('Unknown Error code %s', par_errcode)
+        par['ErrorCode'] = par_errcode
+
+    data = data[ushort_ushort_size:]
+    if data:
+        par, _ = decode_all_parameters(data, 'ParameterError', par)
+    return par, ''
+
 Param_struct['ParameterError'] = {
     'type': 289,
     'fields': [
@@ -3102,9 +3135,7 @@ Param_struct['ParameterError'] = {
         'FieldError',
         'ParameterError'
     ],
-    'decode': basic_auto_param_decode_generator(ushort_ushort_unpack,
-                                                ushort_ushort_size,
-                                                'ParameterType', 'ErrorCode')
+    'decode': decode_ParameterError
 }
 
 
