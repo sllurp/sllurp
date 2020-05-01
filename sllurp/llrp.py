@@ -123,15 +123,13 @@ class LLRPMessage(object):
             self.msgdict[name]['Type'] = msgtype
             self.msgdict[name]['ID'] = msgid
             logger.debugfast('done deserializing %s command', name)
-        except ValueError:
-            logger.exception('Unable to decode body %s, %s', body,
-                             decoder(body, name))
         except LLRPError:
-            ## FIXME This should probably be raised
-            logger.exception('Problem with %s message format', name)
-            return ''
+            logger.error('Problem with %s message format', name)
+            raise
+        except ValueError:
+            logger.exception('Unable to decode body of %s', name)
+            raise LLRPError('Unable to decode body of %s' % name)
         self.msgname = name
-        return ''
 
     def isSuccess(self):
         if not self.msgdict:
@@ -360,7 +358,6 @@ class LLRPClient(object):
         self.disconnecting = False
 
 
-
     def setState(self, newstate, onCompletion=None):
         assert newstate is not None
         if is_general_debug_enabled():
@@ -480,6 +477,7 @@ class LLRPClient(object):
 
         if msgName == 'READER_EVENT_NOTIFICATION' and \
                 self.state >= LLRPReaderState.STATE_CONNECTED:
+
             logger.debugfast('Got reader event notification')
             return
 
@@ -534,6 +532,8 @@ class LLRPClient(object):
                             self, onCompletion=get_reader_capabilities_cb)
                     else:
                         self.panic(None, 'ENABLE_IMPINJ_EXTENSIONS failed')
+                        raise ReaderConfigurationError(
+                            "ENABLE_IMPINJ_EXTENSIONS failed")
 
                 self.send_ENABLE_IMPINJ_EXTENSIONS(
                     onCompletion=enable_impinj_ext_cb)
@@ -547,14 +547,16 @@ class LLRPClient(object):
             if msgName != 'IMPINJ_ENABLE_EXTENSIONS_RESPONSE':
                 logger.error('unexpected response %s while enabling Impinj'
                              'extensions', msgName)
-                return
+                raise ReaderConfigurationError(
+                    "Unexpected response while enabling Impinj extensions")
 
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s enabling Impinj extensions: %s',
                              status, err)
-                return
+                raise ReaderConfigurationError(
+                    "ENABLE_IMPINJ_EXTENSIONS failed")
             logger.debugfast('Successfully enabled Impinj extensions')
 
             self.processDeferreds(msgName, lmsg.isSuccess())
@@ -565,21 +567,23 @@ class LLRPClient(object):
             if msgName != 'GET_READER_CAPABILITIES_RESPONSE':
                 logger.error('unexpected response %s getting capabilities',
                              msgName)
-                return
+                raise ReaderConfigurationError(
+                    "Unexpected response while getting capabilities")
 
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s getting capabilities: %s', status, err)
-                return
+                raise ReaderConfigurationError(
+                    "Error getting capabilities")
 
             self.capabilities = \
                 lmsg.msgdict['GET_READER_CAPABILITIES_RESPONSE']
             try:
                 self.parseCapabilities(self.capabilities)
-            except LLRPError as err:
+            except ReaderConfigurationError:
                 logger.exception('Capabilities mismatch')
-                raise err
+                raise
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -599,21 +603,22 @@ class LLRPClient(object):
                                'DELETE_ROSPEC_RESPONSE'):
                 logger.error('unexpected response %s getting config',
                              msgName)
-                return
+                raise ReaderConfigurationError(
+                    "Unexpected response while getting reader config")
 
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s getting reader config: %s', status, err)
-                return
+                raise ReaderConfigurationError("Error getting reader config")
 
             if msgName == 'GET_READER_CONFIG_RESPONSE':
                 self.reader_config = lmsg.msgdict['GET_READER_CONFIG_RESPONSE']
                 try:
                     self.parseReaderConfig(self.reader_config)
-                except LLRPError as err:
+                except ReaderConfigurationError:
                     logger.exception('Reader config mismatch')
-                    raise err
+                    raise
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -632,15 +637,15 @@ class LLRPClient(object):
             if msgName not in ('SET_READER_CONFIG_RESPONSE',
                                'GET_READER_CONFIG_RESPONSE',
                                'DELETE_ACCESSSPEC_RESPONSE'):
-                logger.error('unexpected response %s setting config',
-                             msgName)
-                return
+                logger.error('unexpected response %s setting config', msgName)
+                raise ReaderConfigurationError(
+                    "Unexpected response while setting reader config")
 
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s setting reader config: %s', status, err)
-                return
+                raise ReaderConfigurationError("Error setting reader config")
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -665,13 +670,14 @@ class LLRPClient(object):
             if msgName != 'ADD_ROSPEC_RESPONSE':
                 logger.error('unexpected response %s when adding ROSpec',
                              msgName)
-                return
+                raise ReaderConfigurationError(
+                    "Unexpected response while adding ROSpec")
 
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]['LLRPStatus']['StatusCode']
                 err = lmsg.msgdict[msgName]['LLRPStatus']['ErrorDescription']
                 logger.fatal('Error %s adding ROSpec: %s', status, err)
-                return
+                raise ReaderConfigurationError("Error adding ROSpec")
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -1795,6 +1801,13 @@ class LLRPReaderClient(object):
                         except SocketError:
                             logger.exception('\nDisconnected from server')
                             lost_connection = True
+                        except ReaderConfigurationError:
+                            # A fatal configuration error was encountered with
+                            # the reader, abort the connection
+                            self.hard_disconnect()
+                            self._on_disconnected()
+                            logger.error("\nDisconnected because of a reader "
+                                         "configuration error")
 
                 if self._stop_main_loop.is_set():
                     break
@@ -1861,9 +1874,9 @@ class LLRPReaderClient(object):
                     self.llrp.handleMessage(lmsg)
                     start_pos += msg_len
                     data_len -= msg_len
+                except ReaderConfigurationError:
+                    raise
                 except LLRPError:
-                    ## FIXME, ReaderConfigurationError should be
-                    ## notified in some way
                     logger.exception('Failed to decode LLRPMessage; '
                                      'will not decode %d remaining bytes',
                                      data_len)
