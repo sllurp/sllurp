@@ -4101,6 +4101,9 @@ Param_struct['ImpinjRFPowerSweep'] = {
 
 
 def llrp_data2xml(msg):
+    if not msg:
+        return ''
+
     def __llrp_data2xml(msg, name, level=0):
         tabs = '\t' * level
 
@@ -4160,12 +4163,11 @@ def llrp_data2xml(msg):
         return ret
 
     ans = ''
-    for p in msg:
-        sub = msg[p]
+    for name, sub in msg.items():
         if not isinstance(sub, list) or not sub or not isinstance(sub[0], dict):
             sub = [sub]
         for e in sub:
-            ans += __llrp_data2xml(e, p)
+            ans += __llrp_data2xml(e, name)
     return ans[:-1]
 
 
