@@ -4276,7 +4276,11 @@ class LLRPROSpec(dict):
 
             # apply one or more tag filters
             tag_filters = []
-            for tfm in tag_filter_mask:
+            # Transform list to set for optimization. So, not setting multiple
+            # times the same filter.
+            # Note: using more filters than supported by the reader will result
+            # in an Overflow error. (Example: 2 filters max with Impinj)
+            for tfm in set(tag_filter_mask):
                 tag_filters.append({
                     'C1G2TagInventoryMask': {
                         'MB': 1,    # EPC bank
