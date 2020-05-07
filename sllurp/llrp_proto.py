@@ -31,7 +31,8 @@ from .util import BIT, BITMASK, reverse_dict, iteritems
 from .llrp_decoder import (msg_header_encode, msg_header_decode,
                            param_header_decode, par_vendor_subtype_size,
                            par_vendor_subtype_unpack, TVE_PARAM_FORMATS,
-                           TVE_PARAM_TYPE_MAX, TYPE_CUSTOM, VENDOR_ID_IMPINJ)
+                           TVE_PARAM_TYPE_MAX, TYPE_CUSTOM, VENDOR_ID_IMPINJ,
+                           VENDOR_ID_MOTOROLA)
 from .llrp_errors import LLRPError
 from .log import get_logger, is_general_debug_enabled
 
@@ -619,8 +620,15 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
         'ImpinjDetailedVersion',
         'ImpinjFrequencyCapabilities',
         'ImpinjAntennaCapabilities',
+        'MotoGeneralCapabilities',
+        'MotoAutonomousCapabilities',
+        'MotoTagEventsGenerationCapabilities',
+        'MotoFilterCapabilities',
+        'MotoPersistenceCapabilities',
+        'MotoC1G2LLRPCapabilities',
         # Decoder not yet implemented:
-        'ImpinjxArrayCapabilities'
+        'ImpinjxArrayCapabilities',
+
     ],
     'decode': decode_generic_message_with_status_check
 }
@@ -676,6 +684,9 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'ImpinjReportBufferConfiguration',
         'ImpinjGPSNMEASentences',
         'ImpinjAntennaConfiguration',
+        'MotoAutonomousState',
+        'MotoPersistenceSaveParams',
+        'MotoCustomCommandOptions',
         # Custom parameter without decoder yet
         'ImpinjBeaconConfiguration',
         'ImpinjTiltConfiguration',
@@ -687,6 +698,8 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'ImpinjC1G2DirectionConfig',
         'ImpinjDirectionReporting',
         'ImpinjPolarizationControl',
+        'MotoDefaultSpec',
+        'MotoFilterList',
     ],
     'n_fields': [
         'AntennaProperties',
@@ -4097,6 +4110,280 @@ Param_struct['ImpinjRFPowerSweep'] = {
         'PowerLevelStepSize'
     ],
     'decode': decode_ImpinjRFPowerSweep
+}
+
+
+# Custom Zebra Parameters
+def decode_MotoGeneralCapabilities(data, name=None):
+    logger.debugfast('decode_MotoGeneralCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanGetGeneralParams': flags & BIT(7) == BIT(7),
+        'CanReportPartNumber': flags & BIT(6) == BIT(6),
+        'CanReportRadioVersion': flags & BIT(5) == BIT(5),
+        'CanSupportRadioPowerState': flags & BIT(4) == BIT(4),
+        'CanSupportRadioTransmitDelay': flags & BIT(3) == BIT(3),
+        'CanSupportZebraTrigger': flags & BIT(2) == BIT(2),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoGeneralCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 1,
+    'fields': [
+        'Version',
+        'CanGetGeneralParams',
+        'CanReportPartNumber',
+        'CanReportRadioVersion',
+        'CanSupportRadioPowerState',
+        'CanSupportRadioTransmitDelay',
+        'CanSupportZebraTrigger',
+    ],
+    'decode': decode_MotoGeneralCapabilities
+}
+
+
+def decode_MotoAutonomousCapabilities(data, name=None):
+    logger.debugfast('decode_MotoAutonomousCapabilities')
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSupportAutonomousMode': flags & BIT(7) == BIT(7)
+    }
+
+    return par, ''
+
+
+Param_struct['MotoAutonomousCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 100,
+    'fields': [
+        'Version',
+        'CanSupportAutonomousMode'
+    ],
+    'decode': decode_MotoAutonomousCapabilities
+}
+
+
+def decode_MotoAutonomousState(data, name=None):
+    logger.debugfast('decode_MotoAutonomousState')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+    par = {
+        'AutonomousModeState': flags & BIT(7) == BIT(7),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoAutonomousState'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 101,
+    'fields': [
+        'AutonomousModeState',
+    ],
+    'decode': decode_MotoAutonomousState
+}
+
+
+def decode_MotoDefaultSpec(data, name=None):
+    logger.debugfast('decode_MotoDefaultSpec')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+
+    par = {
+        'UseDefaultSpecForAutoMode': flags & BIT(7) == BIT(7),
+    }
+    # TODO: decode all fields
+    return par, ''
+
+
+Param_struct['MotoDefaultSpec'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 102,
+    'fields': [
+        'UseDefaultSpecForAutoMode',
+        'ROSPec',
+    ],
+    'n_fields': [
+        'AccessSpec'
+    ],
+    'decode': decode_MotoDefaultSpec
+}
+
+
+def decode_MotoTagEventsGenerationCapabilities(data, name=None):
+    logger.debugfast('decode_MotoTagEventsGenerationCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSelectTagEvents': flags & BIT(7) == BIT(7),
+        'CanSelectTagReportingFormat': flags & BIT(6) == BIT(6),
+        'CanSelectMovingEvent': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoTagEventsGenerationCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 120,
+    'fields': [
+        'Version',
+        'CanSelectTagEvents',
+        'CanSelectTagReportingFormat',
+        'CanSelectMovingEvent',
+    ],
+    'decode': decode_MotoTagEventsGenerationCapabilities
+}
+
+
+def decode_MotoFilterCapabilities(data, name=None):
+    logger.debugfast('decode_MotoFilterCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanFilterTagsBasedOnRSSI': flags & BIT(7) == BIT(7),
+        'CanFilterTagsBasedOnTimeOfDay': flags & BIT(6) == BIT(6),
+        'CanFilterTagsBasedOnUTCTimeStamp': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoFilterCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 200,
+    'fields': [
+        'Version',
+        'CanFilterTagsBasedOnRSSI',
+        'CanFilterTagsBasedOnTimeOfDay',
+        'CanFilterTagsBasedOnUTCTimeStamp',
+    ],
+    'decode': decode_MotoFilterCapabilities
+}
+
+
+def decode_MotoPersistenceCapabilities(data, name=None):
+    logger.debugfast('decode_MotoPersistenceCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSaveConfiguration': flags & BIT(7) == BIT(7),
+        'CanSaveTags': flags & BIT(6) == BIT(6),
+        'CanSaveEvents': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoPersistenceCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 300,
+    'fields': [
+        'Version',
+        'CanSaveConfiguration',
+        'CanSaveTags',
+        'CanSaveEvents',
+    ],
+    'decode': decode_MotoPersistenceCapabilities
+}
+
+
+def decode_MotoPersistenceSaveParams(data, name=None):
+    logger.debugfast('decode_MotoPersistenceSaveParams')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+    par = {
+        'SaveConfiguration': flags & BIT(7) == BIT(7),
+        'SaveTagData': flags & BIT(6) == BIT(6),
+        'SaveTagEventData': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoPersistenceSaveParams'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 350,
+    'fields': [
+        'SaveConfiguration',
+        'SaveTagData',
+        'SaveTagEventData',
+    ],
+    'decode': decode_MotoPersistenceSaveParams
+}
+
+
+def decode_MotoC1G2LLRPCapabilities(data, name=None):
+    logger.debugfast('decode_MotoC1G2LLRPCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSupportBlockPermalock': flags & BIT(7) == BIT(7),
+        'CanSupportRecommissioning': flags & BIT(6) == BIT(6),
+        'CanWriteUMI': flags & BIT(5) == BIT(5),
+        'CanSupportNXPCuxtomCommands': flags & BIT(4) == BIT(4),
+        'CanSupportFujitsuCuxtomCommands': flags & BIT(3) == BIT(3),
+        'CanSupportG2V2Commands': flags & BIT(2) == BIT(2),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoC1G2LLRPCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 400,
+    'fields': [
+        'Version',
+        'CanSupportBlockPermalock',
+        'CanSupportRecommissioning',
+        'CanWriteUMI',
+        'CanSupportNXPCuxtomCommands',
+        'CanSupportFujitsuCuxtomCommands',
+        'CanSupportG2V2Commands ',
+    ],
+    'decode': decode_MotoC1G2LLRPCapabilities
+}
+
+
+def decode_MotoCustomCommandOptions(data, name=None):
+    logger.debugfast('decode_MotoCustomCommandOptions')
+
+    flags = uint_unpack(data[:uint_size])[0]
+
+    par = {
+        'EnableNXPSetAndResetQuietCommands': flags & BIT(31) == BIT(31),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoCustomCommandOptions'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 466,
+    'fields': [
+        'EnableNXPSetAndResetQuietCommands ',
+    ],
+    'decode': decode_MotoCustomCommandOptions
 }
 
 
