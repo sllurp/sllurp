@@ -28,11 +28,7 @@ def func():
 
 
 def reverse_dict(data):
-    atad = {}
-    for m in data:
-        i = data[m]
-        atad[i] = m
-    return atad
+    return {data[m]: m for m in data}
 
 
 def atoi(text):
