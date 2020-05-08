@@ -102,9 +102,11 @@ uint_size = struct.calcsize('!I')
 ubyte_ushort_size = struct.calcsize('!BH')
 ubyte_uint_size = struct.calcsize('!BI')
 ushort_ubyte_size = struct.calcsize('!HB')
+ushort_ubyte_uint_size = struct.calcsize('!HBI')
 ushort_ushort_size = struct.calcsize('!HH')
 ushort_uint_size = struct.calcsize('!HI')
 uint_ubyte_size = struct.calcsize('!IB')
+uint_ubyte_ubyte_size = struct.calcsize('!IBB')
 uint_uint_size = struct.calcsize('!II')
 ulonglong_ulonglong_size = struct.calcsize('!QQ')
 ubyte_ubyte_ushort_size = struct.calcsize('!BBH')
@@ -144,9 +146,11 @@ ulonglong_unpack = struct.Struct('!Q').unpack
 ubyte_ushort_unpack = struct.Struct('!BH').unpack
 ubyte_uint_unpack = struct.Struct('!BI').unpack
 ushort_ubyte_unpack = struct.Struct('!HB').unpack
+ushort_ubyte_uint_unpack = struct.Struct('!HBI').unpack
 ushort_ushort_unpack = struct.Struct('!HH').unpack
 ushort_uint_unpack = struct.Struct('!HI').unpack
 uint_ubyte_unpack = struct.Struct('!IB').unpack
+uint_ubyte_ubyte_unpack = struct.Struct('!IBB').unpack
 uint_uint_unpack = struct.Struct('!II').unpack
 ulonglong_ulonglong_unpack = struct.Struct('!QQ').unpack
 ubyte_ubyte_ushort_unpack = struct.Struct('!BBH').unpack
@@ -685,6 +689,7 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'ImpinjGPSNMEASentences',
         'ImpinjAntennaConfiguration',
         'MotoAutonomousState',
+        'MotoDefaultSpec',
         'MotoPersistenceSaveParams',
         'MotoCustomCommandOptions',
         # Custom parameter without decoder yet
@@ -698,7 +703,6 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'ImpinjC1G2DirectionConfig',
         'ImpinjDirectionReporting',
         'ImpinjPolarizationControl',
-        'MotoDefaultSpec',
         'MotoFilterList',
     ],
     'n_fields': [
@@ -1449,7 +1453,7 @@ Message_struct['ERROR_MESSAGE'] = {
 }
 
 
-# 16.2.4.1 ROSpec Parameter
+# 16.2.4.1 ROSpec Parameter (LLRP v1.1 section 17.2.4.1)
 def encode_ROSpec(par, param_info):
     # Note, priority should be in 0-7.
     state = ROSpecState_Name2Type[par['CurrentState']]
@@ -1481,6 +1485,13 @@ Param_struct['ROSpec'] = {
         'LoopSpec',
     ],
     'encode': encode_ROSpec,
+    'decode': basic_auto_param_decode_generator(
+        uint_ubyte_ubyte_unpack,
+        uint_ubyte_ubyte_size,
+        'ROSpecID',
+        'Priority',
+        'CurrentState'
+    )
 }
 
 
@@ -1824,7 +1835,7 @@ Param_struct['AccessReportSpec'] = {
 }
 
 
-# 16.2.4.1.1 ROBoundarySpec Parameter
+# 16.2.4.1.1 ROBoundarySpec Parameter (LLRP v1.1 section 17.2.4.1.1)
 
 Param_struct['ROBoundarySpec'] = {
     'type': 178,
@@ -1832,11 +1843,12 @@ Param_struct['ROBoundarySpec'] = {
         'ROSpecStartTrigger',
         'ROSpecStopTrigger'
     ],
-    'encode': encode_all_parameters
+    'encode': encode_all_parameters,
+    'decode': decode_all_parameters,
 }
 
 
-# 16.2.4.1.1.1 ROSpecStartTrigger Parameter
+# 16.2.4.1.1.1 ROSpecStartTrigger Parameter (LLRP v1.1 section 17.2.4.1.1.1)
 def encode_ROSpecStartTrigger(par, param_info):
     t_type = StartTrigger_Name2Type[par['ROSpecStartTriggerType']]
     packed = ubyte_pack(t_type)
@@ -1852,11 +1864,16 @@ Param_struct['ROSpecStartTrigger'] = {
         'PeriodicTriggerValue',
         'GPITriggerValue'
     ],
-    'encode': encode_ROSpecStartTrigger
+    'encode': encode_ROSpecStartTrigger,
+    'decode': basic_auto_param_decode_generator(
+        ubyte_unpack,
+        ubyte_size,
+        'ROSpecStartTriggerType'
+    )
 }
 
 
-# 16.2.4.1.1.1 PeriodicTriggerValue Parameter
+# 16.2.4.1.1.1.1 PeriodicTriggerValue Parameter (LLRP v1.1 section 17.2.4.1.1.1.1)
 Param_struct['PeriodicTriggerValue'] = {
     'type': 180,
     'fields': [
@@ -1866,11 +1883,21 @@ Param_struct['PeriodicTriggerValue'] = {
     'o_fields': [
         'UTCTimestamp',
     ],
-    'encode': basic_auto_param_encode_generator(uint_uint_pack,
-                                                'Offset', 'Period')
+    'encode': basic_auto_param_encode_generator(
+        uint_uint_pack,
+        'Offset',
+        'Period'
+    ),
+    'decode': basic_auto_param_decode_generator(
+        uint_uint_unpack,
+        uint_uint_size,
+        'Offset',
+        'Period',
+    )
 }
 
 
+# 16.2.4.1.1.1.2 GPITriggerValue Parameter (LLRP v1.1 section 17.2.4.1.1.1.2)
 def encode_GPITriggerValue(par, param_info):
     gpievent = bool(par['GPIEvent']) << 7
     data = ushort_ubyte_uint_pack(par['GPIPortNum'],
@@ -1879,7 +1906,20 @@ def encode_GPITriggerValue(par, param_info):
     return data
 
 
-# v1.1:17.2.4.1.1.1.2 GPITriggerValue Parameter
+def decode_GPITriggerValue(data, name=None):
+    logger.debugfast('decode_GPITriggerValue')
+
+    gpi_port_num, gpi_event, timeout = ushort_ubyte_uint_unpack(data[:ushort_ubyte_uint_size])
+
+    par = {
+        'GPIPortNum': gpi_port_num,
+        'GPIEvent': gpi_event & BIT(7) == BIT(7),
+        'Timeout': timeout,
+    }
+
+    return par, ''
+
+
 Param_struct['GPITriggerValue'] = {
     'type': 180,
     'fields': [
@@ -1887,10 +1927,11 @@ Param_struct['GPITriggerValue'] = {
         'GPIEvent',
         'Timeout'
     ],
-    'encode': encode_GPITriggerValue
+    'encode': encode_GPITriggerValue,
+    'decode': decode_GPITriggerValue,
 }
 
-# 16.2.4.1.1.2 ROSpecStopTrigger Parameter
+# 16.2.4.1.1.2 ROSpecStopTrigger Parameter (LLRP v1.1 section 17.2.4.1.1.2)
 def encode_ROSpecStopTrigger(par, param_info):
     t_type = StopTrigger_Name2Type[par['ROSpecStopTriggerType']]
     duration = int(par['DurationTriggerValue'])
@@ -1907,7 +1948,13 @@ Param_struct['ROSpecStopTrigger'] = {
     'o_fields': [
         'GPITriggerValue'
     ],
-    'encode': encode_ROSpecStopTrigger
+    'encode': encode_ROSpecStopTrigger,
+    'decode': basic_auto_param_decode_generator(
+        ubyte_uint_unpack,
+        ubyte_uint_size,
+        'ROSpecStopTriggerType',
+        'DurationTriggerValue',
+    )
 }
 
 
@@ -4201,7 +4248,9 @@ def decode_MotoDefaultSpec(data, name=None):
     par = {
         'UseDefaultSpecForAutoMode': flags & BIT(7) == BIT(7),
     }
-    # TODO: decode all fields
+    # TODO: decode AccessSpec parameter
+
+    par, _ = decode_all_parameters(data[ubyte_size:], 'MotoDefaultSpec', par)
     return par, ''
 
 
@@ -4211,6 +4260,8 @@ Param_struct['MotoDefaultSpec'] = {
     'subtype': 102,
     'fields': [
         'UseDefaultSpecForAutoMode',
+    ],
+    'o_fields': [
         'ROSPec',
     ],
     'n_fields': [
