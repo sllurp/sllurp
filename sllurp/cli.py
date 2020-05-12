@@ -62,11 +62,14 @@ def cli(debug, logfile):
 @click.option('--hoptable-id', type=int, default=1,
               help='HopTableID to use (default 1) for regions '
               'with frequency hopping regulatory requirements')
+@click.option('--reader-keepalive-interval', type=int, default=60000,
+              help='Time(ms) between keepalive msgs send by the reader')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               tari, session, mode_identifier,
               tag_population, reconnect, tag_filter_mask,
               impinj_extended_configuration,
-              impinj_search_mode, impinj_reports, frequencies, hoptable_id):
+              impinj_search_mode, impinj_reports, frequencies, hoptable_id,
+              reader_keepalive_interval):
     """Conduct inventory (searching the area around the antennas)."""
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
@@ -76,7 +79,8 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'impinj_extended_configuration',
                                'impinj_search_mode',
                                'impinj_reports',
-                               'frequencies', 'hoptable_id'])
+                               'frequencies', 'hoptable_id',
+                               'reader_keepalive_interval'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
                 antennas=antennas, tx_power=tx_power,
                 tari=tari, session=session, population=tag_population,
@@ -85,7 +89,8 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
                 impinj_reports=impinj_reports,
-                frequencies=frequencies, hoptable_id=hoptable_id)
+                frequencies=frequencies, hoptable_id=hoptable_id,
+                reader_keepalive_interval=reader_keepalive_interval)
     logger.debug('inventory args: %s', args)
     _inventory.main(args)
 
