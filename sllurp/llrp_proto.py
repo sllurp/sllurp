@@ -4192,7 +4192,7 @@ def decode_ImpinjBLEVersion(data, name=None):
 Param_struct['ImpinjBLEVersion'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
-    'subtype': 1520,
+    'subtype': 1580,
     'fields': [
         'FirmwareVersion',
     ],
