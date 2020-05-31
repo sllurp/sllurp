@@ -862,10 +862,10 @@ class LLRPClient(object):
                 },
             }
         }
-        if self.config.reader_keepalive_interval > 0:
+        if self.config.keepalive_interval > 0:
             msg['SET_READER_CONFIG']['KeepaliveSpec'] = {
                 'KeepaliveTriggerType': 1,
-                'TimeInterval': self.config.reader_keepalive_interval
+                'TimeInterval': self.config.keepalive_interval
             }
         for event, enabled in self.config.event_selector.items():
             msg['SET_READER_CONFIG']['ReaderEventNotificationSpec']\
@@ -1424,7 +1424,7 @@ class LLRPReaderConfig(object):
         self.impinj_tag_content_selector = None
         self.impinj_event_selector = None
 
-        self.reader_keepalive_interval = 60 * 1000  # in ms, 0 = nokeepalive request sent to reader
+        self.keepalive_interval = 60 * 1000  # in ms, 0 = nokeepalive request sent to reader
         ## If impinj extension, would be like:
         #self.impinj_tag_content_selector = {
         #    'EnableRFPhaseAngle': True,
