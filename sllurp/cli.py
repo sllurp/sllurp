@@ -62,9 +62,12 @@ def cli(debug, logfile):
 @click.option('--hoptable-id', type=int, default=1,
               help='HopTableID to use (default 1) for regions '
               'with frequency hopping regulatory requirements')
+@click.option('--reader-keepalive-interval', type=int, default=60000,
+              help='Time(ms) between keepalive msgs send by the reader')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               tari, session, mode_identifier,
               tag_population, reconnect, tag_filter_mask,
+              keepalive_interval,
               impinj_extended_configuration,
               impinj_search_mode, impinj_reports, frequencies, hoptable_id):
     """Conduct inventory (searching the area around the antennas)."""
@@ -73,6 +76,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'tx_power', 'tari', 'session',
                                'population', 'mode_identifier',
                                'reconnect', 'tag_filter_mask',
+                               'keepalive_interval'
                                'impinj_extended_configuration',
                                'impinj_search_mode',
                                'impinj_reports',
@@ -82,6 +86,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
                 reconnect=reconnect, tag_filter_mask=tag_filter_mask,
+                keepalive_interval=keepalive_interval,
                 impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
                 impinj_reports=impinj_reports,
