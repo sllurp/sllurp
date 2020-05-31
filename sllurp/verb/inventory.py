@@ -81,10 +81,11 @@ def main(args):
             'ChannelList': frequency_list,
             'Automatic': False
         },
+        keepalive_interval=args.keepalive_interval
         impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
-        reader_keepalive_interval=args.reader_keepalive_interval
+        
     )
     if args.impinj_reports:
         factory_args['impinj_tag_content_selector'] = {
