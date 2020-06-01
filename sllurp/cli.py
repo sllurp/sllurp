@@ -48,6 +48,8 @@ def cli(debug, logfile):
 @click.option('--tag-filter-mask', type=str, default=[], multiple=True,
               help=('Filter inventory on EPC (or prefix of EPC); multiple'
                     ' args allowed'))
+@click.option('--keepalive-interval', type=int, default=60000,
+              help='Time(ms) between keepalive msgs send by the reader')
 @click.option('--impinj-extended-configuration', is_flag=True, default=False,
               help=('Get Impinj extended configuration values'))
 @click.option('--impinj-search-mode', type=click.Choice(['1', '2']),
@@ -62,8 +64,6 @@ def cli(debug, logfile):
 @click.option('--hoptable-id', type=int, default=1,
               help='HopTableID to use (default 1) for regions '
               'with frequency hopping regulatory requirements')
-@click.option('--reader-keepalive-interval', type=int, default=60000,
-              help='Time(ms) between keepalive msgs send by the reader')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               tari, session, mode_identifier,
               tag_population, reconnect, tag_filter_mask,
