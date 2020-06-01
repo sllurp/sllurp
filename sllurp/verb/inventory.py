@@ -59,6 +59,7 @@ def main(args):
         start_inventory=True,
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
+        reconnect_attempts=args.reconnect_attempts,
         tag_filter_mask=args.tag_filter_mask,
         tag_content_selector={
             'EnableROSpecID': False,
