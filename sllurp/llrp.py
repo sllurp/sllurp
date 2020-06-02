@@ -1425,7 +1425,7 @@ class LLRPReaderConfig(object):
         self.impinj_event_selector = None
 
         self.keepalive_interval = 60 * 1000  # in ms, 0 = nokeepalive request sent to reader
-        self.reconnect_attempts = 5
+        self.reconnect_retries = 5
         ## If impinj extension, would be like:
         #self.impinj_tag_content_selector = {
         #    'EnableRFPhaseAngle': True,
@@ -1722,8 +1722,8 @@ class LLRPReaderClient(object):
         Return: True if the connection is definitively lost/interrupted.
                 False if it was somehow recovered (reconnected).
         """
-        remaining_attempts = self.config.reconnect_attempts
-        retry_delay = 60  # seconds
+        remaining_attempts = self.config.reconnect_retries
+        retry_delay = 60 # seconds
 
         logger.info('Lost connection detected')
         # When the connection is lost, reset the reader known state
@@ -1744,23 +1744,22 @@ class LLRPReaderClient(object):
             self._on_disconnected()
             return True
 
-        while remaining_attempts > 0 or remaining_attempts == -1:
-            if remaining_attempts == 0:
-                logger.info('Too many retries. Giving up...')
-                break
+        while remaining_attempts:
             try:
                 self._connect_socket()
                 return False
             except:
                 logger.warning('Reconnection attempt failed.')
-            if(remaining_attempts > 0):
+            if remaining_attempts > 0:
                 remaining_attempts -= 1
+            if remaining_attempts == 0:
+                logger.info('Too many retries. Giving up...')
+                break
             logger.info('Next connection attempt in %ds', retry_delay)
             user_disconnected = self.disconnect_requested.wait(retry_delay)
             if user_disconnected:
                 # Disconnection was requested by user
                 break
-
         self._on_disconnected()
         return True
 
