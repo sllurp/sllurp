@@ -76,7 +76,7 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                                'tx_power', 'tari', 'session',
                                'population', 'mode_identifier',
                                'reconnect', 'tag_filter_mask',
-                               'keepalive_interval'
+                               'keepalive_interval',
                                'impinj_extended_configuration',
                                'impinj_search_mode',
                                'impinj_reports',
