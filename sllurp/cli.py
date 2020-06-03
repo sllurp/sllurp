@@ -45,6 +45,9 @@ def cli(debug, logfile):
               help="Tag Population value (default 4)")
 @click.option('-r', '--reconnect', is_flag=True, default=False,
               help='reconnect on connection failure or loss')
+@click.option('--reconnect-retries', type=int, default=5,
+              help='Max num of reconnect attempts on connection failure or loss. '
+              'Set to -1 for unlimited attempts')
 @click.option('--tag-filter-mask', type=str, default=[], multiple=True,
               help=('Filter inventory on EPC (or prefix of EPC); multiple'
                     ' args allowed'))
@@ -66,8 +69,8 @@ def cli(debug, logfile):
               'with frequency hopping regulatory requirements')
 def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
               tari, session, mode_identifier,
-              tag_population, reconnect, tag_filter_mask,
-              keepalive_interval,
+              tag_population, reconnect, reconnect_retries,
+              tag_filter_mask, keepalive_interval,
               impinj_extended_configuration,
               impinj_search_mode, impinj_reports, frequencies, hoptable_id):
     """Conduct inventory (searching the area around the antennas)."""
@@ -75,8 +78,8 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'tari', 'session',
                                'population', 'mode_identifier',
-                               'reconnect', 'tag_filter_mask',
-                               'keepalive_interval',
+                               'reconnect', 'reconnect_retries',
+                               'tag_filter_mask', 'keepalive_interval',
                                'impinj_extended_configuration',
                                'impinj_search_mode',
                                'impinj_reports',
@@ -85,7 +88,8 @@ def inventory(host, port, time, report_every_n_tags, antennas, tx_power,
                 antennas=antennas, tx_power=tx_power,
                 tari=tari, session=session, population=tag_population,
                 mode_identifier=mode_identifier,
-                reconnect=reconnect, tag_filter_mask=tag_filter_mask,
+                reconnect=reconnect, reconnect_retries=reconnect_retries,
+                tag_filter_mask=tag_filter_mask,
                 keepalive_interval=keepalive_interval,
                 impinj_extended_configuration=impinj_extended_configuration,
                 impinj_search_mode=impinj_search_mode,
