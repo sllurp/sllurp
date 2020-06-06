@@ -192,25 +192,28 @@ ROSpecState_Name2Type = {
 ROSpecState_Type2Name = reverse_dict(ROSpecState_Name2Type)
 
 # 10.2.1.1.1 ROSpec Start trigger
-StartTrigger_Name2Type = {
+ROSpecStartTriggerType_Name2Type = {
     'Null':                 0,
-    'Immediate':                1,
+    'Immediate':            1,
     'Periodic':             2,
     'GPI':                  3
 }
 
-StartTrigger_Type2Name = reverse_dict(StartTrigger_Name2Type)
+ROSpecStartTriggerType_Type2Name = reverse_dict(ROSpecStartTriggerType_Name2Type)
 
 # 10.2.1.1.2 ROSpec Stop trigger
 StopTrigger_Name2Type = {
     'Null':                 0,
     'Duration':             1,
-    'GPI with timeout':         2,
-    'Tag observation':          3
+    'GPI with timeout':     2,
+    'Tag observation':      3
 }
 
 StopTrigger_Type2Name = reverse_dict(StopTrigger_Name2Type)
+ROSpecStopTriggerType_Type2Name = StopTrigger_Type2Name
+AISpecStopTriggerType_Type2Name = StopTrigger_Type2Name
 
+# 10.2.2.1.1 (LLRP v1.1 section 11.2.2.1.1)
 TagObservationTrigger_Name2Type = {
     'UponNTags': 0,
     'UponSilenceMs': 1,
@@ -219,12 +222,22 @@ TagObservationTrigger_Name2Type = {
     'UponUniqueSilenceMs': 4,
 }
 
+TagObservationTrigger_Type2Name = reverse_dict(TagObservationTrigger_Name2Type)
+
 AccessReportTrigger_Name2Type = {
     'Upon_ROReport': 0,
     'Upon_End_Of_AccessSpec': 1
 }
 
 AccessReportTrigger_Type2Name = reverse_dict(AccessReportTrigger_Name2Type)
+
+# 12.2.4 (LLRP v1.1 section 13.2.4)
+KeepaliveTriggerType_Name2Type = {
+    'Null': 0,
+    'Immediate': 1,
+}
+
+KeepaliveTriggerType_Type2Name = reverse_dict(KeepaliveTriggerType_Name2Type)
 
 # 13.2.6.11 Connection attemp events
 ConnEvent_Name2Type = {
@@ -351,6 +364,19 @@ def get_message_name_from_type(msgtype, vendorid=0, subtype=0):
     return name
 
 
+def auto_type2name(args, par_dict):
+    """
+    Automatically convert type integer to type name, for a list of arguments
+    and replace the new value into the parameter dictionary.
+    :param args: list of arguments
+    :param par_dict: dictionary of parameters
+    """
+    for arg in args:
+        converter = "{0}_Type2Name".format(arg)
+        if converter in globals():
+            par_dict[arg] = globals()[converter][par_dict[arg]]
+
+
 def basic_param_encode_generator(pack_func=None, *args):
     """Generate a encode function for simple parameters"""
     if pack_func is None:
@@ -393,7 +419,10 @@ def basic_param_decode_generator(unpack_func, *args):
     if args:
         def generated_func(data, name=None):
             unpacked = unpack_func(data)
-            return dict(zip(args, unpacked)), ''
+            par = dict(zip(args, unpacked))
+            auto_type2name(args, par)
+            return par, ''
+
     else:
         def generated_func(data, name=None):
             unpacked = unpack_func(data)
@@ -415,6 +444,7 @@ def basic_auto_param_decode_generator(unpack_func, unpack_size, *args):
     def generated_func(data, name=None):
         unpacked = unpack_func(data[:unpack_size])
         par = dict(zip(args, unpacked))
+        auto_type2name(args, par)
         data = data[unpack_size:]
         if data:
             par, _ = decode_all_parameters(data, name, par)
@@ -1853,7 +1883,7 @@ Param_struct['ROBoundarySpec'] = {
 
 # 16.2.4.1.1.1 ROSpecStartTrigger Parameter (LLRP v1.1 section 17.2.4.1.1.1)
 def encode_ROSpecStartTrigger(par, param_info):
-    t_type = StartTrigger_Name2Type[par['ROSpecStartTriggerType']]
+    t_type = ROSpecStartTriggerType_Name2Type[par['ROSpecStartTriggerType']]
     packed = ubyte_pack(t_type)
     return encode_all_parameters(par, param_info, packed)
 
@@ -2073,7 +2103,7 @@ def decode_TagObservationTrigger(data, name=None):
     ) = tagobservationtrigger_unpack(data)
 
     par = {
-        'TriggerType': trigger_type,
+        'TriggerType': TagObservationTrigger_Type2Name[trigger_type],
         'NumberOfTags': number_of_tags,
         'NumberOfAttempts': number_of_attempts,
         'T': t,
