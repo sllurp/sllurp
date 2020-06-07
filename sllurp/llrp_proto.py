@@ -371,19 +371,6 @@ def get_message_name_from_type(msgtype, vendorid=0, subtype=0):
     return name
 
 
-def auto_type2name(args, par_dict):
-    """
-    Automatically convert type integer to type name, for a list of arguments
-    and replace the new value into the parameter dictionary.
-    :param args: list of arguments
-    :param par_dict: dictionary of parameters
-    """
-    for arg in args:
-        converter = "{0}_Type2Name".format(arg)
-        if converter in globals():
-            par_dict[arg] = globals()[converter][par_dict[arg]]
-
-
 def basic_param_encode_generator(pack_func=None, *args):
     """Generate a encode function for simple parameters"""
     if pack_func is None:
@@ -426,9 +413,7 @@ def basic_param_decode_generator(unpack_func, *args):
     if args:
         def generated_func(data, name=None):
             unpacked = unpack_func(data)
-            par = dict(zip(args, unpacked))
-            auto_type2name(args, par)
-            return par, ''
+            return dict(zip(args, unpacked)), ''
 
     else:
         def generated_func(data, name=None):
@@ -451,7 +436,6 @@ def basic_auto_param_decode_generator(unpack_func, unpack_size, *args):
     def generated_func(data, name=None):
         unpacked = unpack_func(data[:unpack_size])
         par = dict(zip(args, unpacked))
-        auto_type2name(args, par)
         data = data[unpack_size:]
         if data:
             par, _ = decode_all_parameters(data, name, par)
@@ -1876,7 +1860,6 @@ Param_struct['AccessReportSpec'] = {
 
 
 # 16.2.4.1.1 ROBoundarySpec Parameter (LLRP v1.1 section 17.2.4.1.1)
-
 Param_struct['ROBoundarySpec'] = {
     'type': 178,
     'o_fields': [
@@ -1979,6 +1962,22 @@ def encode_ROSpecStopTrigger(par, param_info):
     return encode_all_parameters(par, param_info, packed)
 
 
+def decode_ROSpecStopTrigger(data, name=None):
+    logger.debugfast("decode_ROSpecStopTrigger")
+
+    (trigger_type, duration_trigger_value) = ubyte_uint_unpack(data[:ubyte_uint_size])
+
+    par = {
+        'ROSpecStopTriggerType': ROSpecStopTriggerType_Type2Name[trigger_type],
+        'DurationTriggerValue': duration_trigger_value
+    }
+
+    data = data[ubyte_uint_size:]
+    par, _ = decode_all_parameters(data, 'ROSpecStopTrigger', par)
+
+    return par, ''
+
+
 Param_struct['ROSpecStopTrigger'] = {
     'type': 182,
     'fields': [
@@ -1989,12 +1988,7 @@ Param_struct['ROSpecStopTrigger'] = {
         'GPITriggerValue'
     ],
     'encode': encode_ROSpecStopTrigger,
-    'decode': basic_auto_param_decode_generator(
-        ubyte_uint_unpack,
-        ubyte_uint_size,
-        'ROSpecStopTriggerType',
-        'DurationTriggerValue',
-    )
+    'decode': decode_ROSpecStopTrigger
 }
 
 
@@ -2214,15 +2208,25 @@ Param_struct['GPOWriteData'] = {
 
 
 # v1.1:17.2.6.4 KeepaliveSpec Parameter
+def decode_KeepaliveSpec(data, name=None):
+    logger.debugfast('decode_KeepaliveSpec')
+
+    (trigger_type, time_interval) = ubyte_uint_unpack(data)
+
+    par = {
+        'KeepaliveTriggerType': KeepaliveTriggerType_Type2Name[trigger_type],
+        'TimeInterval': time_interval
+    }
+    return par, ''
+
+
 Param_struct['KeepaliveSpec'] = {
     'type': 220,
     'fields': [
         'KeepaliveTriggerType',
         'TimeInterval',
     ],
-    'decode': basic_param_decode_generator(ubyte_uint_unpack,
-                                           'KeepaliveTriggerType',
-                                           'TimeInterval')
+    'decode': decode_KeepaliveSpec
 }
 
 
