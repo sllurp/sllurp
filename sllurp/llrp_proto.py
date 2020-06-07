@@ -2226,7 +2226,10 @@ Param_struct['KeepaliveSpec'] = {
         'KeepaliveTriggerType',
         'TimeInterval',
     ],
-    'decode': decode_KeepaliveSpec
+    'decode': decode_KeepaliveSpec,
+    'encode': basic_auto_param_encode_generator(ubyte_uint_pack,
+                                                'KeepaliveTriggerType',
+                                                'TimeInterval')
 }
 
 
