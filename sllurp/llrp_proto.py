@@ -2012,11 +2012,9 @@ def decode_AISPec(data, name=None):
 
     par = {
         'AntennaCount': antenna_count,
-        'AntennaID': {
-            int.from_bytes(
-                antenna_ids[b+b:b+b+ushort_size],
-                'big'
-            ) for b in range(len(antenna_ids)//ushort_size)}
+        'AntennaID': [
+            ushort_unpack(antenna_ids[2 * b: 2 * b + ushort_size])[0] for b in range(len(antenna_ids) // ushort_size)
+        ]
     }
 
     data = data[ushort_size + antenna_ids_length:]
