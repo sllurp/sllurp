@@ -201,17 +201,24 @@ ROSpecStartTriggerType_Name2Type = {
 
 ROSpecStartTriggerType_Type2Name = reverse_dict(ROSpecStartTriggerType_Name2Type)
 
-# 10.2.1.1.2 ROSpec Stop trigger
-StopTrigger_Name2Type = {
+# 10.2.1.1.2 (LLRP v1.1 section 10.2.1.1.2)
+ROSpecStopTriggerType_Name2Type = {
+    'Null':                 0,
+    'Duration':             1,
+    'GPI with timeout':     2,
+}
+
+ROSpecStopTriggerType_Type2Name = reverse_dict(ROSpecStopTriggerType_Name2Type)
+
+# 10.2.2.1 (LLRP v1.1 section 11.2.2.1)
+AISpecStopTriggerType_Name2Type = {
     'Null':                 0,
     'Duration':             1,
     'GPI with timeout':     2,
     'Tag observation':      3
 }
 
-StopTrigger_Type2Name = reverse_dict(StopTrigger_Name2Type)
-ROSpecStopTriggerType_Type2Name = StopTrigger_Type2Name
-AISpecStopTriggerType_Type2Name = StopTrigger_Type2Name
+AISpecStopTriggerType_Type2Name = reverse_dict(AISpecStopTriggerType_Name2Type)
 
 # 10.2.2.1.1 (LLRP v1.1 section 11.2.2.1.1)
 TagObservationTrigger_Name2Type = {
@@ -1966,7 +1973,7 @@ Param_struct['GPITriggerValue'] = {
 
 # 16.2.4.1.1.2 ROSpecStopTrigger Parameter (LLRP v1.1 section 17.2.4.1.1.2)
 def encode_ROSpecStopTrigger(par, param_info):
-    t_type = StopTrigger_Name2Type[par['ROSpecStopTriggerType']]
+    t_type = ROSpecStopTriggerType_Name2Type[par['ROSpecStopTriggerType']]
     duration = int(par['DurationTriggerValue'])
     packed = ubyte_uint_pack(t_type, duration)
     return encode_all_parameters(par, param_info, packed)
@@ -2042,7 +2049,7 @@ Param_struct['AISpec'] = {
 
 # 16.2.4.2.1 AISpecStopTrigger Parameter (LLRP v1.1 section 17.2.4.2.1)
 def encode_AISpecStopTrigger(par, param_info):
-    t_type = StopTrigger_Name2Type[par['AISpecStopTriggerType']]
+    t_type = AISpecStopTriggerType_Name2Type[par['AISpecStopTriggerType']]
     duration = int(par.get('DurationTriggerValue', 0))
     packed = ubyte_uint_pack(t_type, duration)
     return encode_all_parameters(par, param_info, packed)
