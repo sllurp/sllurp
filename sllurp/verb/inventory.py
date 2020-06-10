@@ -59,6 +59,7 @@ def main(args):
         start_inventory=True,
         disconnect_when_done=args.time and args.time > 0,
         reconnect=args.reconnect,
+        reconnect_retries=args.reconnect_retries,
         tag_filter_mask=args.tag_filter_mask,
         tag_content_selector={
             'EnableROSpecID': False,
@@ -81,6 +82,7 @@ def main(args):
             'ChannelList': frequency_list,
             'Automatic': False
         },
+        keepalive_interval=args.keepalive_interval,
         impinj_extended_configuration=args.impinj_extended_configuration,
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,

@@ -27,12 +27,8 @@ def func():
     return stack()[1][3]
 
 
-def reverse_dict(data):
-    atad = {}
-    for m in data:
-        i = data[m]
-        atad[i] = m
-    return atad
+def reverse_dict(data: dict) -> dict:
+    return {value: key for key, value in data.items()}
 
 
 def atoi(text):

@@ -2062,7 +2062,10 @@ Param_struct['KeepaliveSpec'] = {
     ],
     'decode': basic_param_decode_generator(ubyte_uint_unpack,
                                            'KeepaliveTriggerType',
-                                           'TimeInterval')
+                                           'TimeInterval'),
+    'encode': basic_auto_param_encode_generator(ubyte_uint_pack,
+                                                'KeepaliveTriggerType',
+                                                'TimeInterval')
 }
 
 
@@ -4067,7 +4070,7 @@ def decode_ImpinjBLEVersion(data, name=None):
 Param_struct['ImpinjBLEVersion'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
-    'subtype': 1520,
+    'subtype': 1580,
     'fields': [
         'FirmwareVersion',
     ],
