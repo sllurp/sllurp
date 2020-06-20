@@ -3421,12 +3421,12 @@ Param_struct['ImpinjInventorySearchMode'] = {
 
 
 def encode_ImpinjFixedFrequencyList(par, param_info):
-    channel_list = par.get(['ChannelList'], [])
+    channel_list = par.get('ChannelList', [])
     count = len(channel_list)
 
     # Real parameters are:
-    # FixedFrequencyMode, reserved, ChannelListCount, ChannelListIndex #n
-    data = [ushort_ushort_ushort_pack(par['FixedFrequencyMode'], _, count)]
+    # FixedFrequencyMode, Reserved, ChannelListCount, ChannelListIndex #n
+    data = [ushort_ushort_ushort_pack(par['FixedFrequencyMode'], 0, count)]
 
     for index in channel_list:
         data.append(ushort_pack(index))
@@ -4994,7 +4994,7 @@ class LLRPROSpec(dict):
         ips = self['AISpec'][0]['InventoryParameterSpec'][0]
 
         freq_channel_list = frequencies.get('ChannelList',
-                                          [DEFAULT_CHANNEL_INDEX])
+                                            [DEFAULT_CHANNEL_INDEX])
         # patch up per-antenna config
         for antid in antennas:
             transmit_power = tx_power[antid]
