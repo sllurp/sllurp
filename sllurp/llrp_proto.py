@@ -4032,39 +4032,6 @@ Param_struct['ImpinjAntennaEventHysteresis'] = {
 }
 
 
-# Note: Dirty hack decoder due to Impinj bug
-# Based on doc, there should only be a ImpinjArrayVersion field inside
-# ImpinjHubVersions.
-# But my r420, v5.12 (maybe buggy?) sometimes send ImpinjArrayVersion Params
-# but use the wrong type and pretends that it is a ImpinjBLEVersion
-
-def decode_ImpinjHubVersions(data, name=None):
-    arrayversion_type = Param_struct['ImpinjArrayVersion']
-    bleversion_type = Param_struct['ImpinjBLEVersion']
-    arrayversion_decoder = Param_struct['ImpinjArrayVersion']['decode']
-    start_pos = 0
-    data_len = len(data)
-    versions_info_list = []
-    while start_pos < data_len:
-        (partype,
-         vendorid,
-         subtype,
-         hdr_len,
-         full_length) = param_header_decode(data[start_pos:])
-        if subtype == bleversion_type:
-            logger.debug('ImpinjHubVersions decoding HACK: sub field reported '
-                         'by the reader is wrong. Force changing it to '
-                         '"ImpinjArrayVersion"')
-            subtype = arrayversion_type
-        pardata = data[start_pos + hdr_len:start_pos + full_length]
-        versions_info_list.append(
-            arrayversion_decoder(pardata, 'ImpinjArrayVersion')[0])
-        start_pos += full_length
-        if full_length == 0:
-            break
-
-    return {'ImpinjArrayVersion': versions_info_list}, ''
-
 Param_struct['ImpinjHubVersions'] = {
     'type': TYPE_CUSTOM,
     'vendorid': VENDOR_ID_IMPINJ,
@@ -4073,7 +4040,7 @@ Param_struct['ImpinjHubVersions'] = {
         'ImpinjArrayVersion',
     ],
     'encode': encode_all_parameters,
-    'decode': decode_ImpinjHubVersions
+    'decode': decode_all_parameters
 }
 
 
