@@ -4612,7 +4612,7 @@ Param_struct['MotoFilterTimeRange'] = {
 
 
 def decode_MotoFilterRSSIRange(data, name=None):
-    logger.debugfast(f"decode_MotoFilterRSSIRange")
+    logger.debugfast("decode_MotoFilterRSSIRange")
 
     match = ushort_unpack(data[:ushort_size])[0]
 
