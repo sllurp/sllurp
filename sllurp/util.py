@@ -27,7 +27,7 @@ def func():
     return stack()[1][3]
 
 
-def reverse_dict(data: dict) -> dict:
+def reverse_dict(data):
     return {value: key for key, value in data.items()}
 
 
