@@ -31,7 +31,8 @@ from .util import BIT, BITMASK, reverse_dict, iteritems
 from .llrp_decoder import (msg_header_encode, msg_header_decode,
                            param_header_decode, par_vendor_subtype_size,
                            par_vendor_subtype_unpack, TVE_PARAM_FORMATS,
-                           TVE_PARAM_TYPE_MAX, TYPE_CUSTOM, VENDOR_ID_IMPINJ)
+                           TVE_PARAM_TYPE_MAX, TYPE_CUSTOM, VENDOR_ID_IMPINJ,
+                           VENDOR_ID_MOTOROLA)
 from .llrp_errors import LLRPError
 from .log import get_logger, is_general_debug_enabled
 
@@ -94,10 +95,12 @@ par_custom_header_len = struct.calcsize(par_custom_header)
 par_custom_header_pack = struct.Struct(par_custom_header).pack
 
 # Common types unpacks
-short_size = struct.calcsize('!h')
 ubyte_size = struct.calcsize('!B')
+short_size = struct.calcsize('!h')
 ushort_size = struct.calcsize('!H')
 uint_size = struct.calcsize('!I')
+ulonglong_size = struct.calcsize('!Q')
+ubyte_ubyte_size = struct.calcsize('!BB')
 ubyte_ushort_size = struct.calcsize('!BH')
 ubyte_uint_size = struct.calcsize('!BI')
 ushort_ubyte_size = struct.calcsize('!HB')
@@ -107,14 +110,16 @@ uint_ubyte_size = struct.calcsize('!IB')
 uint_uint_size = struct.calcsize('!II')
 ulonglong_ulonglong_size = struct.calcsize('!QQ')
 ubyte_ubyte_ushort_size = struct.calcsize('!BBH')
-ubyte_ushort_ushort_size = struct.calcsize('!BHH')
 ubyte_ushort_short_size = struct.calcsize('!BHh')
+ubyte_ushort_ushort_size = struct.calcsize('!BHH')
 ubyte_ushort_uint_size = struct.calcsize('!BHI')
 ubyte_uint_ushort_size = struct.calcsize('!BIH')
 ubyte_uint_uint_size = struct.calcsize('!BII')
 ushort_ubyte_ubyte_size = struct.calcsize('!HBB')
+ushort_ubyte_uint_size = struct.calcsize('!HBI')
 ushort_ushort_ushort_size = struct.calcsize('!HHH')
 ushort_ushort_uint_size = struct.calcsize('!HHI')
+uint_ubyte_ubyte_size = struct.calcsize('!IBB')
 
 ubyte_pack = struct.Struct('!B').pack
 ushort_pack = struct.Struct('!H').pack
@@ -135,11 +140,12 @@ ushort_ushort_ushort_pack = struct.Struct('!HHH').pack
 uint_ubyte_ubyte_pack = struct.Struct('!IBB').pack
 ubyte_ushort_ushort_ushort_pack = struct.Struct('!BHHH').pack
 
-short_unpack = struct.Struct('!h').unpack
 ubyte_unpack = struct.Struct('!B').unpack
+short_unpack = struct.Struct('!h').unpack
 ushort_unpack = struct.Struct('!H').unpack
 uint_unpack = struct.Struct('!I').unpack
 ulonglong_unpack = struct.Struct('!Q').unpack
+ubyte_ubyte_unpack = struct.Struct('!BB').unpack
 ubyte_ushort_unpack = struct.Struct('!BH').unpack
 ubyte_uint_unpack = struct.Struct('!BI').unpack
 ushort_ubyte_unpack = struct.Struct('!HB').unpack
@@ -149,14 +155,16 @@ uint_ubyte_unpack = struct.Struct('!IB').unpack
 uint_uint_unpack = struct.Struct('!II').unpack
 ulonglong_ulonglong_unpack = struct.Struct('!QQ').unpack
 ubyte_ubyte_ushort_unpack = struct.Struct('!BBH').unpack
-ubyte_ushort_ushort_unpack = struct.Struct('!BHH').unpack
 ubyte_ushort_short_unpack = struct.Struct('!BHh').unpack
+ubyte_ushort_ushort_unpack = struct.Struct('!BHH').unpack
 ubyte_ushort_uint_unpack = struct.Struct('!BHI').unpack
 ubyte_uint_ushort_unpack = struct.Struct('!BIH').unpack
 ubyte_uint_uint_unpack = struct.Struct('!BII').unpack
 ushort_ubyte_ubyte_unpack = struct.Struct('!HBB').unpack
+ushort_ubyte_uint_unpack = struct.Struct('!HBI').unpack
 ushort_ushort_ushort_unpack = struct.Struct('!HHH').unpack
 ushort_ushort_uint_unpack = struct.Struct('!HHI').unpack
+uint_ubyte_ubyte_unpack = struct.Struct('!IBB').unpack
 
 AirProtocol = {
     'UnspecifiedAirProtocol': 0,
@@ -184,25 +192,35 @@ ROSpecState_Name2Type = {
 ROSpecState_Type2Name = reverse_dict(ROSpecState_Name2Type)
 
 # 10.2.1.1.1 ROSpec Start trigger
-StartTrigger_Name2Type = {
+ROSpecStartTriggerType_Name2Type = {
     'Null':                 0,
-    'Immediate':                1,
+    'Immediate':            1,
     'Periodic':             2,
     'GPI':                  3
 }
 
-StartTrigger_Type2Name = reverse_dict(StartTrigger_Name2Type)
+ROSpecStartTriggerType_Type2Name = reverse_dict(ROSpecStartTriggerType_Name2Type)
 
-# 10.2.1.1.2 ROSpec Stop trigger
-StopTrigger_Name2Type = {
+# 10.2.1.1.2 (LLRP v1.1 section 10.2.1.1.2)
+ROSpecStopTriggerType_Name2Type = {
     'Null':                 0,
     'Duration':             1,
-    'GPI with timeout':         2,
-    'Tag observation':          3
+    'GPI with timeout':     2,
 }
 
-StopTrigger_Type2Name = reverse_dict(StopTrigger_Name2Type)
+ROSpecStopTriggerType_Type2Name = reverse_dict(ROSpecStopTriggerType_Name2Type)
 
+# 10.2.2.1 (LLRP v1.1 section 11.2.2.1)
+AISpecStopTriggerType_Name2Type = {
+    'Null':                 0,
+    'Duration':             1,
+    'GPI with timeout':     2,
+    'Tag observation':      3
+}
+
+AISpecStopTriggerType_Type2Name = reverse_dict(AISpecStopTriggerType_Name2Type)
+
+# 10.2.2.1.1 (LLRP v1.1 section 11.2.2.1.1)
 TagObservationTrigger_Name2Type = {
     'UponNTags': 0,
     'UponSilenceMs': 1,
@@ -211,12 +229,22 @@ TagObservationTrigger_Name2Type = {
     'UponUniqueSilenceMs': 4,
 }
 
+TagObservationTrigger_Type2Name = reverse_dict(TagObservationTrigger_Name2Type)
+
 AccessReportTrigger_Name2Type = {
     'Upon_ROReport': 0,
     'Upon_End_Of_AccessSpec': 1
 }
 
 AccessReportTrigger_Type2Name = reverse_dict(AccessReportTrigger_Name2Type)
+
+# 12.2.4 (LLRP v1.1 section 13.2.4)
+KeepaliveTriggerType_Name2Type = {
+    'Null': 0,
+    'Immediate': 1,
+}
+
+KeepaliveTriggerType_Type2Name = reverse_dict(KeepaliveTriggerType_Name2Type)
 
 # 13.2.6.11 Connection attemp events
 ConnEvent_Name2Type = {
@@ -386,6 +414,7 @@ def basic_param_decode_generator(unpack_func, *args):
         def generated_func(data, name=None):
             unpacked = unpack_func(data)
             return dict(zip(args, unpacked)), ''
+
     else:
         def generated_func(data, name=None):
             unpacked = unpack_func(data)
@@ -619,8 +648,15 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
         'ImpinjDetailedVersion',
         'ImpinjFrequencyCapabilities',
         'ImpinjAntennaCapabilities',
+        'MotoGeneralCapabilities',
+        'MotoAutonomousCapabilities',
+        'MotoTagEventsGenerationCapabilities',
+        'MotoFilterCapabilities',
+        'MotoPersistenceCapabilities',
+        'MotoC1G2LLRPCapabilities',
         # Decoder not yet implemented:
-        'ImpinjxArrayCapabilities'
+        'ImpinjxArrayCapabilities',
+
     ],
     'decode': decode_generic_message_with_status_check
 }
@@ -676,6 +712,11 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'ImpinjReportBufferConfiguration',
         'ImpinjGPSNMEASentences',
         'ImpinjAntennaConfiguration',
+        'MotoAutonomousState',
+        'MotoDefaultSpec',
+        'MotoFilterList',
+        'MotoPersistenceSaveParams',
+        'MotoCustomCommandOptions',
         # Custom parameter without decoder yet
         'ImpinjBeaconConfiguration',
         'ImpinjTiltConfiguration',
@@ -1436,7 +1477,7 @@ Message_struct['ERROR_MESSAGE'] = {
 }
 
 
-# 16.2.4.1 ROSpec Parameter
+# 16.2.4.1 ROSpec Parameter (LLRP v1.1 section 17.2.4.1)
 def encode_ROSpec(par, param_info):
     # Note, priority should be in 0-7.
     state = ROSpecState_Name2Type[par['CurrentState']]
@@ -1468,6 +1509,13 @@ Param_struct['ROSpec'] = {
         'LoopSpec',
     ],
     'encode': encode_ROSpec,
+    'decode': basic_auto_param_decode_generator(
+        uint_ubyte_ubyte_unpack,
+        uint_ubyte_ubyte_size,
+        'ROSpecID',
+        'Priority',
+        'CurrentState'
+    )
 }
 
 
@@ -1811,21 +1859,21 @@ Param_struct['AccessReportSpec'] = {
 }
 
 
-# 16.2.4.1.1 ROBoundarySpec Parameter
-
+# 16.2.4.1.1 ROBoundarySpec Parameter (LLRP v1.1 section 17.2.4.1.1)
 Param_struct['ROBoundarySpec'] = {
     'type': 178,
     'o_fields': [
         'ROSpecStartTrigger',
         'ROSpecStopTrigger'
     ],
-    'encode': encode_all_parameters
+    'encode': encode_all_parameters,
+    'decode': decode_all_parameters,
 }
 
 
-# 16.2.4.1.1.1 ROSpecStartTrigger Parameter
+# 16.2.4.1.1.1 ROSpecStartTrigger Parameter (LLRP v1.1 section 17.2.4.1.1.1)
 def encode_ROSpecStartTrigger(par, param_info):
-    t_type = StartTrigger_Name2Type[par['ROSpecStartTriggerType']]
+    t_type = ROSpecStartTriggerType_Name2Type[par['ROSpecStartTriggerType']]
     packed = ubyte_pack(t_type)
     return encode_all_parameters(par, param_info, packed)
 
@@ -1839,11 +1887,16 @@ Param_struct['ROSpecStartTrigger'] = {
         'PeriodicTriggerValue',
         'GPITriggerValue'
     ],
-    'encode': encode_ROSpecStartTrigger
+    'encode': encode_ROSpecStartTrigger,
+    'decode': basic_auto_param_decode_generator(
+        ubyte_unpack,
+        ubyte_size,
+        'ROSpecStartTriggerType'
+    )
 }
 
 
-# 16.2.4.1.1.1 PeriodicTriggerValue Parameter
+# 16.2.4.1.1.1.1 PeriodicTriggerValue Parameter (LLRP v1.1 section 17.2.4.1.1.1.1)
 Param_struct['PeriodicTriggerValue'] = {
     'type': 180,
     'fields': [
@@ -1853,11 +1906,21 @@ Param_struct['PeriodicTriggerValue'] = {
     'o_fields': [
         'UTCTimestamp',
     ],
-    'encode': basic_auto_param_encode_generator(uint_uint_pack,
-                                                'Offset', 'Period')
+    'encode': basic_auto_param_encode_generator(
+        uint_uint_pack,
+        'Offset',
+        'Period'
+    ),
+    'decode': basic_auto_param_decode_generator(
+        uint_uint_unpack,
+        uint_uint_size,
+        'Offset',
+        'Period',
+    )
 }
 
 
+# 16.2.4.1.1.1.2 GPITriggerValue Parameter (LLRP v1.1 section 17.2.4.1.1.1.2)
 def encode_GPITriggerValue(par, param_info):
     gpievent = bool(par['GPIEvent']) << 7
     data = ushort_ubyte_uint_pack(par['GPIPortNum'],
@@ -1866,7 +1929,20 @@ def encode_GPITriggerValue(par, param_info):
     return data
 
 
-# v1.1:17.2.4.1.1.1.2 GPITriggerValue Parameter
+def decode_GPITriggerValue(data, name=None):
+    logger.debugfast('decode_GPITriggerValue')
+
+    gpi_port_num, gpi_event, timeout = ushort_ubyte_uint_unpack(data[:ushort_ubyte_uint_size])
+
+    par = {
+        'GPIPortNum': gpi_port_num,
+        'GPIEvent': gpi_event & BIT(7) == BIT(7),
+        'Timeout': timeout,
+    }
+
+    return par, ''
+
+
 Param_struct['GPITriggerValue'] = {
     'type': 180,
     'fields': [
@@ -1874,15 +1950,32 @@ Param_struct['GPITriggerValue'] = {
         'GPIEvent',
         'Timeout'
     ],
-    'encode': encode_GPITriggerValue
+    'encode': encode_GPITriggerValue,
+    'decode': decode_GPITriggerValue,
 }
 
-# 16.2.4.1.1.2 ROSpecStopTrigger Parameter
+# 16.2.4.1.1.2 ROSpecStopTrigger Parameter (LLRP v1.1 section 17.2.4.1.1.2)
 def encode_ROSpecStopTrigger(par, param_info):
-    t_type = StopTrigger_Name2Type[par['ROSpecStopTriggerType']]
+    t_type = ROSpecStopTriggerType_Name2Type[par['ROSpecStopTriggerType']]
     duration = int(par['DurationTriggerValue'])
     packed = ubyte_uint_pack(t_type, duration)
     return encode_all_parameters(par, param_info, packed)
+
+
+def decode_ROSpecStopTrigger(data, name=None):
+    logger.debugfast("decode_ROSpecStopTrigger")
+
+    (trigger_type, duration_trigger_value) = ubyte_uint_unpack(data[:ubyte_uint_size])
+
+    par = {
+        'ROSpecStopTriggerType': ROSpecStopTriggerType_Type2Name[trigger_type],
+        'DurationTriggerValue': duration_trigger_value
+    }
+
+    data = data[ubyte_uint_size:]
+    par, _ = decode_all_parameters(data, 'ROSpecStopTrigger', par)
+
+    return par, ''
 
 
 Param_struct['ROSpecStopTrigger'] = {
@@ -1894,11 +1987,12 @@ Param_struct['ROSpecStopTrigger'] = {
     'o_fields': [
         'GPITriggerValue'
     ],
-    'encode': encode_ROSpecStopTrigger
+    'encode': encode_ROSpecStopTrigger,
+    'decode': decode_ROSpecStopTrigger
 }
 
 
-# 16.2.4.2 AISpec Parameter
+# 16.2.4.2 AISpec Parameter (LLRP v1.1 section 17.2.4.2)
 def encode_AISpec(par, param_info):
     # Antenna count
     data = [ushort_pack(len(par['AntennaID']))]
@@ -1907,6 +2001,27 @@ def encode_AISpec(par, param_info):
         data.append(ushort_pack(int(antid)))
 
     return encode_all_parameters(par, param_info, b''.join(data))
+
+
+def decode_AISPec(data, name=None):
+    logger.debugfast("decode_AISpec")
+
+    antenna_count = ushort_unpack(data[:ushort_size])[0]
+
+    antenna_ids_length = ushort_size * antenna_count
+    antenna_ids = data[ushort_size:ushort_size + antenna_ids_length]
+
+    par = {
+        'AntennaCount': antenna_count,
+        'AntennaID': [
+            ushort_unpack(antenna_ids[2 * b: 2 * b + ushort_size])[0] for b in range(len(antenna_ids) // ushort_size)
+        ]
+    }
+
+    data = data[ushort_size + antenna_ids_length:]
+    par, _ = decode_all_parameters(data, 'AISpec', par)
+
+    return par, ''
 
 
 Param_struct['AISpec'] = {
@@ -1921,13 +2036,14 @@ Param_struct['AISpec'] = {
     'n_fields': [
         'InventoryParameterSpec'
     ],
-    'encode': encode_AISpec
+    'encode': encode_AISpec,
+    'decode': decode_AISPec,
 }
 
 
-# 16.2.4.2.1 AISpecStopTrigger Parameter
+# 16.2.4.2.1 AISpecStopTrigger Parameter (LLRP v1.1 section 17.2.4.2.1)
 def encode_AISpecStopTrigger(par, param_info):
-    t_type = StopTrigger_Name2Type[par['AISpecStopTriggerType']]
+    t_type = AISpecStopTriggerType_Name2Type[par['AISpecStopTriggerType']]
     duration = int(par.get('DurationTriggerValue', 0))
     packed = ubyte_uint_pack(t_type, duration)
     return encode_all_parameters(par, param_info, packed)
@@ -1943,12 +2059,20 @@ Param_struct['AISpecStopTrigger'] = {
         'GPITriggerValue',
         'TagObservationTrigger',
     ],
-    'encode': encode_AISpecStopTrigger
+    'encode': encode_AISpecStopTrigger,
+    'decode': basic_auto_param_decode_generator(
+        ubyte_uint_unpack,
+        ubyte_uint_size,
+        'AISpecStopTriggerType',
+        'DurationTriggerValue',
+    )
 }
 
 
-# 17.2.4.2.1.1
+# 16.2.4.2.1.1 TagObservationTrigger Parameter (LLRP v1.1 section 17.2.4.2.1.1)
 tagobservationtrigger_pack = struct.Struct('!BBHHHI').pack
+tagobservationtrigger_unpack = struct.Struct('!BBHHHI').unpack
+tagobservationtrigger_size = struct.calcsize('!BBHHHI')
 
 def encode_TagObservationTrigger(par, param_info):
     t_type = TagObservationTrigger_Name2Type[par['TriggerType']]
@@ -1965,6 +2089,29 @@ def encode_TagObservationTrigger(par, param_info):
                                       timeout)
 
 
+def decode_TagObservationTrigger(data, name=None):
+    logger.debugfast("decode_TagObservationTrigger")
+
+    (
+        trigger_type,
+        _,
+        number_of_tags,
+        number_of_attempts,
+        t,
+        timeout
+    ) = tagobservationtrigger_unpack(data)
+
+    par = {
+        'TriggerType': TagObservationTrigger_Type2Name[trigger_type],
+        'NumberOfTags': number_of_tags,
+        'NumberOfAttempts': number_of_attempts,
+        'T': t,
+        'Timeout': timeout
+    }
+
+    return par, ''
+
+
 Param_struct['TagObservationTrigger'] = {
     'type': 185,
     'fields': [
@@ -1974,11 +2121,12 @@ Param_struct['TagObservationTrigger'] = {
         'T',
         'Timeout'
     ],
-    'encode': encode_TagObservationTrigger
+    'encode': encode_TagObservationTrigger,
+    'decode': decode_TagObservationTrigger
 }
 
 
-# 16.2.4.2.2 InventoryParameterSpec Parameter
+# 16.2.4.2.2 InventoryParameterSpec Parameter (LLRP v1.1 section 17.2.4.2.2)
 
 Param_struct['InventoryParameterSpec'] = {
     'type': 186,
@@ -1989,9 +2137,15 @@ Param_struct['InventoryParameterSpec'] = {
     'n_fields': [
         'AntennaConfiguration'
     ],
-    'encode': basic_auto_param_encode_generator(ushort_ubyte_pack,
-                                                'InventoryParameterSpecID',
-                                                'ProtocolID')
+    'encode': basic_auto_param_encode_generator(
+        ushort_ubyte_pack,
+        'InventoryParameterSpecID',
+        'ProtocolID'),
+    'decode': basic_auto_param_decode_generator(
+        ushort_ubyte_unpack,
+        ushort_ubyte_size,
+        'InventoryParameterSpecID',
+        'ProtocolID'),
 }
 
 # v1.1:17.2.6.1 LLRPConfigurationStateValue Parameter
@@ -2054,15 +2208,25 @@ Param_struct['GPOWriteData'] = {
 
 
 # v1.1:17.2.6.4 KeepaliveSpec Parameter
+def decode_KeepaliveSpec(data, name=None):
+    logger.debugfast('decode_KeepaliveSpec')
+
+    (trigger_type, time_interval) = ubyte_uint_unpack(data)
+
+    par = {
+        'KeepaliveTriggerType': KeepaliveTriggerType_Type2Name[trigger_type],
+        'TimeInterval': time_interval
+    }
+    return par, ''
+
+
 Param_struct['KeepaliveSpec'] = {
     'type': 220,
     'fields': [
         'KeepaliveTriggerType',
         'TimeInterval',
     ],
-    'decode': basic_param_decode_generator(ubyte_uint_unpack,
-                                           'KeepaliveTriggerType',
-                                           'TimeInterval'),
+    'decode': decode_KeepaliveSpec,
     'encode': basic_auto_param_encode_generator(ubyte_uint_pack,
                                                 'KeepaliveTriggerType',
                                                 'TimeInterval')
@@ -4103,6 +4267,581 @@ Param_struct['ImpinjRFPowerSweep'] = {
 }
 
 
+# Custom Zebra Parameters
+def decode_MotoGeneralCapabilities(data, name=None):
+    logger.debugfast('decode_MotoGeneralCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanGetGeneralParams': flags & BIT(7) == BIT(7),
+        'CanReportPartNumber': flags & BIT(6) == BIT(6),
+        'CanReportRadioVersion': flags & BIT(5) == BIT(5),
+        'CanSupportRadioPowerState': flags & BIT(4) == BIT(4),
+        'CanSupportRadioTransmitDelay': flags & BIT(3) == BIT(3),
+        'CanSupportZebraTrigger': flags & BIT(2) == BIT(2),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoGeneralCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 1,
+    'fields': [
+        'Version',
+        'CanGetGeneralParams',
+        'CanReportPartNumber',
+        'CanReportRadioVersion',
+        'CanSupportRadioPowerState',
+        'CanSupportRadioTransmitDelay',
+        'CanSupportZebraTrigger',
+    ],
+    'decode': decode_MotoGeneralCapabilities
+}
+
+
+def decode_MotoAutonomousCapabilities(data, name=None):
+    logger.debugfast('decode_MotoAutonomousCapabilities')
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSupportAutonomousMode': flags & BIT(7) == BIT(7)
+    }
+
+    return par, ''
+
+
+Param_struct['MotoAutonomousCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 100,
+    'fields': [
+        'Version',
+        'CanSupportAutonomousMode'
+    ],
+    'decode': decode_MotoAutonomousCapabilities
+}
+
+
+def decode_MotoAutonomousState(data, name=None):
+    logger.debugfast('decode_MotoAutonomousState')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+    par = {
+        'AutonomousModeState': flags & BIT(7) == BIT(7),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoAutonomousState'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 101,
+    'fields': [
+        'AutonomousModeState',
+    ],
+    'decode': decode_MotoAutonomousState
+}
+
+
+def decode_MotoDefaultSpec(data, name=None):
+    logger.debugfast('decode_MotoDefaultSpec')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+
+    par = {
+        'UseDefaultSpecForAutoMode': flags & BIT(7) == BIT(7),
+    }
+
+    par, _ = decode_all_parameters(data[ubyte_size:], 'MotoDefaultSpec', par)
+    return par, ''
+
+
+Param_struct['MotoDefaultSpec'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 102,
+    'fields': [
+        'UseDefaultSpecForAutoMode',
+    ],
+    'o_fields': [
+        'ROSpec',
+    ],
+    'n_fields': [
+        'AccessSpec'
+    ],
+    'decode': decode_MotoDefaultSpec
+}
+
+
+def decode_MotoTagEventsGenerationCapabilities(data, name=None):
+    logger.debugfast('decode_MotoTagEventsGenerationCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSelectTagEvents': flags & BIT(7) == BIT(7),
+        'CanSelectTagReportingFormat': flags & BIT(6) == BIT(6),
+        'CanSelectMovingEvent': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoTagEventsGenerationCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 120,
+    'fields': [
+        'Version',
+        'CanSelectTagEvents',
+        'CanSelectTagReportingFormat',
+        'CanSelectMovingEvent',
+    ],
+    'decode': decode_MotoTagEventsGenerationCapabilities
+}
+
+
+# MotoTagEventSelector
+mtes_size = struct.calcsize('!BHBHBH')
+mtes_unpack = struct.Struct('!BHBHBH').unpack
+
+MotoTagEventSelector_Name2Type = {
+    'Never': 0,
+    'Immediate': 1,
+    'Moderate': 2,
+}
+
+MotoTagEventSelector_Type2Name = reverse_dict(MotoTagEventSelector_Name2Type)
+
+
+def decode_MotoTagEventSelector(data, name=None):
+    logger.debugfast("decode_MotoTagEventSelector")
+
+    (
+        report_new_tag_event,
+        new_tag_event_timeout,
+        report_tag_inv_event,
+        tag_inv_event_timeout,
+        report_tag_visibility_change_event,
+        tag_visibility_change_event_timeout,
+    ) = mtes_unpack(data[:mtes_size])
+
+    par = {
+        'ReportNewTagEvent': MotoTagEventSelector_Type2Name[report_new_tag_event],
+        'NewTagEventModeratedTimeout': new_tag_event_timeout,
+        'ReportTagInvisibleEvent': MotoTagEventSelector_Type2Name[report_tag_inv_event],
+        'TagInvisibleEventModeratedTimeout': tag_inv_event_timeout,
+        'ReportTagVisibilityChangeEvent': MotoTagEventSelector_Type2Name[report_tag_visibility_change_event],
+        'TagVisibilityChangeEventModeratedTimeout': tag_visibility_change_event_timeout
+    }
+    return par, ''
+
+
+Param_struct['MotoTagEventSelector'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 121,
+    'fields': [
+        'ReportNewTagEvent',
+        'NewTagEventModeratedTimeout',
+        'ReportTagInvisibleEvent',
+        'TagInvisibleEventModeratedTimeout',
+        'ReportTagVisibilityChangeEvent',
+        'TagVisibilityChangeEventModeratedTimeout',
+    ],
+    'decode': decode_MotoTagEventSelector
+}
+
+
+def decode_MotoTagEventSelector(data, name=None):
+    logger.debugfast("decode_MotoTagEventSelector")
+
+    (
+        report_new_tag_event,
+        new_tag_event_timeout,
+        report_tag_inv_event,
+        tag_inv_event_timeout,
+        report_tag_visibility_change_event,
+        tag_visibility_change_event_timeout,
+    ) = mtes_unpack(data[:mtes_size])
+
+    par = {
+        'ReportNewTagEvent': MotoTagEventSelector_Type2Name[report_new_tag_event],
+        'NewTagEventModeratedTimeout': new_tag_event_timeout,
+        'ReportTagInvisibleEvent': MotoTagEventSelector_Type2Name[report_tag_inv_event],
+        'TagInvisibleEventModeratedTimeout': tag_inv_event_timeout,
+        'ReportTagVisibilityChangeEvent': MotoTagEventSelector_Type2Name[report_tag_visibility_change_event],
+        'TagVisibilityChangeEventModeratedTimeout': tag_visibility_change_event_timeout
+    }
+    return par, ''
+
+
+# MotoTagReportMode
+MotoTagReportMode_Name2Type = {
+    'No reporting': 0,
+    'Report Notification': 1,
+    'Report events': 2,
+}
+
+MotoTagReportMode_Type2Name = reverse_dict(MotoTagReportMode_Name2Type)
+
+
+def decode_MotoTagReportMode(data, name=None):
+    logger.debugfast("decode_MotoTagReportMode")
+
+    report_format = ubyte_unpack(data[:ubyte_size])[0]
+
+    par = {
+        'ReportFormat': MotoTagReportMode_Type2Name[report_format]
+    }
+
+    return par, ''
+
+
+Param_struct['MotoTagReportMode'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 122,
+    'fields': [
+        'ReportFormat',
+    ],
+    'decode': decode_MotoTagReportMode,
+}
+
+
+# MotoFilterCapabilities
+def decode_MotoFilterCapabilities(data, name=None):
+    logger.debugfast('decode_MotoFilterCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanFilterTagsBasedOnRSSI': flags & BIT(7) == BIT(7),
+        'CanFilterTagsBasedOnTimeOfDay': flags & BIT(6) == BIT(6),
+        'CanFilterTagsBasedOnUTCTimeStamp': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoFilterCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 200,
+    'fields': [
+        'Version',
+        'CanFilterTagsBasedOnRSSI',
+        'CanFilterTagsBasedOnTimeOfDay',
+        'CanFilterTagsBasedOnUTCTimeStamp',
+    ],
+    'decode': decode_MotoFilterCapabilities
+}
+
+
+# MotoFilterList
+Param_struct['MotoUTCTimestamp'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 250,
+    'fields': [
+        'Microseconds',
+    ],
+    'decode': basic_auto_param_decode_generator(
+        ulonglong_unpack,
+        ulonglong_size,
+        'Microseconds'
+    )
+}
+
+
+Param_struct['MotoFilterTimeOfDay'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 251,
+    'fields': [
+        'Microseconds',
+    ],
+    'decode': basic_auto_param_decode_generator(
+        ulonglong_unpack,
+        ulonglong_size,
+        'Microseconds'
+    )
+}
+
+Match_Name2Type = {
+    'Within range': 0,
+    'Outside range': 1,
+    'Greater than lower limit': 2,
+    'Lower than upper limit': 3,
+}
+
+Match_Type2Name = reverse_dict(Match_Name2Type)
+
+
+def decode_MotoFilterTimeRange(data, name=None):
+    logger.debugfast('decode_MotoFilterTimeRange')
+
+    time_format, match = ubyte_ubyte_unpack(data[:ubyte_ubyte_size])
+
+    par = {
+        'TimeFormat': time_format,
+        'Match': Match_Type2Name[match]
+    }
+
+    par, _ = decode_all_parameters(data[ubyte_ubyte_size:], 'MotoFilterTimeRange', par)
+    return par, ''
+
+
+Param_struct['MotoFilterTimeRange'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 252,
+    'fields': [
+        'TimeFormat',
+        'Match'
+    ],
+    'n_fields': [
+        'MotoFilterTimeFormatChoice'
+    ],
+    'decode': decode_MotoFilterTimeRange
+}
+
+
+def decode_MotoFilterRSSIRange(data, name=None):
+    logger.debugfast(f"decode_MotoFilterRSSIRange")
+
+    match = ushort_unpack(data[:ushort_size])[0]
+
+    par = {
+        'Match': Match_Type2Name[match]
+    }
+
+    par, _ = decode_all_parameters(data[ushort_size:], 'MotoFilterRSSIRange', par)
+    return par, ''
+
+
+Param_struct['MotoFilterRSSIRange'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 253,
+    'fields': [
+        'Match'
+    ],
+    'n_fields': [
+        'PeakRSSI',
+    ],
+    'decode': decode_MotoFilterRSSIRange
+}
+
+
+RuleType_Name2Type = {
+    'Inclusive': 0,
+    'Exclusive': 1,
+    'Continue': 2,
+}
+
+RuleType_Type2Name = reverse_dict(RuleType_Name2Type)
+
+
+def decode_MotoFilterRule(data, name=None):
+    logger.debugfast('decode_MotoFilterRule')
+
+    rule_type = ubyte_unpack(data[:ubyte_size])[0]
+
+    par = {
+        'RuleType': RuleType_Type2Name[rule_type],
+    }
+
+    par, _ = decode_all_parameters(data[ubyte_size:], MotoFilterRule, par)
+    return par, ''
+
+Param_struct['MotoFilterRule'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 254,
+    'fields': [
+        'RuleType',
+    ],
+    'o_fields': [
+        'MotoFilterRSSIRange',
+        'MotoFilterTimeRange',
+    ],
+    'n_fields': [
+        'MotoFilterTagList'
+    ],
+    'decode': decode_MotoFilterRule
+}
+
+
+def decode_MotoFilterList(data, name=None):
+    logger.debugfast('decode_MotoFilterList')
+
+    use_filter = uint_unpack(data[:uint_size])[0]
+
+    par = {
+        'UseFilter': use_filter & BIT(31) == BIT(31)
+    }
+
+    par, _ = decode_all_parameters(data[uint_size:], 'MotoFilterList', par)
+    return par, ''
+
+
+Param_struct['MotoFilterList'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 255,
+    'fields': [
+        'UseFilter'
+    ],
+    'n_fields': [
+        'MotoFilterRule',
+    ],
+    'decode': decode_MotoFilterList
+}
+
+
+def decode_MotoFilterTagList(data, name=None):
+    logger.debugfast('decode_MotoFilterTagList')
+
+    match = ubyte_unpack(data[:ubyte_size])[0]
+
+    par = {
+        'Match': RuleType_Type2Name[match]
+    }
+
+    par, _ = decode_all_parameters(data[ubyte_size:], 'MotoFilterTagList', par)
+    return par, ''
+
+
+Param_struct['MotoFilterTagList'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 258,
+    'fields': [
+        'Match',
+    ],
+    'n_fields': [
+        'EPCData'
+    ],
+    'decode': decode_all_parameters
+}
+
+
+def decode_MotoPersistenceCapabilities(data, name=None):
+    logger.debugfast('decode_MotoPersistenceCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSaveConfiguration': flags & BIT(7) == BIT(7),
+        'CanSaveTags': flags & BIT(6) == BIT(6),
+        'CanSaveEvents': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoPersistenceCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 300,
+    'fields': [
+        'Version',
+        'CanSaveConfiguration',
+        'CanSaveTags',
+        'CanSaveEvents',
+    ],
+    'decode': decode_MotoPersistenceCapabilities
+}
+
+
+def decode_MotoPersistenceSaveParams(data, name=None):
+    logger.debugfast('decode_MotoPersistenceSaveParams')
+
+    flags = ubyte_unpack(data[:ubyte_size])[0]
+    par = {
+        'SaveConfiguration': flags & BIT(7) == BIT(7),
+        'SaveTagData': flags & BIT(6) == BIT(6),
+        'SaveTagEventData': flags & BIT(5) == BIT(5),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoPersistenceSaveParams'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 350,
+    'fields': [
+        'SaveConfiguration',
+        'SaveTagData',
+        'SaveTagEventData',
+    ],
+    'decode': decode_MotoPersistenceSaveParams
+}
+
+
+def decode_MotoC1G2LLRPCapabilities(data, name=None):
+    logger.debugfast('decode_MotoC1G2LLRPCapabilities')
+
+    version, flags = uint_ubyte_unpack(data[:uint_ubyte_size])
+    par = {
+        'Version': version,
+        'CanSupportBlockPermalock': flags & BIT(7) == BIT(7),
+        'CanSupportRecommissioning': flags & BIT(6) == BIT(6),
+        'CanWriteUMI': flags & BIT(5) == BIT(5),
+        'CanSupportNXPCuxtomCommands': flags & BIT(4) == BIT(4),
+        'CanSupportFujitsuCuxtomCommands': flags & BIT(3) == BIT(3),
+        'CanSupportG2V2Commands': flags & BIT(2) == BIT(2),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoC1G2LLRPCapabilities'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 400,
+    'fields': [
+        'Version',
+        'CanSupportBlockPermalock',
+        'CanSupportRecommissioning',
+        'CanWriteUMI',
+        'CanSupportNXPCuxtomCommands',
+        'CanSupportFujitsuCuxtomCommands',
+        'CanSupportG2V2Commands ',
+    ],
+    'decode': decode_MotoC1G2LLRPCapabilities
+}
+
+
+def decode_MotoCustomCommandOptions(data, name=None):
+    logger.debugfast('decode_MotoCustomCommandOptions')
+
+    flags = uint_unpack(data[:uint_size])[0]
+
+    par = {
+        'EnableNXPSetAndResetQuietCommands': flags & BIT(31) == BIT(31),
+    }
+
+    return par, ''
+
+
+Param_struct['MotoCustomCommandOptions'] = {
+    'type': TYPE_CUSTOM,
+    'vendorid': VENDOR_ID_MOTOROLA,
+    'subtype': 466,
+    'fields': [
+        'EnableNXPSetAndResetQuietCommands ',
+    ],
+    'decode': decode_MotoCustomCommandOptions
+}
+
+
 def llrp_data2xml(msg):
     if not msg:
         return ''
@@ -4445,4 +5184,3 @@ for source_struct, dest_dict, obj_name in [
 
         # Fill reverse dict
         dest_dict[(msgtype, vendorid, subtype)] = msgname
-

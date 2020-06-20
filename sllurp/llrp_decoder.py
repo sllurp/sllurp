@@ -54,7 +54,8 @@ struct_96bits = Struct('!12s')
 TVE_PARAM_TYPE_MAX = 127
 TYPE_CUSTOM = 1023
 VENDOR_ID_IMPINJ = 25882
-
+VENDOR_ID_MOTOROLA = 161
+VENDOR_ID_SIRIT = 24831
 
 TVE_PARAM_FORMATS = {
     # param type: (param name, struct format)
