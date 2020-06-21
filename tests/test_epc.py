@@ -50,3 +50,6 @@ class SGTIN_96_Tests(unittest.TestCase):
         epc = "30204ed9496334000000006e"
         uri = "urn:epc:id:sgtin:084663228621.0.110"
         self.assertEqual(sgtin_96.parse_sgtin_96_to_uri(epc), uri)
+
+if __name__ == '__main__':
+    unittest.main()
