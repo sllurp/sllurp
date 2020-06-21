@@ -2628,7 +2628,7 @@ def encode_TagReportContentSelector(par, param_info):
     flags = 0
     i = 15
     for field in param_info['fields']:
-        if field == 'C1G2EPCMemorySelector':
+        if field in ['C1G2EPCMemorySelector', 'CustomParameter']:
             continue
         if par.get(field, False):
             flags = flags | (1 << i)
@@ -2644,7 +2644,7 @@ def decode_TagReportContentSelector(data, name=None):
     flags = ushort_unpack(data[:ushort_size])[0]
     i = 15
     for field in Param_struct['TagReportContentSelector']['fields']:
-        if field == 'C1G2EPCMemorySelector':
+        if field in ['C1G2EPCMemorySelector', 'CustomParameter']:
             continue
         par[field] = (flags & BIT(i) == BIT(i))
         i = i - 1
@@ -2681,6 +2681,8 @@ def encode_C1G2EPCMemorySelector(par, param_info):
     flags = 0
     i = 7
     for field in param_info['fields']:
+        if field == 'CustomParameter':
+            continue
         if field in par and par[field]:
             flags = flags | (1 << i)
         i = i - 1
@@ -5131,7 +5133,6 @@ for source_struct, dest_dict, obj_name in [
         o_fields = msgstruct.setdefault('o_fields', [])
         # Multiple entries fields
         n_fields = msgstruct.setdefault('n_fields', [])
-
 
         n_fields.append('CustomParameter')
 
