@@ -357,6 +357,12 @@ class LLRPClient(object):
 
         self.disconnecting = False
 
+    def update_config(self, new_config):
+        """Update LLRPClient's config
+
+        Not completly safe, to be used with caution.
+        """
+        self.config = new_config
 
     def setState(self, newstate, onCompletion=None):
         assert newstate is not None
@@ -1517,7 +1523,13 @@ class LLRPReaderClient(object):
         all_reader_refs.add(self)
 
     def update_config(self, new_config):
+        """Update ReaderClient's config
+
+        Not completly safe, to be used with caution.
+        """
         self.config = new_config
+        if self.llrp:
+            self.llrp.update_config(new_config)
 
     def get_peername(self):
         return (self._host, self._port)
