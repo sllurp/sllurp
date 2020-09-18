@@ -415,6 +415,48 @@ def decode_param(data):
 
     return ret, data[parlen:]
 
+def encode_GetReaderConfigResponse(msg):
+    # XXX ignores CustomParameters
+    logger.debug(func())
+    data = encode('LLRPStatus')(msg['LLRPStatus'])
+
+    if 'Identification' in msg.keys():
+        data += encode('Identification')(msg['Identification'])
+
+    if 'AntennaProperties' in msg.keys():
+        data += encode('AntennaProperties')(msg['AntennaProperties'])
+
+    if 'AntennaConfiguration' in msg.keys():
+        data += encode('AntennaConfiguration')(msg['AntennaConfiguration'])
+
+    if 'ReaderEventNotificationSpec' in msg.keys():
+        data += encode('ReaderEventNotificationSpec')(msg['ReaderEventNotificationSpec'])
+
+    if 'ROReportSpec' in msg.keys():
+        data += encode('ROReportSpec')(msg['ROReportSpec'])
+
+    if 'AccessReportSpec' in msg.keys():
+        data += encode('AccessReportSpec')(msg['AccessReportSpec'])
+
+    if 'LLRPConfigurationStateValue' in msg.keys():
+        data += encode('LLRPConfigurationStateValue')(msg['LLRPConfigurationStateValue'])
+
+    if 'KeepAliveSpec' in msg.keys():
+        data += encode('KeepAliveSpec')(msg['KeepAliveSpec'])
+
+    if 'GPIPortCurrentState' in msg.keys():
+        data += encode('GPIPortCurrentState')(msg['GPIPortCurrentState'])
+
+    if 'GPOWriteData' in msg.keys():
+        data += encode('GPOWriteData')(msg['GPOWriteData'])
+
+    if 'EventsAndReports' in msg.keys():
+        data += encode('EventsAndReports')(msg['EventsAndReports'])
+
+    logger.debug('GetReaderConfigResponse data: %s', hexlify(data))
+    return data
+
+
 
 def decode_GetReaderConfigResponse(data):
     msg = LLRPMessageDict()
@@ -460,7 +502,8 @@ Message_struct['GET_READER_CONFIG_RESPONSE'] = {
         'GPOWriteData',
         'EventsAndReports',
     ],
-    'decode': decode_GetReaderConfigResponse
+    'decode': decode_GetReaderConfigResponse,
+    'encode': encode_GetReaderConfigResponse
 }
 
 
