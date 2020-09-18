@@ -329,16 +329,32 @@ def encode_GetReaderConfig(msg):
 
     return data
 
+# 16.1.1
+def decode_GetReaderConfig(data):
+    # XXX ignores CustomParameters
+    logger.debug(func())
+    ret = {}
+
+    # Decode fields
+    (ret['AntennaID'],
+     ret['RequestedData'],
+     ret['GPIPortNum'],
+     ret['GPOPortNum']) = struct.unpack('!HBHH', data)
+
+    logger.debug('GetReaderConfig data: %s', ret)
+    return ret
+
 
 Message_struct['GET_READER_CONFIG'] = {
     'type': 2,
     'fields': [
         'Ver', 'Type', 'ID',
-        'RequestedData',
         'AntennaID',
+        'RequestedData',
         'GPIPortNum',
         'GPOPortNum'
     ],
+    'decode': decode_GetReaderConfig,
     'encode': encode_GetReaderConfig
 }
 
