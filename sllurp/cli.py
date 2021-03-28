@@ -107,6 +107,9 @@ def log(host, outfile, antennas, epc, reader_timestamp):
 @click.option('-t', '--time', type=float, help='seconds to inventory')
 @click.option('-n', '--report-every-n-tags', type=int,
               help='issue a TagReport every N tags')
+@click.option('-a', '--antennas', type=str, default='1',
+              help='comma-separated list of antennas to use (0=all;'
+                   ' default 1)')
 @click.option('-X', '--tx-power', type=int, default=0,
               help='transmit power (default 0=max power)')
 @click.option('-T', '--tari', type=int, default=0,
@@ -128,14 +131,15 @@ def log(host, outfile, antennas, epc, reader_timestamp):
               help='Word addresss of the first word to read/write')
 @click.option('-ap', '--access-password', type=int, default=0,
               help='Access password for secure state if R/W locked')
-def access(host, port, time, report_every_n_tags, tx_power, tari,
+def access(host, port, time, report_every_n_tags, antennas, tx_power, tari,
            session, tag_population, read_words, write_words, count,
            memory_bank, word_ptr, access_password):
-    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n',
+    Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
                                'tx_power', 'tari', 'session',
                                'population', 'read_words', 'write_words',
                                'count', 'mb', 'word_ptr', 'access_password'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
+                antennas=antennas,
                 tx_power=tx_power, tari=tari,
                 session=session, population=tag_population,
                 read_words=read_words, write_words=write_words, count=count,
