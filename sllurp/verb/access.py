@@ -93,6 +93,18 @@ def main(main_args):
     global args
     args = main_args
 
+    if not args.host:
+        logger.info('No readers specified.')
+        return 0
+
+    enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
+    antmap = {
+        host: {
+            str(ant): 'Antenna {}'.format(ant) for ant in enabled_antennas
+        } for host in args.host
+    }
+    logger.info('Antenna map: %s', antmap)
+
     # will be called when all connections have terminated normally
     onFinish = defer.Deferred()
     onFinish.addCallback(finish)
@@ -105,6 +117,7 @@ def main(main_args):
                                  start_inventory=True,
                                  tx_power=args.tx_power,
                                  report_every_n_tags=args.every_n,
+                                 antenna_dict=antmap,
                                  tag_content_selector={
                                      'EnableROSpecID': False,
                                      'EnableSpecIndex': False,
