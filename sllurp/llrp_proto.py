@@ -4625,7 +4625,7 @@ def decode_MotoFilterRule(data, name=None):
         'RuleType': RuleType_Type2Name[rule_type],
     }
 
-    par, _ = decode_all_parameters(data[ubyte_size:], MotoFilterRule, par)
+    par, _ = decode_all_parameters(data[ubyte_size:], 'MotoFilterRule', par)
     return par, ''
 
 Param_struct['MotoFilterRule'] = {
