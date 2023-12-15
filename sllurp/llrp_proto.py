@@ -1047,6 +1047,15 @@ Param_struct['UTCTimestamp'] = {
     'decode': basic_param_decode_generator(ulonglong_unpack, 'Microseconds'),
 }
 
+# 16.2.2.2 Uptime Parameter
+Param_struct['Uptime'] = {
+    'type': 129,
+    'fields': [
+        'Microseconds'
+    ],
+    'encode': basic_param_encode_generator(ulonglong_pack, 'Microseconds'),
+    'decode': basic_param_decode_generator(ulonglong_unpack, 'Microseconds'),
+}
 
 Param_struct['RegulatoryCapabilities'] = {
     'type': 143,
@@ -3194,7 +3203,8 @@ Param_struct['SpecLoopEvent'] = {
 Param_struct['ReaderEventNotificationData'] = {
     'type': 246,
     'o_fields': [
-        'UTCTimestamp',
+        'UTCTimestamp', # Either UTCTimestamp or Uptime but not both at the same time
+        'Uptime',
         'HoppingEvent',
         'GPIEvent',
         'ROSpecEvent',
