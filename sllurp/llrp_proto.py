@@ -135,6 +135,8 @@ uint_uint_pack = struct.Struct('!II').pack
 ulonglong_ulonglong_pack = struct.Struct('!QQ').pack
 ubyte_ushort_ushort_pack = struct.Struct('!BHH').pack
 ubyte_ushort_uint_pack = struct.Struct('!BHI').pack
+ubyte_uint_ushort_pack = struct.Struct('!BIH').pack
+ubyte_uint_uint_pack = struct.Struct('!BII').pack
 ushort_ubyte_uint_pack = struct.Struct('!HBI').pack
 ushort_ushort_ushort_pack = struct.Struct('!HHH').pack
 uint_ubyte_ubyte_pack = struct.Struct('!IBB').pack
@@ -1010,6 +1012,7 @@ Message_struct['READER_EVENT_NOTIFICATION'] = {
     'o_fields': [
         'ReaderEventNotificationData'
     ],
+    'encode': encode_all_parameters,
     'decode': decode_generic_message
 }
 
@@ -2955,6 +2958,9 @@ Param_struct['C1G2SingulationDetails'] = {
         'NumCollisionSlots',
         'NumEmptySlots',
     ],
+    'encode': basic_param_encode_generator(ushort_ushort_pack,
+                                           'NumCollisionSlots',
+                                           'NumEmptySlots'),
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
                                            'NumCollisionSlots',
                                            'NumEmptySlots')
@@ -2968,9 +2974,17 @@ Param_struct['HoppingEvent'] = {
         'HopTableID',
         'NextChannelIndex'
     ],
+    'encode': basic_param_encode_generator(ushort_ushort_pack,
+                                           'HopTableID', 'NextChannelIndex'),
     'decode': basic_param_decode_generator(ushort_ushort_unpack,
                                            'HopTableID', 'NextChannelIndex')
 }
+
+
+# 16.2.7.6.2 GPIEvent Parameter
+def encode_GPIEvent(par, param_info):
+    gpievent = (par['GPIEvent'] and 1 or 0) << 7
+    return ushort_ubyte_pack(par['GPIPortNumber'], gpievent)
 
 
 # 16.2.7.6.2 GPIEvent Parameter
@@ -2990,8 +3004,18 @@ Param_struct['GPIEvent'] = {
         'GPIPortNumber',
         'GPIEvent'
     ],
+    'encode': encode_GPIEvent,
     'decode': decode_GPIEvent
 }
+
+
+# 16.2.7.6.3 ROSpecEvent Parameter
+def encode_ROSpecEvent(par, param_info):
+    events = {'Start_of_ROSpec': 0, 'End_of_ROSpec': 1, 'Preemption_of_ROSpec': 2}
+    event_type = events.get(par['EventType'])
+    if event_type is None:
+        raise LLRPError('Error encode_ROSpecEvent unknown value for EventType')
+    return ubyte_uint_uint_pack(event_type, par['ROSpecID'], par['PreemptingROSpecID'])
 
 
 # 16.2.7.6.3 ROSpecEvent Parameter
@@ -3020,6 +3044,7 @@ Param_struct['ROSpecEvent'] = {
         'ROSpecID',
         'PreemptingROSpecID'
     ],
+    'encode': encode_ROSpecEvent,
     'decode': decode_ROSpecEvent
 }
 
@@ -3029,6 +3054,8 @@ Param_struct['ReportBufferLevelWarning'] = {
     'fields': [
         'ReportBufferPercentageFull'
     ],
+    'encode': basic_param_encode_generator(ubyte_pack,
+                                           'ReportBufferPercentageFull'),
     'decode': basic_param_decode_generator(ubyte_unpack,
                                            'ReportBufferPercentageFull')
 }
@@ -3038,8 +3065,17 @@ Param_struct['ReportBufferOverflowErrorEvent'] = {
     'type': 251,
     'fields': [
     ],
+    'encode': basic_param_encode_generator(),
     'decode': decode_all_parameters
 }
+
+
+def encode_ReaderExceptionEvent(par, param_info):
+    message = par['Message']
+    # Message is expected to already be a "byte" string
+    data = ushort_pack(len(message))
+    data += par['Message']
+    return encode_all_parameters(par, param_info, data)
 
 
 def decode_ReaderExceptionEvent(data, name=None):
@@ -3072,8 +3108,17 @@ Param_struct['ReaderExceptionEvent'] = {
         # Optional N custom parameters after
         'ImpinjHubConfiguration'
     ],
+    'encode': encode_ReaderExceptionEvent,
     'decode': decode_ReaderExceptionEvent
 }
+
+
+def encode_RFSurveyEvent(par, param_info):
+    events = {'Start_of_RFSurvey': 0, 'End_of_RFSurvey': 1}
+    event_type = events.get(par['EventType'])
+    if event_type is None:
+        raise LLRPError('Error encode_RFSurveyEvent unknown value for EventType')
+    return ubyte_uint_ushort_pack(event_type, par['ROSpecID'], par['SpecIndex'])
 
 
 def decode_RFSurveyEvent(data, name=None):
@@ -3099,8 +3144,16 @@ Param_struct['RFSurveyEvent'] = {
         'ROSpecID',
         'SpecIndex'
     ],
+    'encode': encode_RFSurveyEvent,
     'decode': decode_RFSurveyEvent
 }
+
+
+def encode_AISpecEvent(par, param_info):
+    # Ignore EventType and hardcode it to 0 as "End_of_AISpec" is the only
+    # possible event.
+    data = ubyte_uint_ushort_pack(0, par['ROSpecID'], par['SpecIndex'])
+    return encode_all_parameters(par, param_info, data)
 
 
 def decode_AISpecEvent(data, name=None):
@@ -3132,8 +3185,18 @@ Param_struct['AISpecEvent'] = {
     'o_fields': [
         'C1G2SingulationDetails'
     ],
+    'encode': encode_AISpecEvent,
     'decode': decode_AISpecEvent
 }
+
+
+# 16.2.7.6.9 AntennaEvent Parameter
+def encode_AntennaEvent(par, param_info):
+    events = {'Disconnected': 0, 'Connected': 1}
+    event_type = events.get(par['EventType'])
+    if event_type is None:
+        raise LLRPError('Error encode_AntennaEvent unknown value for EventType')
+    return ubyte_ushort_pack(event_type, par['AntennaID'])
 
 
 # 16.2.7.6.9 AntennaEvent Parameter
@@ -3153,8 +3216,15 @@ Param_struct['AntennaEvent'] = {
         'EventType',
         'AntennaID'
     ],
+    'encode': encode_AntennaEvent,
     'decode': decode_AntennaEvent
 }
+
+
+# 16.2.7.6.10 ConnectionAttemptEvent Parameter
+def encode_ConnectionAttemptEvent(par, param_info):
+    status = ConnEvent_Name2Type[par['Status']]
+    return ushort_pack(status)
 
 
 # 16.2.7.6.10 ConnectionAttemptEvent Parameter
@@ -3174,6 +3244,7 @@ Param_struct['ConnectionAttemptEvent'] = {
     'fields': [
         'Status'
     ],
+    'encode': encode_ConnectionAttemptEvent,
     'decode': decode_ConnectionAttemptEvent
 }
 
@@ -3182,6 +3253,7 @@ Param_struct['ConnectionCloseEvent'] = {
     'type': 257,
     'fields': [
     ],
+    'encode': basic_param_encode_generator(),
     'decode': decode_all_parameters
 }
 
@@ -3193,6 +3265,8 @@ Param_struct['SpecLoopEvent'] = {
         'ROSpecID',
         'LoopCount'
     ],
+    'encode': basic_param_encode_generator(uint_uint_pack,
+                                           'ROSpecID', 'LoopCount'),
     'decode': basic_param_decode_generator(uint_uint_unpack,
                                            'ROSpecID', 'LoopCount')
 }
@@ -3219,6 +3293,7 @@ Param_struct['ReaderEventNotificationData'] = {
         'SpecLoopEvent',
         'ImpinjAntennaAttemptEvent',
     ],
+    'encode': encode_all_parameters,
     'decode': decode_all_parameters
 }
 
@@ -4194,6 +4269,7 @@ Param_struct['ImpinjAntennaAttemptEvent'] = {
     'fields': [
         'AntennaID'
     ],
+    'encode': basic_param_encode_generator(ushort_pack, 'AntennaID'),
     'decode': basic_param_decode_generator(ushort_unpack, 'AntennaID')
 }
 
