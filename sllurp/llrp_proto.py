@@ -3343,7 +3343,7 @@ Message_struct['CUSTOM_MESSAGE'] = {
 def encode_CustomParameter(par, param_info):
     # To encode a CustomParameter directly, data in bytesstring is expected
     # directly as Payload
-    data = msg.get('Payloard', b'')
+    data = par.get('Payload', b'')
     if is_general_debug_enabled():
         logger.debugfast('Encoding custom parameter data: %s', hexlify(data))
     return data
