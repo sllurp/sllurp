@@ -982,7 +982,7 @@ class LLRPClient(object):
 
         accessSpec = {
             'AccessSpecID': accessSpecID,
-            'AntennaID': [0],  # all antennas
+            'AntennaID': 0,  # all antennas
             'ProtocolID': AirProtocol['EPCGlobalClass1Gen2'],
             'CurrentState': False,  # disabled by default
             'ROSpecID': 0,  # all ROSpecs
