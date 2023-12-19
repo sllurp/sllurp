@@ -83,18 +83,6 @@ def main(main_args):
                     " chosen.")
         return 0
 
-    # special case default Tari values
-    tari = args.tari
-    if args.modulation in Modulation_DefaultTari:
-        t_suggested = Modulation_DefaultTari[args.modulation]
-        if args.tari:
-            logger.warn('recommended Tari for %s is %d', args.modulation,
-                        t_suggested)
-        else:
-            tari = t_suggested
-            logger.info('selected recommended Tari of %d for %s', args.tari,
-                        args.modulation)
-
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
     frequency_list = [int(x.strip()) for x in args.frequencies.split(',')]
 
@@ -102,8 +90,7 @@ def main(main_args):
         report_every_n_tags=args.every_n,
         antennas=enabled_antennas,
         tx_power=args.tx_power,
-        modulation=args.modulation,
-        tari=tari,
+        tari=args.tari,
         session=args.session,
         mode_identifier=args.mode_identifier,
         tag_population=args.population,

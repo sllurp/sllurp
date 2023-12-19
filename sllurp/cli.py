@@ -164,18 +164,18 @@ def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp,
               help='HopTableID to use (default 1) for regions '
               'with frequency hopping regulatory requirements')
 def access(host, port, time, report_every_n_tags, antennas, tx_power,
-           modulation, tari, session, mode_identifier, tag_population,
+           tari, session, mode_identifier, tag_population,
            read_words, write_words, count, memory_bank, word_ptr,
            access_password, frequencies, hoptable_id):
     Args = namedtuple('Args', ['host', 'port', 'time', 'every_n', 'antennas',
-                               'tx_power', 'modulation', 'tari', 'session',
+                               'tx_power', 'tari', 'session',
                                'mode_identifier', 'population', 'read_words',
                                'write_words', 'count', 'mb', 'word_ptr',
                                'access_password', 'frequencies',
                                'hoptable_id'])
     args = Args(host=host, port=port, time=time, every_n=report_every_n_tags,
-                antennas=antennas, tx_power=tx_power, modulation=modulation,
-                tari=tari, session=session, mode_identifier=mode_identifier,
+                antennas=antennas, tx_power=tx_power, tari=tari,
+                session=session, mode_identifier=mode_identifier,
                 population=tag_population, read_words=read_words,
                 write_words=write_words, count=count, mb=memory_bank,
                 word_ptr=word_ptr, access_password=access_password,

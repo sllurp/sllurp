@@ -4941,14 +4941,14 @@ def llrp_data2xml(msg):
                 continue
 
             if isinstance(sub, dict):
-                xml_str += __llrp_data2xml(sub, p, level + 1)
+                ret += __llrp_data2xml(sub, p, level + 1)
             elif isinstance(sub, list) and sub and isinstance(sub[0], dict):
                 for e in sub:
-                    xml_str += __llrp_data2xml(e, p, level + 1)
+                    ret += __llrp_data2xml(e, p, level + 1)
             else:
-                xml_str += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
+                ret += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
 
-        xml_str += tabs + '</%s>\n' % name
+        ret += tabs + '</%s>\n' % name
 
         # To check for fields missing in parameter field lists:
         #if is_general_debug_enabled():

@@ -442,24 +442,15 @@ class LLRPClient(object):
                           ' are {}'.format(valid_modes))
                 raise ReaderConfigurationError(errstr)
 
-        elif self.config.modulation is not None:
-            logger.debugfast('Setting mode from modulation=%s',
-                             self.config.modulation)
-            try:
-                mo = [mo for mo in mode_list
-                      if mo['Mod'] == Modulation_Name2Type[self.config.modulation]][0]
-                self.reader_mode = mo
-            except IndexError:
-                raise ReaderConfigurationError('Invalid modulation')
-
-        if self.config.tari:
-            if not self.reader_mode:
-                errstr = 'Cannot set Tari without choosing a reader mode'
-                raise ReaderConfigurationError(errstr)
-            if self.config.tari > self.reader_mode['MaxTari']:
-                errstr = ('Requested Tari is greater than MaxTari for selected'
-                          'mode {}'.format(self.reader_mode))
-                raise ReaderConfigurationError(errstr)
+        # if we're trying to set Tari explicitly, but the selected mode doesn't
+        # support the requested Tari, that's a configuration error.
+        if self.reader_mode and self.config.tari:
+            if self.reader_mode['MinTari'] < self.config.tari < self.reader_mode['MaxTari']:
+                logger.debug('Overriding mode Tari %s with requested Tari %s',
+                             self.reader_mode['MaxTari'], self.config.tari)
+            else:
+                errstr = ('Requested Tari {} is incompatible with selected '
+                          'mode {}'.format(self.config.tari, self.reader_mode))
 
         logger.info('using reader mode: %s', self.reader_mode)
 
@@ -1127,6 +1118,8 @@ class LLRPClient(object):
             tag_population=config.tag_population,
             frequencies=config.frequencies
         )
+        if config.tag_filter_mask is not None:
+            rospec_kwargs['tag_filter_mask'] = config.tag_filter_mask
         logger.info('Impinj search mode? %s', config.impinj_search_mode)
         if config.impinj_search_mode is not None:
             rospec_kwargs['impinj_search_mode'] = config.impinj_search_mode
@@ -1387,8 +1380,8 @@ class LLRPReaderConfig(object):
         self.tx_power = 0
         # Use the power level closest to the requested dbm value
         self.tx_power_dbm = None
-        self.modulation = DEFAULT_MODULATION
         self.disconnect_when_done = self.duration and self.duration > 0
+        self.tag_filter_mask = None
         self.tag_content_selector = {
             'EnableROSpecID': False,
             'EnableSpecIndex': False,
@@ -1425,6 +1418,7 @@ class LLRPReaderConfig(object):
         self.reset_on_connect = True
 
         ## Extensions specific
+        self.impinj_extended_configuration = False
         self.impinj_search_mode = None
         self.impinj_reports = False
         self.impinj_tag_content_selector = None
