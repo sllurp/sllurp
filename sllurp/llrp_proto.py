@@ -835,22 +835,13 @@ def decode_ReaderEventNotification(data):
     return msg
 
 
-def encode_ReaderEventNotification(msg):
-    logger.debug(func())
-    # resolve the ReaderEventNotification Data
-    req = msg['ReaderEventNotificationData']
-    data = encode('ReaderEventNotificationData')(req)
-    logger.debug('ReaderEventNotification data: %s', hexlify(data))
-    return data
-
 Message_struct['READER_EVENT_NOTIFICATION'] = {
     'type': 63,
     'fields': [
         'Ver', 'Type', 'ID',
         'ReaderEventNotificationData'
     ],
-    'decode': decode_ReaderEventNotification,
-    'encode': encode_ReaderEventNotification
+    'decode': decode_ReaderEventNotification
 }
 
 
@@ -922,9 +913,9 @@ def decode_UTCTimestamp(data):
 
 def encode_UTCTimestamp(par):
     msgtype = Message_struct['UTCTimestamp']['type']
-    msg_header = '!HHQ'
+    msg = '!HHQ'
     msg_len = struct.calcsize(msg_header)
-    data = struct.pack(msg_header, msgtype, msg_len, par['Microseconds'])
+    data = struct.pack(msg, msgtype, msg_len, par['Microseconds'])
     return data
 
 
@@ -936,37 +927,6 @@ Message_struct['UTCTimestamp'] = {
     ],
     'decode': decode_UTCTimestamp,
     'encode': encode_UTCTimestamp,
-}
-
-
-# 17.2.2.2 Uptime Parameter
-def decode_Uptime(data):
-    logger.debug(func())
-    par = {}
-
-    if len(data) == 0:
-        return None, data
-
-    header = data[0:par_header_len]
-    msgtype, length = struct.unpack(par_header, header)
-    msgtype = msgtype & BITMASK(10)
-    if msgtype != Message_struct['Uptime']['type']:
-        return (None, data)
-    body = data[par_header_len:length]
-    logger.debug('%s (type=%d len=%d)', func(), msgtype, length)
-
-    # Decode fields
-    (par['Microseconds'], ) = struct.unpack('!Q', body)
-    return par, data[length:]
-
-
-Message_struct['Uptime'] = {
-    'type': 129,
-    'fields': [
-        'Type',
-        'Microseconds'
-    ],
-    'decode': decode_Uptime,
 }
 
 
@@ -3390,17 +3350,6 @@ def decode_ConnectionAttemptEvent(data):
 
     return par, data[length:]
 
-def encode_ConnectionAttemptEvent(msg):
-    logger.debug(func())
-    msgtype = Message_struct['ConnectionAttemptEvent']['type']
-    msg_header = '!HHH'
-    msg_len = struct.calcsize(msg_header)
-    status = ConnEvent_Name2Type[msg['Status']]
-    data = struct.pack(msg_header, msgtype, msg_len, status)
-    logger.debug('ConnectionAttemptEvent data: %s', hexlify(data))
-    return data
-
-
 
 Message_struct['ConnectionAttemptEvent'] = {
     'type': 256,
@@ -3408,8 +3357,7 @@ Message_struct['ConnectionAttemptEvent'] = {
         'Type',
         'Status'
     ],
-    'decode': decode_ConnectionAttemptEvent,
-    'encode': encode_ConnectionAttemptEvent
+    'decode': decode_ConnectionAttemptEvent
 }
 
 
@@ -3486,11 +3434,7 @@ def decode_ReaderEventNotificationData(data):
     if ret:
         par['UTCTimestamp'] = ret
     else:
-        ret, body = decode('Uptime')(body)
-        if ret:
-            par['Uptime'] = ret
-        else:
-            raise LLRPError('missing or invalid UTCTimestamp or Uptime parameter')
+        raise LLRPError('missing or invalid UTCTimestamp parameter')
 
     while len(body):
         evt_header = body[0:par_header_len]
@@ -3523,20 +3467,6 @@ def decode_ReaderEventNotificationData(data):
     return par, body
 
 
-def encode_ReaderEventNotificationData(msg):
-    # XXX Does not implement most fields.
-    logger.debug(func())
-    msg_header = '!HH'
-    msg_header_len = struct.calcsize(msg_header)
-    eventtype = Message_struct['ReaderEventNotificationData']['type']
-    # add the timestamp
-    data = encode('UTCTimestamp')(msg['UTCTimestamp'])
-    data += encode('ConnectionAttemptEvent')(msg['ConnectionAttemptEvent'])
-    data = struct.pack(msg_header, eventtype,
-                       len(data) + msg_header_len) + data
-    logger.debug('ReaderEventNotificationData: %s', hexlify(data))
-    return data
-
 Message_struct['ReaderEventNotificationData'] = {
     'type': 246,
     'fields': [
@@ -3554,8 +3484,7 @@ Message_struct['ReaderEventNotificationData'] = {
         'ConnectionCloseEvent',
         'SpecLoopEvent'
     ],
-    'decode': decode_ReaderEventNotificationData,
-    'encode': encode_ReaderEventNotificationData
+    'decode': decode_ReaderEventNotificationData
 }
 
 
