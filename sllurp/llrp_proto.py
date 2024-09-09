@@ -248,7 +248,7 @@ KeepaliveTriggerType_Name2Type = {
 
 KeepaliveTriggerType_Type2Name = reverse_dict(KeepaliveTriggerType_Name2Type)
 
-# 13.2.6.11 Connection attemp events
+# 13.2.6.11 Connection attempt events
 ConnEvent_Name2Type = {
     'Success':                          0,
     'Failed (a Reader initiated connection already exists)':    1,
@@ -345,7 +345,7 @@ Param_struct = {}
 # Load Param_struct with existing tv encoded parameters and an automatic
 # decoder..
 # Note: This needs to be done early, so that the decoder of a specific param
-# can still be overriden later.
+# can still be overridden later.
 for p_type, p_format in iteritems(TVE_PARAM_FORMATS):
     p_name = p_format[0]
     p_unpack_func = p_format[1].unpack
@@ -4959,13 +4959,13 @@ def llrp_data2xml(msg):
 
         return ret
 
-    ans = ''
+    output = ''
     for name, sub in msg.items():
         if not isinstance(sub, list) or not sub or not isinstance(sub[0], dict):
             sub = [sub]
         for e in sub:
-            ans += __llrp_data2xml(e, name)
-    return ans[:-1]
+            output += __llrp_data2xml(e, name)
+    return output[:-1]
 
 
 class LLRPROSpec(dict):

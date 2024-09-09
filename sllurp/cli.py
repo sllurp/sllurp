@@ -154,7 +154,7 @@ def log(host, port, outfile, antennas, tx_power, epc, reader_timestamp,
               default=3,
               help='Memory bank: 3 User, 2 TID, 1 EPC, 0 Reserved')
 @click.option('-wp', '--word-ptr', type=int, default=0,
-              help='Word addresss of the first word to read/write')
+              help='Word address of the first word to read/write')
 @click.option('-ap', '--access-password', type=int, default=0,
               help='Access password for secure state if R/W locked')
 @click.option('-f', '--frequencies', type=str, default='1',

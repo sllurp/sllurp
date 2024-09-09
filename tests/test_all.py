@@ -344,12 +344,12 @@ class TestGetReaderConfig(unittest.TestCase):
         assert conf[5:7] == b'\x00\x00'  # GPOPortNum=0
 
         # Check custom param encoding
-        parm = conf[7:]
-        assert parm[:2] == b'\x03\xff'  # type=1023
-        assert parm[2:4] == b'\x00\x10'  # length = 23 - 7 = 16
-        assert parm[4:8] == b'\x00\x00e\x1a'  # VendorID=25882
-        assert parm[8:12] == b'\x00\x00\x00\x15'  # Subtype=21
-        assert parm[12:16] == b'\x00\x00\x07\xd0'  # Payload=2000
+        param = conf[7:]
+        assert param[:2] == b'\x03\xff'  # type=1023
+        assert param[2:4] == b'\x00\x10'  # length = 23 - 7 = 16
+        assert param[4:8] == b'\x00\x00e\x1a'  # VendorID=25882
+        assert param[8:12] == b'\x00\x00\x00\x15'  # Subtype=21
+        assert param[12:16] == b'\x00\x00\x07\xd0'  # Payload=2000
 
 
 

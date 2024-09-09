@@ -49,7 +49,7 @@ class LLRPMessage(object):
                 self.deserialize()
 
     def serialize(self):
-        """Turns a message dictionnary into a sequence of bytes"""
+        """Turns a message dictionary into a sequence of bytes"""
         if self.msgdict is None:
             raise LLRPError('No message dict to serialize.')
         msgdict_iter = iteritems(self.msgdict)
@@ -156,8 +156,8 @@ class LLRPMessage(object):
     def __repr__(self):
         try:
             ret = llrp_data2xml(self.msgdict)
-        except TypeError as te:
-            logger.exception(te)
+        except TypeError as exc:
+            logger.exception(exc)
             ret = ''
         return ret
 
@@ -360,7 +360,7 @@ class LLRPClient(object):
     def update_config(self, new_config):
         """Update LLRPClient's config
 
-        Not completly safe, to be used with caution.
+        Not completely safe, to be used with caution.
         """
         self.config = new_config
 
@@ -818,7 +818,7 @@ class LLRPClient(object):
             'RequestedData': Capability_Name2Type['All']
         }
         if self.config.impinj_extended_configuration:
-            # NOTE: Not really usefull, as default value when impinj extensions
+            # NOTE: Not really useful, as default value when impinj extensions
             # are enabled.
             cfg['ImpinjRequestedData'] = {
                     # per Octane LLRP guide:
@@ -1519,7 +1519,7 @@ class LLRPReaderClient(object):
     def update_config(self, new_config):
         """Update ReaderClient's config
 
-        Not completly safe, to be used with caution.
+        Not completely safe, to be used with caution.
         """
         self.config = new_config
         if self.llrp:
@@ -1658,7 +1658,7 @@ class LLRPReaderClient(object):
         self.disconnect_requested.set()
 
         if not self._socket_thread:
-            # No polite stop as there would be no reply, just perfom cleanup
+            # No polite stop as there would be no reply, just perform cleanup
             self.hard_disconnect()
             self._on_disconnected()
             return
@@ -1693,8 +1693,8 @@ class LLRPReaderClient(object):
     def disconnect_all_readers(timeout_per_reader=1, force=True):
         """Disconnect all readers that are connected
 
-        timeout_per_reader: How long to wait in (s)econds for gracefull shutdown
-        force: if True, a Hard shutdown of the connection is done if the gracefull
+        timeout_per_reader: How long to wait in (s)econds for graceful shutdown
+        force: if True, a Hard shutdown of the connection is done if the graceful
         shutdown does not finish after "timeout_per_reader".
         """
         # Ask politely first any remaining active reader to stop

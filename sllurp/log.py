@@ -47,7 +47,7 @@ def debugfast(self, *args, **kwargs):
 
     Even if disabled, logging debug will to check with isEnabledFor if it has
     something to do. That can cause a very very small lag but that could be
-    noticable with a high rate of calls.
+    noticeable with a high rate of calls.
     """
     if general_debug_enabled:
         self.debug(*args, **kwargs)
