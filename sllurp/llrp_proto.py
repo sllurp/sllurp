@@ -2245,7 +2245,7 @@ Param_struct['KeepaliveSpec'] = {
 }
 
 
-# v1.1:17.2.6.5 AntennaProperties Parammeter
+# v1.1:17.2.6.5 AntennaProperties Parameter
 def decode_AntennaProperties(data, name=None):
     logger.debugfast('decode_AntennaProperties')
     par = {}
