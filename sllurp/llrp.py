@@ -871,6 +871,7 @@ class LLRPClient(object):
                 'KeepaliveTriggerType': 1,
                 'TimeInterval': self.config.keepalive_interval
             }
+
         for event, enabled in self.config.event_selector.items():
             msg['SET_READER_CONFIG']['ReaderEventNotificationSpec']\
                 ['EventNotificationState'][event] = enabled
@@ -881,6 +882,13 @@ class LLRPClient(object):
                 msg['SET_READER_CONFIG']['ImpinjAntennaConfiguration'] = {
                     'ImpinjAntennaEventConfiguration': ant_event_enable
                 }
+
+        gpi_ports_config = [
+            {'GPIPortNum': port_num, 'GPIConfig': enabled}
+            for port_num, enabled in self.config.gpi_ports_config.items()
+        ]
+        if gpi_ports_config:
+            msg['SET_READER_CONFIG']['GPIPortCurrentState'] = gpi_ports_config
 
         self.sendMessage(msg)
         self.setState(LLRPReaderState.STATE_SENT_SET_CONFIG)
@@ -1419,6 +1427,14 @@ class LLRPReaderConfig(object):
             'Channelist': [DEFAULT_CHANNEL_INDEX],
             'Automatic': False
         }
+
+        # Explicitly enable or disable a GPI port
+        self.gpi_ports_config = {}
+        ## Example:
+        #self.gpi_ports_config = {
+        #    2: True,
+        #    3: False
+        #}
 
         self.reconnect = False
         self.start_inventory = True

@@ -137,6 +137,7 @@ ubyte_ushort_ushort_pack = struct.Struct('!BHH').pack
 ubyte_ushort_uint_pack = struct.Struct('!BHI').pack
 ubyte_uint_ushort_pack = struct.Struct('!BIH').pack
 ubyte_uint_uint_pack = struct.Struct('!BII').pack
+ushort_ubyte_ubyte_pack = struct.Struct('!HBB').pack
 ushort_ubyte_uint_pack = struct.Struct('!HBI').pack
 ushort_ushort_ushort_pack = struct.Struct('!HHH').pack
 uint_ubyte_ubyte_pack = struct.Struct('!IBB').pack
@@ -2341,7 +2342,15 @@ Param_struct['RFTransmitter'] = {
 }
 
 
-# V1.1:17.2.6.9 GPOWriteData Parameter
+# V1.1:17.2.6.9 GPIPortCurrentState Parameter
+def encode_GPIPortCurrentState(par, param_info):
+    gpiconfig = bool(par['GPIConfig']) << 7
+    data = ushort_ubyte_ubyte_pack(par['GPIPortNum'],
+                                   gpiconfig,
+                                   0)
+    return data
+
+
 def decode_GPIPortCurrentState(data, name=None):
     logger.debugfast('decode_GPIPortCurrentState')
     par = {}
@@ -2359,6 +2368,7 @@ Param_struct['GPIPortCurrentState'] = {
         'GPIConfig',
         'GPIState'
     ],
+    'encode': encode_GPIPortCurrentState,
     'decode': decode_GPIPortCurrentState
 }
 
