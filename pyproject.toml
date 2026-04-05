@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sllurp"
+dynamic = ["version"]
+description = "RFID reader control library"
+readme = "README.rst"
+license = "GPL-3.0-only"
+requires-python = ">=3.10"
+authors = [
+    { name = "Ben Ransford", email = "ben@ransford.org" },
+]
+maintainers = [
+    { name = "Florent Viard" },
+]
+keywords = ["llrp", "rfid", "reader"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "click",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+sllurp = "sllurp.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/sllurp/sllurp"
+
+[tool.setuptools]
+packages = ["sllurp"]
+
+[tool.setuptools.dynamic]
+version = {attr = "sllurp.version.__version__"}
