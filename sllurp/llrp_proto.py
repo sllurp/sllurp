@@ -4949,7 +4949,7 @@ def llrp_data2xml(msg):
                 for k in ('DecodeError', 'Type', 'Data', 'VendorID', 'Subtype'):
                     if k not in e:
                         continue
-                    ret += tabs1 + '<%s>%s</%s>\n' % (k, e[k], k)
+                    ret += tabs1 + '<{}>{}</{}>\n'.format(k, e[k], k)
                 ret += tabs + '</%s>\n' % DECODE_ERROR_PARNAME
             return ret
 
@@ -4970,7 +4970,7 @@ def llrp_data2xml(msg):
                 for e in sub:
                     ret += __llrp_data2xml(e, p, level + 1)
             else:
-                ret += tabs + '\t<%s>%r</%s>\n' % (p, sub, p)
+                ret += tabs + '\t<{}>{!r}</{}>\n'.format(p, sub, p)
 
         ret += tabs + '</%s>\n' % name
 

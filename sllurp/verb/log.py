@@ -27,7 +27,7 @@ class CsvLogger:
 
     def tag_cb(self, reader, tags):
         host, port = reader.get_peername()
-        reader = '{}:{}'.format(host, port)
+        reader = f'{host}:{port}'
         logger.info('RO_ACCESS_REPORT from %s', reader)
         for tag in tags:
             epc = tag['EPC']

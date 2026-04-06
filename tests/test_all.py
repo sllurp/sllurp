@@ -22,7 +22,7 @@ logger.setLevel(logLevel)
 def randhex(numdigits):
     """Return a string with numdigits hexadecimal digits."""
     assert type(numdigits) is int
-    return '{{:0{}x}}'.format(numdigits).format(
+    return f'{{:0{numdigits}x}}'.format(
         random.randrange(16**numdigits))
 
 

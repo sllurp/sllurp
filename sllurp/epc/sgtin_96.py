@@ -35,7 +35,7 @@ def parse_sgtin_96(sgtin_96):
         # not a sgtin, not handled
         raise Exception('Not SGTIN-96.')
 
-    binary = "{0:020b}".format(int(sgtin_96, 16)).zfill(96)
+    binary = f"{int(sgtin_96, 16):020b}".zfill(96)
 
     header = int(binary[:8], 2)
     tag_filter = int(binary[8:11], 2)

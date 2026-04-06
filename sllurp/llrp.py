@@ -311,7 +311,7 @@ class LLRPReaderState:
             return [st_name for st_name, st_num in cls.getStates()
                     if st_num == state][0]
         except IndexError:
-            raise LLRPError('unknown state {}'.format(state))
+            raise LLRPError(f'unknown state {state}')
 
 
 class LLRPClient:

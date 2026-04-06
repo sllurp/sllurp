@@ -64,7 +64,7 @@ def parse_args():
     parser.add_argument('host', help='hostname or IP address of RFID reader',
                         nargs='*')
     parser.add_argument('-p', '--port', default=LLRP_DEFAULT_PORT, type=int,
-                        help='port (default {})'.format(LLRP_DEFAULT_PORT))
+                        help=f'port (default {LLRP_DEFAULT_PORT})')
     parser.add_argument('-t', '--time', default=10, type=float,
                         help='number of seconds to inventory (default 10)')
     parser.add_argument('-d', '--debug', action='store_true',
