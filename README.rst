@@ -37,7 +37,7 @@ Quick Start
 
 Install from PyPI_::
 
-    $ virtualenv .venv
+    $ python3 -m venv .venv
     $ source .venv/bin/activate
     $ pip install sllurp
     $ sllurp inventory ip.add.re.ss
@@ -48,7 +48,7 @@ Or install from GitHub_::
 
     $ git clone https://github.com/ransford/sllurp.git
     $ cd sllurp
-    $ virtualenv .venv
+    $ python3 -m venv .venv
     $ source .venv/bin/activate
     $ pip install .
     $ sllurp inventory ip.add.re.ss
