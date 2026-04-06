@@ -91,7 +91,7 @@ class TestROSpec(unittest.TestCase):
             'AntennaConfiguration'][0]['C1G2InventoryCommand'][0]['C1G2Filter']
         self.assertEqual(len(filters), 2)
         self.assertEqual(
-            set([f['C1G2TagInventoryMask']['TagMask'] for f in filters]),
+            {f['C1G2TagInventoryMask']['TagMask'] for f in filters},
             set(masks))
 
 
