@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 
 
 
-class LLRPMessage(object):
+class LLRPMessage:
     __slots__ = ['msgdict', 'msgbytes', 'msgname']
 
     def __init__(self, msgdict=None, msgbytes=None):
@@ -160,7 +160,7 @@ class LLRPMessage(object):
         return ret
 
 
-class C1G2TargetTag(object):
+class C1G2TargetTag:
     def __init__(self, MB=0, Pointer=0, TagMask='', TagData=''):
         self.MB = MB
         self.Match = 1
@@ -169,7 +169,7 @@ class C1G2TargetTag(object):
         self.TagData = TagData
 
 
-class C1G2OpSpec(object):
+class C1G2OpSpec:
     pass
 
 
@@ -213,7 +213,7 @@ class C1G2Recommission(C1G2OpSpec):
         self.FlagLSB = FlagLSB
 
 
-class C1G2LockPayload(object):
+class C1G2LockPayload:
     def __init__(self, Privilege, DataField):
         if Privilege < 0 or Privilege > 3:
             raise ValueError("Invalid Privilege value")
@@ -281,7 +281,7 @@ class C1G2GetBlockPermalockStatus(C1G2OpSpec):
         self.BlockRange = BlockRange
 
 
-class LLRPReaderState(object):
+class LLRPReaderState:
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
     STATE_CONNECTED = 3
@@ -314,7 +314,7 @@ class LLRPReaderState(object):
             raise LLRPError('unknown state {}'.format(state))
 
 
-class LLRPClient(object):
+class LLRPClient:
     def __init__(self, config, transport_tx_write=None,
                  state_change_callback=None):
 
@@ -1378,7 +1378,7 @@ class LLRPClient(object):
         return sent_ids
 
 
-class LLRPReaderConfig(object):
+class LLRPReaderConfig:
     def __init__(self, config_dict=None):
 
         self.duration = None
@@ -1488,7 +1488,7 @@ class LLRPReaderConfig(object):
             else:
                 raise LLRPError('tx_power must be dict or float')
 
-class LLRPReaderClient(object):
+class LLRPReaderClient:
     def __init__(self, host, port=None, config=None, timeout=5.0):
         global all_reader_refs
 

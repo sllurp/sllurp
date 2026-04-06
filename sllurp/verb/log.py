@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 csvlogger = None
 
 
-class CsvLogger(object):
+class CsvLogger:
     def __init__(self, filehandle, epc=None, reader_timestamp=False):
         self.rows = []
         self.filehandle = filehandle

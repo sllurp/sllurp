@@ -38,7 +38,7 @@ def bytes_to_hex(bindata):
     return ascrep
 
 
-class MockStream(object):
+class MockStream:
     _bytes = None
 
     def __init__(self, mybytes):
@@ -55,7 +55,7 @@ class MockStream(object):
         return len(self._bytes)
 
 
-class MockConn(object):
+class MockConn:
     stream = None
 
     def __init__(self, mybytes):
@@ -68,7 +68,7 @@ class MockConn(object):
         pass
 
 
-class FauxClient(object):
+class FauxClient:
     def __init__(self):
         self.reader_mode = {'ModeIdentifier': '0', 'MaxTari': 7250}
 
