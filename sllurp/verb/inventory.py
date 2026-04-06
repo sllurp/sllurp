@@ -1,7 +1,6 @@
 """Inventory command.
 """
 
-from __future__ import print_function, division
 import logging
 import pprint
 import time

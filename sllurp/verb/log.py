@@ -4,7 +4,6 @@ Logs tag sightings at one or more readers to a CSV file.
 """
 
 
-from __future__ import print_function, unicode_literals
 import csv
 import datetime
 import logging

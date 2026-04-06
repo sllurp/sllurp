@@ -1,7 +1,6 @@
 """Low Level Reader Protocol implemtnation in pure Python
 """
 
-from __future__ import unicode_literals
 from .version import __version__ as sllurp_version
 
 

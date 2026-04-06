@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 from struct import Struct, error as StructError
 
 from .log import get_logger
