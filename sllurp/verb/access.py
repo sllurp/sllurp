@@ -29,11 +29,8 @@ def access_cb(reader, state):
         opspec = C1G2Read(AccessPassword=args.access_password, MB=args.mb,
                           WordPtr=args.word_ptr, WordCount=args.read_words)
     elif args.write_words:
-        if sys.version_info.major < 3:
-            data = sys.stdin.read(args.write_words * 2)
-        else:
-            # bytes
-            data = sys.stdin.buffer.read(args.write_words * 2)
+        # bytes
+        data = sys.stdin.buffer.read(args.write_words * 2)
 
         opspec = C1G2Write(AccessPassword=args.access_password, MB=args.mb,
                            WordPtr=args.word_ptr,
@@ -61,10 +58,7 @@ def tag_report_cb(reader, tags):
             # copy the binary data to the standard output stream
             data = tag["C1G2ReadOpSpecResult"].get("ReadData")
             if data:
-                if sys.version_info.major < 3:
-                    sys.stdout.write(data)
-                else:
-                    sys.stdout.buffer.write(data) # bytes
+                sys.stdout.buffer.write(data) # bytes
                 logger.debug("hex data: %s", binascii.hexlify(data))
 
 
