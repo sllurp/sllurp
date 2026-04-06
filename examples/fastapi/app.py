@@ -214,7 +214,6 @@ async def get_tags():
     return {"tags": TAG_DATA}
 
 
-
 @app.get("/status")
 async def status():
     return {"status": READER.is_alive()}
@@ -233,6 +232,7 @@ async def clear():
     """API: Clear stored tag data"""
     clear_tag_data()
     return {"message": "Tag data cleared"}
+
 
 if __name__ == "__main__":
     import uvicorn

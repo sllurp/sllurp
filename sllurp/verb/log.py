@@ -3,14 +3,12 @@
 Logs tag sightings at one or more readers to a CSV file.
 """
 
-
 import csv
 import datetime
 import logging
 
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient
 from sllurp.log import get_logger
-
 
 numTags = 0
 logger = get_logger(__name__)
@@ -27,34 +25,35 @@ class CsvLogger:
 
     def tag_cb(self, reader, tags):
         host, port = reader.get_peername()
-        reader = f'{host}:{port}'
-        logger.info('RO_ACCESS_REPORT from %s', reader)
+        reader = f"{host}:{port}"
+        logger.info("RO_ACCESS_REPORT from %s", reader)
         for tag in tags:
-            epc = tag['EPC']
+            epc = tag["EPC"]
             if self.epc is not None and epc != self.epc:
                 continue
             if self.reader_timestamp:
-                timestamp = tag['LastSeenTimestampUTC'] / 1e6
+                timestamp = tag["LastSeenTimestampUTC"] / 1e6
             else:
-                timestamp = (datetime.datetime.utcnow() -
-                             datetime.datetime(1970, 1, 1)).total_seconds()
-            antenna = tag['AntennaID']
-            rssi = tag['PeakRSSI']
+                timestamp = (
+                    datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)
+                ).total_seconds()
+            antenna = tag["AntennaID"]
+            rssi = tag["PeakRSSI"]
             self.rows.append((timestamp, reader, antenna, rssi, epc))
-            self.num_tags += tag['TagSeenCount']
+            self.num_tags += tag["TagSeenCount"]
 
     def flush(self):
-        logger.info('Writing %d rows...', len(self.rows))
-        wri = csv.writer(self.filehandle, dialect='excel')
-        wri.writerow(('timestamp', 'reader', 'antenna', 'rssi', 'epc'))
+        logger.info("Writing %d rows...", len(self.rows))
+        wri = csv.writer(self.filehandle, dialect="excel")
+        wri.writerow(("timestamp", "reader", "antenna", "rssi", "epc"))
         wri.writerows(self.rows)
 
 
 def finish_cb(reader):
     # Following would be possible, but then concurrent file write would have
     # to be handled. So it is more convenient to do it at the end of main.
-    #csvlogger.flush()
-    logger.info('Total tags seen: %d', csvlogger.num_tags)
+    # csvlogger.flush()
+    logger.info("Total tags seen: %d", csvlogger.num_tags)
 
 
 def main(args):
@@ -63,15 +62,15 @@ def main(args):
     # Arguments:
     # host, port, outfile, antennas, tx_power, epc, reader_timestamp
     if not args.host:
-        logger.info('No readers specified.')
+        logger.info("No readers specified.")
         return 0
 
     if not args.outfile:
-        logger.info('No output file specified.')
+        logger.info("No output file specified.")
         return 0
 
-    enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
-    frequency_list = [int(x.strip()) for x in args.frequencies.split(',')]
+    enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
+    frequency_list = [int(x.strip()) for x in args.frequencies.split(",")]
 
     factory_args = dict(
         antennas=enabled_antennas,
@@ -79,38 +78,39 @@ def main(args):
         start_inventory=True,
         disconnect_when_done=True,
         tag_content_selector={
-            'EnableROSpecID': False,
-            'EnableSpecIndex': False,
-            'EnableInventoryParameterSpecID': False,
-            'EnableAntennaID': True,
-            'EnableChannelIndex': False,
-            'EnablePeakRSSI': True,
-            'EnableFirstSeenTimestamp': False,
-            'EnableLastSeenTimestamp': True,
-            'EnableTagSeenCount': True,
-            'EnableAccessSpecID': False,
-            'C1G2EPCMemorySelector': {
-                'EnableCRC': False,
-                'EnablePCBits': False,
-            }
+            "EnableROSpecID": False,
+            "EnableSpecIndex": False,
+            "EnableInventoryParameterSpecID": False,
+            "EnableAntennaID": True,
+            "EnableChannelIndex": False,
+            "EnablePeakRSSI": True,
+            "EnableFirstSeenTimestamp": False,
+            "EnableLastSeenTimestamp": True,
+            "EnableTagSeenCount": True,
+            "EnableAccessSpecID": False,
+            "C1G2EPCMemorySelector": {
+                "EnableCRC": False,
+                "EnablePCBits": False,
+            },
         },
         frequencies={
-            'HopTableId': args.hoptable_id,
-            'ChannelList': frequency_list,
-            'Automatic': False
+            "HopTableId": args.hoptable_id,
+            "ChannelList": frequency_list,
+            "Automatic": False,
         },
     )
     if frequency_list[0] == 0:
-        factory_args['frequencies']['Automatic'] = True
-        factory_args['frequencies']['ChannelList'] = [1]
+        factory_args["frequencies"]["Automatic"] = True
+        factory_args["frequencies"]["ChannelList"] = [1]
 
-    csvlogger = CsvLogger(args.outfile, epc=args.epc,
-                          reader_timestamp=args.reader_timestamp)
+    csvlogger = CsvLogger(
+        args.outfile, epc=args.epc, reader_timestamp=args.reader_timestamp
+    )
 
     reader_clients = []
     for host in args.host:
-        if ':' in host:
-            host, port = host.split(':', 1)
+        if ":" in host:
+            host, port = host.split(":", 1)
             port = int(port)
         else:
             port = args.port
@@ -126,8 +126,9 @@ def main(args):
             reader.connect()
     except Exception:
         if reader:
-            logger.error("Failed to establish a connection with: %r",
-                         reader.get_peername())
+            logger.error(
+                "Failed to establish a connection with: %r", reader.get_peername()
+            )
         # On one error, abort all
         for reader in reader_clients:
             reader.disconnect()
@@ -151,4 +152,3 @@ def main(args):
                     logger.exception("Error during disconnect. Ignoring...")
 
     csvlogger.flush()
-

@@ -1,4 +1,4 @@
-'''
+"""
 Tool used to parse SGTIN-96 hex string from RFID tags.
 
 SGTIN Format (bits):
@@ -8,11 +8,11 @@ Header    Filter  Partition   Company Prefix  Item Reference  Serial
 Documentation here:
 http://www.gs1.org/sites/default/files/docs/tds/TDS_1_9_Standard.pdf
 
-'''
+"""
 
-'''
+"""
 Table defining partition sizes for SGTIN-96
-'''
+"""
 SGTIN_96_PARTITION_MAP = {
     0: (40, 12, 4, 1),
     1: (37, 11, 7, 2),
@@ -20,20 +20,20 @@ SGTIN_96_PARTITION_MAP = {
     3: (30, 9, 14, 4),
     4: (27, 8, 17, 5),
     5: (24, 7, 20, 6),
-    6: (20, 6, 24, 7)
+    6: (20, 6, 24, 7),
 }
 
 
 def parse_sgtin_96(sgtin_96):
-    '''Given a SGTIN-96 hex string, parse each segment.
-    Returns a dictionary of the segments.'''
+    """Given a SGTIN-96 hex string, parse each segment.
+    Returns a dictionary of the segments."""
 
     if not sgtin_96:
-        raise Exception('Pass in a value.')
+        raise Exception("Pass in a value.")
 
     if not sgtin_96.startswith("30"):
         # not a sgtin, not handled
-        raise Exception('Not SGTIN-96.')
+        raise Exception("Not SGTIN-96.")
 
     binary = f"{int(sgtin_96, 16):020b}".zfill(96)
 
@@ -50,7 +50,7 @@ def parse_sgtin_96(sgtin_96):
     company_data = int(binary[company_start:company_end], 2)
     if company_data > pow(10, l):
         # can't be too large
-        raise Exception('Company value is too large')
+        raise Exception("Company value is too large")
     company_prefix = str(company_data).zfill(l)
 
     item_start = company_end
@@ -67,14 +67,13 @@ def parse_sgtin_96(sgtin_96):
         "partition": partition,
         "company_prefix": company_prefix,
         "item_reference": item_reference,
-        "serial": serial
+        "serial": serial,
     }
 
 
 def parse_sgtin_96_to_uri(sgtin_96):
-    '''Given a SGTIN-96 hex string, parse each segment.
-    Returns a tag URI string.'''
+    """Given a SGTIN-96 hex string, parse each segment.
+    Returns a tag URI string."""
     tag_dict = parse_sgtin_96(sgtin_96)
-    uri_template = ("urn:epc:id:sgtin:{company_prefix}."
-                    "{item_reference}.{serial}")
+    uri_template = "urn:epc:id:sgtin:{company_prefix}." "{item_reference}.{serial}"
     return uri_template.format(**tag_dict)

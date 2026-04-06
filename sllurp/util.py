@@ -31,7 +31,7 @@ def natural_keys(text):
     >>> sorted(['foo25', 'foo3'], key=natural_keys)
     ['foo3', 'foo25']
     """
-    return [atoi(c) for c in re.split('([0-9]+)', text)]
+    return [atoi(c) for c in re.split("([0-9]+)", text)]
 
 
 def find_closest(table, target):

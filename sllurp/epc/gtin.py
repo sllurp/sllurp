@@ -2,7 +2,7 @@ import math
 
 
 def calculate_check_digit(gtin):
-    '''Given a GTIN (8-14) or SSCC, calculate its appropriate check digit'''
+    """Given a GTIN (8-14) or SSCC, calculate its appropriate check digit"""
     reverse_gtin = gtin[::-1]
     total = 0
     count = 0
@@ -19,5 +19,5 @@ def calculate_check_digit(gtin):
 
 
 def combine_gtin_with_check_digit(gtin):
-    '''Given a gtin, calculate and append its check digit'''
+    """Given a gtin, calculate and append its check digit"""
     return gtin + str(calculate_check_digit(gtin))

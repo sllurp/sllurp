@@ -28,7 +28,8 @@ to update a web page via websockets when rfid tags are seen.
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..', '..')))
+
+sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
 
 from argparse import ArgumentParser
 from logging import getLogger, INFO, Formatter, StreamHandler, WARN
@@ -42,15 +43,14 @@ from tornado.websocket import WebSocketClosedError, WebSocketHandler
 from sllurp.llrp import LLRP_DEFAULT_PORT, LLRPReaderConfig, LLRPReaderClient
 from sllurp.log import get_logger
 
-
-logger = get_logger('sllurp')
+logger = get_logger("sllurp")
 
 tornado_main_ioloop = None
 
 
 def setup_logging():
     logger.setLevel(INFO)
-    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
+    logFormat = "%(asctime)s %(name)s: %(levelname)s: %(message)s"
     formatter = Formatter(logFormat)
     handler = StreamHandler()
     handler.setFormatter(formatter)
@@ -92,31 +92,33 @@ class MyWebSocketHandler(WebSocketHandler):
     def open(self):
         MyWebSocketHandler._connected_clients += 1
         MyWebSocketHandler._listeners.add(self)
-        logger.debug("WebSocket client connected (total: %d)",
-                     self._connected_clients)
+        logger.debug("WebSocket client connected (total: %d)", self._connected_clients)
 
     def on_message(self, message):
         try:
             data = json_decode(message)
             logger.info(data)
         except ValueError:
-            logger.info(f'error loading json: {message}')
+            logger.info(f"error loading json: {message}")
 
     def on_close(self):
         MyWebSocketHandler._connected_clients -= 1
         MyWebSocketHandler._listeners.remove(self)
-        logger.debug("WebSocket client disconnected (total: %d)",
-                     self._connected_clients)
+        logger.debug(
+            "WebSocket client disconnected (total: %d)", self._connected_clients
+        )
 
     def update_rfid(self, tags):
         if self._connected_clients > 0:
             try:
-                payload = {'tags': tags}
+                payload = {"tags": tags}
                 self.write_message(payload)
                 # logger.debug('websocket write: {}'.format(pformat(payload)))
             except WebSocketClosedError:
-                logger.debug('attempting to send websocket message with no '
-                             'connected clients')
+                logger.debug(
+                    "attempting to send websocket message with no " "connected clients"
+                )
+
 
 def convert_to_unicode(obj):
     """
@@ -124,13 +126,13 @@ def convert_to_unicode(obj):
     """
     if isinstance(obj, dict):
         return {
-            convert_to_unicode(key):
-                convert_to_unicode(value) for key, value in obj.items()
+            convert_to_unicode(key): convert_to_unicode(value)
+            for key, value in obj.items()
         }
     elif isinstance(obj, list):
         return [convert_to_unicode(element) for element in obj]
     elif isinstance(obj, bytes):
-        return obj.decode('utf-8')
+        return obj.decode("utf-8")
     else:
         return obj
 
@@ -139,41 +141,70 @@ def tag_seen_callback(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     if tags:
         tags = convert_to_unicode(tags)
-        tornado_main_ioloop.add_callback(MyWebSocketHandler.dispatch_tags,
-                                         tags)
+        tornado_main_ioloop.add_callback(MyWebSocketHandler.dispatch_tags, tags)
 
 
 def parse_args():
-    parser = ArgumentParser(description='Simple RFID Reader Inventory')
-    parser.add_argument('host', help='hostname or IP address of RFID reader',
-                        nargs='*')
-    parser.add_argument('-p', '--port', default=LLRP_DEFAULT_PORT, type=int,
-                        help='port to connect to (default {})'
-                        .format(LLRP_DEFAULT_PORT))
-    parser.add_argument('-n', '--report-every-n-tags', default=1, type=int,
-                        dest='every_n', metavar='N',
-                        help='issue a TagReport every N tags')
-    parser.add_argument('-a', '--antennas', default='1',
-                        help='comma-separated list of antennas to enable')
-    parser.add_argument('-X', '--tx-power', default=0, type=int,
-                        dest='tx_power',
-                        help='Transmit power (default 0=max power)')
-    parser.add_argument('-M', '--modulation', default='M8',
-                        help='modulation (default M8)')
-    parser.add_argument('-T', '--tari', default=0, type=int,
-                        help='Tari value (default 0=auto)')
-    parser.add_argument('-s', '--session', type=int, default=2,
-                        help='Gen2 session (default 2)')
-    parser.add_argument('--mode-identifier', type=int,
-                        help='ModeIdentifier value')
-    parser.add_argument('-P', '--tag-population', type=int, default=4,
-                        help="Tag Population value (default 4)")
-    parser.add_argument('--impinj-search-mode', choices=['1', '2'],
-                        help=('Impinj extension: inventory search mode '
-                              '(1=single, 2=dual)'))
-    parser.add_argument('--impinj-reports', type=bool, default=False,
-                        help='Enable Impinj tag report content (Phase angle, '
-                             'RSSI, Doppler)')
+    parser = ArgumentParser(description="Simple RFID Reader Inventory")
+    parser.add_argument("host", help="hostname or IP address of RFID reader", nargs="*")
+    parser.add_argument(
+        "-p",
+        "--port",
+        default=LLRP_DEFAULT_PORT,
+        type=int,
+        help="port to connect to (default {})".format(LLRP_DEFAULT_PORT),
+    )
+    parser.add_argument(
+        "-n",
+        "--report-every-n-tags",
+        default=1,
+        type=int,
+        dest="every_n",
+        metavar="N",
+        help="issue a TagReport every N tags",
+    )
+    parser.add_argument(
+        "-a",
+        "--antennas",
+        default="1",
+        help="comma-separated list of antennas to enable",
+    )
+    parser.add_argument(
+        "-X",
+        "--tx-power",
+        default=0,
+        type=int,
+        dest="tx_power",
+        help="Transmit power (default 0=max power)",
+    )
+    parser.add_argument(
+        "-M", "--modulation", default="M8", help="modulation (default M8)"
+    )
+    parser.add_argument(
+        "-T", "--tari", default=0, type=int, help="Tari value (default 0=auto)"
+    )
+    parser.add_argument(
+        "-s", "--session", type=int, default=2, help="Gen2 session (default 2)"
+    )
+    parser.add_argument("--mode-identifier", type=int, help="ModeIdentifier value")
+    parser.add_argument(
+        "-P",
+        "--tag-population",
+        type=int,
+        default=4,
+        help="Tag Population value (default 4)",
+    )
+    parser.add_argument(
+        "--impinj-search-mode",
+        choices=["1", "2"],
+        help=("Impinj extension: inventory search mode " "(1=single, 2=dual)"),
+    )
+    parser.add_argument(
+        "--impinj-reports",
+        type=bool,
+        default=False,
+        help="Enable Impinj tag report content (Phase angle, " "RSSI, Doppler)",
+    )
     return parser.parse_args()
 
 
@@ -185,18 +216,16 @@ def main(args):
     tornado_main_ioloop = IOLoop.current()
 
     if not args.host:
-        logger.info('No readers specified.')
+        logger.info("No readers specified.")
         return 0
 
     # Set up web server
-    application = Application([(r"/", DefaultHandler),
-                               (r"/ws", MyWebSocketHandler)])
+    application = Application([(r"/", DefaultHandler), (r"/ws", MyWebSocketHandler)])
     application.listen(8888)
-
 
     # Special case default Tari values
 
-    enabled_antennas = [int(x.strip()) for x in args.antennas.split(',')]
+    enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
     factory_args = dict(
         report_every_n_tags=args.every_n,
         antennas=enabled_antennas,
@@ -207,35 +236,35 @@ def main(args):
         tag_population=args.tag_population,
         start_inventory=True,
         tag_content_selector={
-            'EnableROSpecID': True,
-            'EnableSpecIndex': True,
-            'EnableInventoryParameterSpecID': True,
-            'EnableAntennaID': True,
-            'EnableChannelIndex': True,
-            'EnablePeakRSSI': True,
-            'EnableFirstSeenTimestamp': True,
-            'EnableLastSeenTimestamp': True,
-            'EnableTagSeenCount': True,
-            'EnableAccessSpecID': True,
-            'C1G2EPCMemorySelector': {
-                'EnableCRC': True,
-                'EnablePCBits': True,
-            }
+            "EnableROSpecID": True,
+            "EnableSpecIndex": True,
+            "EnableInventoryParameterSpecID": True,
+            "EnableAntennaID": True,
+            "EnableChannelIndex": True,
+            "EnablePeakRSSI": True,
+            "EnableFirstSeenTimestamp": True,
+            "EnableLastSeenTimestamp": True,
+            "EnableTagSeenCount": True,
+            "EnableAccessSpecID": True,
+            "C1G2EPCMemorySelector": {
+                "EnableCRC": True,
+                "EnablePCBits": True,
+            },
         },
         impinj_search_mode=args.impinj_search_mode,
         impinj_tag_content_selector=None,
     )
     if args.impinj_reports:
-        factory_args['impinj_tag_content_selector'] = {
-            'EnableRFPhaseAngle': True,
-            'EnablePeakRSSI': True,
-            'EnableRFDopplerFrequency': True
+        factory_args["impinj_tag_content_selector"] = {
+            "EnableRFPhaseAngle": True,
+            "EnablePeakRSSI": True,
+            "EnableRFDopplerFrequency": True,
         }
 
     reader_clients = []
     for host in args.host:
-        if ':' in host:
-            host, port = host.split(':', 1)
+        if ":" in host:
+            host, port = host.split(":", 1)
             port = int(port)
         else:
             port = args.port
@@ -261,15 +290,14 @@ def main(args):
     while True:
         # Join all threads using a timeout so it doesn't block
         # Filter out threads which have been joined or are None
-        alive_readers = [reader
-                         for reader in reader_clients if reader.is_alive()]
+        alive_readers = [reader for reader in reader_clients if reader.is_alive()]
         if not alive_readers:
             break
         for reader in alive_readers:
             reader.join(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Load Sllurp config
     cmd_args = parse_args()
     main(cmd_args)
