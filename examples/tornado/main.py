@@ -79,7 +79,7 @@ class DefaultHandler(RequestHandler):
 
 class MyWebSocketHandler(WebSocketHandler):
     _connected_clients = 0
-    _listeners = set([])
+    _listeners = set()
 
     @classmethod
     def dispatch_tags(cls, tags):
@@ -100,7 +100,7 @@ class MyWebSocketHandler(WebSocketHandler):
             data = json_decode(message)
             logger.info(data)
         except ValueError:
-            logger.info('error loading json: {}'.format(message))
+            logger.info(f'error loading json: {message}')
 
     def on_close(self):
         MyWebSocketHandler._connected_clients -= 1

@@ -35,7 +35,7 @@ PORT = LLRP_DEFAULT_PORT
 
 
 # Store the reader and tag data
-READER: Optional[LLRPReaderClient] = None
+READER: LLRPReaderClient | None = None
 TAG_DATA: list[RFIDTag] = []
 TAG_QUEUE = Queue()
 ACTIVE_CONNECTIONS = []

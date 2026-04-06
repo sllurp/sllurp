@@ -11,8 +11,6 @@ from .verb import inventory as _inventory
 from .verb import log as _log
 from .verb import access as _access
 
-# Disable Click unicode warning since we use unicode string exclusively
-click.disable_unicode_literals_warning = True
 
 logger = loggie.get_logger(__name__)
 

@@ -16,7 +16,7 @@ from .llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
                          DEFAULT_CHANNEL_INDEX, DEFAULT_HOPTABLE_INDEX)
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger, is_general_debug_enabled
-from .util import natural_keys, iteritems, iterkeys, find_closest
+from .util import natural_keys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
 LLRP_MSG_ID_MAX = 4294967295
@@ -50,7 +50,7 @@ class LLRPMessage:
         """Turns a message dictionary into a sequence of bytes"""
         if self.msgdict is None:
             raise LLRPError('No message dict to serialize.')
-        msgdict_iter = iteritems(self.msgdict)
+        msgdict_iter = iter(self.msgdict.items())
         name, msgitem = next(msgdict_iter)
         logger.debugfast('serializing %s command', name)
 

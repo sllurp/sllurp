@@ -26,7 +26,7 @@ import struct
 from collections import defaultdict
 from binascii import hexlify, unhexlify
 
-from .util import BIT, BITMASK, reverse_dict, iteritems
+from .util import BIT, BITMASK, reverse_dict
 from .llrp_decoder import (msg_header_encode, msg_header_decode,
                            param_header_decode, par_vendor_subtype_size,
                            par_vendor_subtype_unpack, TVE_PARAM_FORMATS,
@@ -346,7 +346,7 @@ Param_struct = {}
 # decoder..
 # Note: This needs to be done early, so that the decoder of a specific param
 # can still be overridden later.
-for p_type, p_format in iteritems(TVE_PARAM_FORMATS):
+for p_type, p_format in TVE_PARAM_FORMATS.items():
     p_name = p_format[0]
     p_unpack_func = p_format[1].unpack
     if not p_name:
@@ -5220,7 +5220,7 @@ Param_Type2Name = {}
 for source_struct, dest_dict, obj_name in [
         (Message_struct, Message_Type2Name, 'Message_struct'),
         (Param_struct, Param_Type2Name, 'Param_struct')]:
-    for msgname, msgstruct in iteritems(source_struct):
+    for msgname, msgstruct in source_struct.items():
         vendorid = msgstruct.get('vendorid', 0)
         subtype = msgstruct.get('subtype', 0)
 
