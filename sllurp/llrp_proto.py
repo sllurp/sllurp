@@ -48,7 +48,8 @@ from .log import get_logger, is_general_debug_enabled
 
 __all__ = [
     # Class
-    "LLRPError" "LLRPROSpec",
+    "LLRPError",
+    "LLRPROSpec",
     "LLRPMessageDict",
     # Const
     "AirProtocol",
