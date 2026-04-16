@@ -35,7 +35,7 @@ PORT = LLRP_DEFAULT_PORT
 
 
 # Store the reader and tag data
-READER: Optional[LLRPReaderClient] = None
+READER: LLRPReaderClient | None = None
 TAG_DATA: list[RFIDTag] = []
 TAG_QUEUE = Queue()
 ACTIVE_CONNECTIONS = []
@@ -214,7 +214,6 @@ async def get_tags():
     return {"tags": TAG_DATA}
 
 
-
 @app.get("/status")
 async def status():
     return {"status": READER.is_alive()}
@@ -233,6 +232,7 @@ async def clear():
     """API: Clear stored tag data"""
     clear_tag_data()
     return {"message": "Tag data cleared"}
+
 
 if __name__ == "__main__":
     import uvicorn

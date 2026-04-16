@@ -1,5 +1,4 @@
-"""Reset command.
-"""
+"""Reset command."""
 
 import logging
 
@@ -11,23 +10,24 @@ logger = get_logger(__name__)
 
 def shutdown(reader, state):
     host, port = reader.get_peername()
-    logger.info('Shutting down reader %s:%d', host, port)
+    logger.info("Shutting down reader %s:%d", host, port)
     reader.disconnect()
+
 
 def main(args):
     if not args.host:
-        logger.info('No readers specified.')
+        logger.info("No readers specified.")
         return 0
 
     factory_args = {
-        'start_inventory': False,
-        'reset_on_connect': False,
+        "start_inventory": False,
+        "reset_on_connect": False,
     }
 
     reader_clients = []
     for host in args.host:
-        if ':' in host:
-            host, port = host.split(':', 1)
+        if ":" in host:
+            host, port = host.split(":", 1)
             port = int(port)
         else:
             port = args.port
@@ -45,8 +45,7 @@ def main(args):
         try:
             reader.connect()
         except:
-            logger.error("Failed to connect to %s:%d. Skipping...",
-                         host, port)
+            logger.error("Failed to connect to %s:%d. Skipping...", host, port)
 
     while True:
         try:

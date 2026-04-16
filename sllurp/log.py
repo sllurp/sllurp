@@ -2,25 +2,28 @@
 Logging setup
 """
 
-from __future__ import unicode_literals
 import logging
 import sys
+
 # Global
 general_debug_enabled = False
+
 
 def set_general_debug(debug=False):
     global general_debug_enabled
     general_debug_enabled = debug
 
+
 def is_general_debug_enabled():
     return general_debug_enabled
+
 
 def init_logging(debug=False, logfile=None, stream="stderr"):
     """Initialize logging."""
     set_general_debug(debug)
 
     loglevel = logging.DEBUG if debug else logging.INFO
-    logformat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
+    logformat = "%(asctime)s %(name)s: %(levelname)s: %(message)s"
     formatter = logging.Formatter(logformat)
 
     stdout_handler = logging.StreamHandler(sys.stdout)
@@ -28,9 +31,13 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
     stdout_handler.setFormatter(formatter)
     stderr_handler.setFormatter(formatter)
     lower_than_warning = MaxLevelFilter(logging.WARNING)
-    stdout_handler.addFilter(lower_than_warning)  # messages lower than WARNING go to stdout
+    stdout_handler.addFilter(
+        lower_than_warning
+    )  # messages lower than WARNING go to stdout
     stdout_handler.setLevel(loglevel)
-    stderr_handler.setLevel(max(loglevel, logging.WARNING))  # messages >= WARNING ( and >= STDOUT_LOG_LEVEL ) go to stderr
+    stderr_handler.setLevel(
+        max(loglevel, logging.WARNING)
+    )  # messages >= WARNING ( and >= STDOUT_LOG_LEVEL ) go to stderr
 
     root = logging.getLogger()
     root.setLevel(loglevel)
@@ -42,6 +49,7 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
         fhandler.setFormatter(formatter)
         root.addHandler(fhandler)
 
+
 def debugfast(self, *args, **kwargs):
     """logging debug func that is more efficient when debug is disabled.
 
@@ -51,6 +59,7 @@ def debugfast(self, *args, **kwargs):
     """
     if general_debug_enabled:
         self.debug(*args, **kwargs)
+
 
 def get_logger(module_name):
     """Return a logger object providing the custom debugfast function.
@@ -65,9 +74,12 @@ def get_logger(module_name):
 
 
 class MaxLevelFilter(logging.Filter):
-    '''Filters (lets through) all messages with level < LEVEL'''
+    """Filters (lets through) all messages with level < LEVEL"""
+
     def __init__(self, level):
         self.level = level
 
     def filter(self, record):
-        return record.levelno < self.level # "<" instead of "<=": since logger.setLevel is inclusive, this should be exclusive
+        return (
+            record.levelno < self.level
+        )  # "<" instead of "<=": since logger.setLevel is inclusive, this should be exclusive
