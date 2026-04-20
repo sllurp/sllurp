@@ -30,8 +30,6 @@ to work.
 sllurp is distributed under version 3 of the GNU General Public License.  See
 ``LICENSE.txt`` for details.
 
-.. _GitHub: https://github.com/ransford/sllurp/
-
 Quick Start
 -----------
 
@@ -46,7 +44,7 @@ Run ``sllurp --help`` and ``sllurp inventory --help`` to see options.
 
 Or install from GitHub_::
 
-    $ git clone https://github.com/ransford/sllurp.git
+    $ git clone https://github.com/sllurp/sllurp.git
     $ cd sllurp
     $ python3 -m venv .venv
     $ source .venv/bin/activate
@@ -58,7 +56,6 @@ If the reader gets into a funny state because you're debugging against it
 state by running ``sllurp reset ip.add.re.ss``.
 
 .. _PyPI: https://pypi.python.org/pypi/sllurp
-.. _GitHub: https://github.com/ransford/sllurp/
 
 Reader API
 ----------
@@ -194,7 +191,7 @@ what mode identifiers it supports via the ``C1G2RFControl`` parameter, or run
 ``sllurp --debug inventory`` against a reader to see a dump of the supported
 modes in the capabilities description.
 
-.. _confusing: https://github.com/ransford/sllurp/issues/63#issuecomment-309233937
+.. _confusing: https://github.com/sllurp/sllurp/issues/63#issuecomment-309233937
 
 Contributing
 ------------
@@ -209,7 +206,12 @@ Authors
 
 Much of the code in sllurp is by `Ben Ransford`_, although it began its life in
 August 2013 as a fork of LLRPyC_.  Many fine citizens of GitHub have
-contributed code to sllurp since the fork.
+contributed code to sllurp since the fork, including `Florent Viard`_,
+`Bogdan-Marius Pradatu`_, `Jonas Gröger`_, and `Qifan Lu`_.
 
 .. _Ben Ransford: https://ben.ransford.org/
 .. _LLRPyC: https://sourceforge.net/projects/llrpyc/
+.. _Florent Viard: https://github.com/fviard
+.. _Bogdan-Marius Pradatu: https://github.com/BogdanPradatu
+.. _Jonas Gröger: https://github.com/JonasGroeger
+.. _Qifan Lu: https://github.com/lqf96
