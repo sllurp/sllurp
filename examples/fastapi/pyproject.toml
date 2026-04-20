@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.8",
     "pydantic>=2.10.6",
-    "sllurp>=2.0.1",
+    "sllurp>=3.0.0",
     "uvicorn>=0.34.0",
     "websockets>=15.0",
 ]
