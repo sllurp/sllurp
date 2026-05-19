@@ -12,7 +12,7 @@ fastapi==0.115.8
     # via llrp-interface (pyproject.toml)
 h11==0.16.0
     # via uvicorn
-idna==3.10
+idna==3.15
     # via anyio
 pydantic==2.10.6
     # via
