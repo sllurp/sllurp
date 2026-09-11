@@ -6,7 +6,10 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from sllurp.reader_management import ReaderManagementError
+from sllurp.reader_management import (
+    ReaderManagementError,
+    UnsupportedReaderOperation as SharedUnsupportedReaderOperation,
+)
 from sllurp.zebra_management import (
     UnsupportedReaderOperation,
     ZebraIoTConnectorManager,
@@ -430,3 +433,7 @@ def test_factory_selects_protocol_by_model(management_server):
             password="p",
             model="FXR90",
         )
+
+
+def test_zebra_uses_shared_unsupported_operation_exception():
+    assert UnsupportedReaderOperation is SharedUnsupportedReaderOperation

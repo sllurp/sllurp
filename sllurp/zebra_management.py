@@ -18,7 +18,11 @@ from collections.abc import Mapping
 from typing import Any
 from xml.etree import ElementTree as ET
 
-from .reader_management import HTTPReaderManager, ReaderManagementError
+from .reader_management import (
+    HTTPReaderManager,
+    ReaderManagementError,
+    UnsupportedReaderOperation,
+)
 
 RM_NS = "urn:epcglobal:rm:xsd:1"
 EPC_NS = "urn:epcglobal:xsd:1"
@@ -97,10 +101,6 @@ def _find_text(root: ET.Element, name: str) -> str | None:
         if _local_name(element.tag) == name:
             return (element.text or "").strip()
     return None
-
-
-class UnsupportedReaderOperation(ReaderManagementError):
-    """Raised when a documented reader/model does not support an operation."""
 
 
 class ZebraRMManager:

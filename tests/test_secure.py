@@ -104,3 +104,24 @@ def test_tls_handshake_failure_closes_raw_socket():
 
     raw_socket.close.assert_called_once_with()
     assert reader._socket is None
+
+
+def test_secure_main_loop_unexpected_failure_cleans_up(monkeypatch):
+    reader = LLRPTLSReaderClient(
+        "reader.example.test",
+        ssl_context=Mock(),
+    )
+    tls_socket = Mock()
+    tls_socket.pending.return_value = 0
+    reader._socket = tls_socket
+    called = []
+    reader.add_disconnected_callback(called.append)
+
+    def fail_select(*_args, **_kwargs):
+        raise RuntimeError("select failed")
+
+    monkeypatch.setattr("sllurp.secure.select.select", fail_select)
+    reader.main_loop()
+
+    assert reader._socket is None
+    assert called == [reader]

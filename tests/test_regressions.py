@@ -1,4 +1,5 @@
 import struct
+from unittest.mock import Mock
 
 import pytest
 from click.testing import CliRunner
@@ -9,6 +10,7 @@ from sllurp.llrp import (
     LLRPClient,
     LLRPReaderClient,
     LLRPReaderConfig,
+    LLRP_SECURE_PORT,
     LLRPReaderState,
 )
 from sllurp.llrp_errors import ReaderConfigurationError
@@ -143,3 +145,78 @@ def test_log_cli_forwards_frequency_options(monkeypatch):
     assert len(captured) == 1
     assert captured[0].frequencies == "3,4"
     assert captured[0].hoptable_id == 2
+
+@pytest.mark.parametrize("tari", [10, 20])
+def test_parse_capabilities_accepts_tari_boundaries(tari):
+    config = LLRPReaderConfig(
+        {
+            "start_inventory": False,
+            "reset_on_connect": False,
+            "mode_identifier": 1,
+            "tari": tari,
+        }
+    )
+    client = LLRPClient(config, transport_tx_write=lambda _: None)
+    capabilities = {
+        "GeneralDeviceCapabilities": {"MaxNumberOfAntennaSupported": 1},
+        "RegulatoryCapabilities": {
+            "UHFBandCapabilities": {
+                "TransmitPowerLevelTableEntry": [
+                    {"Index": 1, "TransmitPowerValue": 3000}
+                ],
+                "UHFC1G2RFModeTable": {
+                    "UHFC1G2RFModeTableEntry": [
+                        {"ModeIdentifier": 1, "MinTari": 10, "MaxTari": 20}
+                    ]
+                },
+            }
+        },
+    }
+
+    client.parseCapabilities(capabilities)
+    assert client.reader_mode["ModeIdentifier"] == 1
+
+
+def test_reader_client_selects_secure_default_port_from_config():
+    secure_config = LLRPReaderConfig(
+        {"tls_enabled": True, "start_inventory": False, "reset_on_connect": False}
+    )
+    secure_reader = LLRPReaderClient("reader.example", config=secure_config)
+    assert secure_reader.get_peername() == ("reader.example", LLRP_SECURE_PORT)
+
+    explicit_reader = LLRPReaderClient(
+        "reader.example", port=55085, config=secure_config
+    )
+    assert explicit_reader.get_peername() == ("reader.example", 55085)
+
+    plain_reader = LLRPReaderClient("reader.example")
+    assert plain_reader.get_peername() == ("reader.example", 5084)
+
+
+def test_disconnect_callbacks_are_idempotent():
+    reader = LLRPReaderClient("localhost")
+    called = []
+    reader.add_disconnected_callback(called.append)
+
+    reader._on_disconnected()
+    reader._on_disconnected()
+
+    assert called == [reader]
+
+
+def test_main_loop_unexpected_failure_cleans_up_and_notifies(monkeypatch):
+    reader = LLRPReaderClient("localhost")
+    reader._socket = Mock()
+    called = []
+    reader.add_disconnected_callback(called.append)
+
+    def fail_select(*_args, **_kwargs):
+        raise RuntimeError("select failed")
+
+    monkeypatch.setattr("sllurp.llrp.select.select", fail_select)
+    reader.main_loop()
+
+    assert reader._socket is None
+    assert called == [reader]
+    reader._on_disconnected()
+    assert called == [reader]

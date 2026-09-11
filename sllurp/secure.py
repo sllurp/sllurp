@@ -18,11 +18,9 @@ from socket import (
     error as SocketError,
 )
 
-from .llrp import LLRPReaderClient, SOCKET_RECV_CHUNK
+from .llrp import LLRPReaderClient, LLRP_SECURE_PORT, SOCKET_RECV_CHUNK
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger
-
-LLRP_SECURE_PORT = 5085
 
 logger = get_logger(__name__)
 
@@ -181,6 +179,7 @@ class LLRPTLSReaderClient(LLRPReaderClient):
                     pass
             raise
 
+        self._disconnected_notified = False
         logger.info("connected securely to %s (:%s)", self._host, self._port)
         return True
 
@@ -231,6 +230,11 @@ class LLRPTLSReaderClient(LLRPReaderClient):
                     self._stop_main_loop.clear()
         except Exception:
             logger.exception("Exception encountered in secure main loop, exiting...")
+            try:
+                self.hard_disconnect()
+            except Exception:
+                logger.exception("Error while cleaning up failed secure reader connection")
+            self._on_disconnected()
 
         self._socket_thread = None
 

@@ -42,6 +42,7 @@ from .log import get_logger, is_general_debug_enabled
 from .util import natural_keys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
+LLRP_SECURE_PORT = 5085
 LLRP_MSG_ID_MAX = 4294967295
 THREAD_NAME_PREFIX = "sllurp-reader"
 SOCKET_RECV_CHUNK = 64 * 1024
@@ -505,8 +506,8 @@ class LLRPClient:
         if self.reader_mode and self.config.tari:
             if (
                 self.reader_mode["MinTari"]
-                < self.config.tari
-                < self.reader_mode["MaxTari"]
+                <= self.config.tari
+                <= self.reader_mode["MaxTari"]
             ):
                 logger.debug(
                     "Overriding mode Tari %s with requested Tari %s",
@@ -857,7 +858,7 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.error("DISABLE_ROSPEC failed with status %s: %s", status, err)
-                logger.warn("Error %s disabling ROSpec: %s", status, err)
+                logger.warning("Error %s disabling ROSpec: %s", status, err)
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -913,7 +914,7 @@ class LLRPClient:
             self.processDeferreds(msgName, lmsg.isSuccess())
 
         else:
-            logger.warn("message %s received in unknown state!", msgName)
+            logger.warning("message %s received in unknown state!", msgName)
 
         if self._deferreds[msgName]:
             logger.error(
@@ -927,7 +928,7 @@ class LLRPClient:
         return failure
 
     def complain(self, failure, *args):
-        logger.warn("complain(): %s", args)
+        logger.warning("complain(): %s", args)
 
     def send_KEEPALIVE_ACK(self):
         self.sendMessage({"KEEPALIVE_ACK": {}})
@@ -1213,7 +1214,7 @@ class LLRPClient:
     def startInventory(self, force_regen_rospec=False):
         """Add a ROSpec to the reader and enable it."""
         if self.state == LLRPReaderState.STATE_INVENTORYING:
-            logger.warn("ignoring startInventory() while already inventorying")
+            logger.warning("ignoring startInventory() while already inventorying")
             return None
 
         rospec = self.getROSpec(force_new=force_regen_rospec)
@@ -1361,7 +1362,7 @@ class LLRPClient:
         @raise: LLRPError if the requested index is out of range
         """
         if not self.tx_power_table:
-            logger.warn("get_tx_power(): tx_power_table is empty!")
+            logger.warning("get_tx_power(): tx_power_table is empty!")
             return {}
 
         logger.debugfast("requested tx_power: %s", tx_power)
@@ -1700,7 +1701,11 @@ class LLRPReaderClient:
         global all_reader_refs
 
         if port is None:
-            port = LLRP_DEFAULT_PORT
+            port = (
+                LLRP_SECURE_PORT
+                if config is not None and config.tls_enabled
+                else LLRP_DEFAULT_PORT
+            )
         self._port = port
         self._host = host
         self._socktimeout = timeout
@@ -1710,6 +1715,7 @@ class LLRPReaderClient:
         # Needed?
         self.disconnect_requested = Event()
         self._stop_main_loop = Event()
+        self._disconnected_notified = False
 
         # for partial data transfers
         self.expected_bytes = 0
@@ -1915,6 +1921,7 @@ class LLRPReaderClient:
             self._socket = None
             raise
 
+        self._disconnected_notified = False
         transport = "TLS" if self.config.tls_enabled else "TCP"
         logger.info(
             "connected to %s (:%s) over %s", self._host, self._port, transport
@@ -2142,8 +2149,13 @@ class LLRPReaderClient:
                         # we can continue the loop with a socket that should
                         # have been updated
                         self._stop_main_loop.clear()
-        except:
+        except Exception:
             logger.exception("Exception encountered in main loop, exiting...")
+            try:
+                self.hard_disconnect()
+            except Exception:
+                logger.exception("Error while cleaning up failed reader connection")
+            self._on_disconnected()
 
         self._socket_thread = None
 
@@ -2231,6 +2243,9 @@ class LLRPReaderClient:
         )
 
     def _on_disconnected(self):
+        if self._disconnected_notified:
+            return
+        self._disconnected_notified = True
         for fn in self._disconnected_callbacks:
             try:
                 fn(self)
