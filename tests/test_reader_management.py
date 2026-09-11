@@ -26,6 +26,12 @@ class ReaderHandler(BaseHTTPRequestHandler):
         if self.path == "/settings":
             self._write_json(200, {"mode": "inventory", "power": 30})
             return
+        if self.path == "/redirect-external":
+            self.send_response(302)
+            self.send_header("Location", "https://attacker.example/settings")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         self._write_json(404, {"error": "missing"})
 
     def do_PATCH(self):
@@ -86,6 +92,50 @@ def test_bearer_auth_header(reader_server):
     manager.update_settings("settings", {"enabled": True})
 
     assert reader_server.last_authorization == "Bearer token-value"
+
+
+def test_absolute_url_on_same_origin_is_allowed(reader_server):
+    host, port = reader_server.server_address
+    manager = HTTPReaderManager(
+        f"http://{host}:{port}", username="admin", password="secret"
+    )
+
+    result = manager.update_settings(
+        f"http://{host}:{port}/settings", {"enabled": True}
+    )
+
+    assert result == {"updated": {"enabled": True}}
+
+
+def test_cross_origin_request_is_rejected_before_credentials_can_leak():
+    manager = HTTPReaderManager(
+        "https://reader.example", username="admin", password="secret"
+    )
+
+    with pytest.raises(ValueError, match="configured reader host"):
+        manager.request("GET", "https://attacker.example/settings")
+
+    with pytest.raises(ValueError, match="absolute http"):
+        manager.request("GET", "//attacker.example/settings")
+
+
+def test_cross_origin_redirect_is_rejected(reader_server):
+    host, port = reader_server.server_address
+    manager = HTTPReaderManager(
+        f"http://{host}:{port}", username="admin", password="secret"
+    )
+
+    with pytest.raises(ReaderManagementError, match="redirect left"):
+        manager.request("GET", "/redirect-external")
+
+
+def test_embedded_url_credentials_are_rejected():
+    with pytest.raises(ValueError, match="embedded credentials"):
+        HTTPReaderManager("https://admin:secret@reader.example")
+
+    manager = HTTPReaderManager("https://reader.example")
+    with pytest.raises(ValueError, match="embedded credentials"):
+        manager.request("GET", "https://user:pass@reader.example/settings")
 
 
 def test_http_errors_are_normalized(reader_server):

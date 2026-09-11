@@ -11,13 +11,14 @@ from socket import (
     SOCK_STREAM,
     SOL_SOCKET,
     SO_KEEPALIVE,
+    SO_RCVBUF,
     IPPROTO_TCP,
     TCP_NODELAY,
     socket,
     error as SocketError,
 )
 
-from .llrp import LLRPReaderClient
+from .llrp import LLRPReaderClient, SOCKET_RECV_CHUNK
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger
 
@@ -158,6 +159,10 @@ class LLRPTLSReaderClient(LLRPReaderClient):
         raw_socket = None
         try:
             raw_socket = socket(AF_INET, SOCK_STREAM)
+            if self.config.socket_receive_buffer_bytes is not None:
+                raw_socket.setsockopt(
+                    SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
+                )
             raw_socket.settimeout(self._socktimeout)
             raw_socket.connect((self._host, self._port))
             raw_socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
@@ -199,7 +204,7 @@ class LLRPTLSReaderClient(LLRPReaderClient):
 
                 for sock in read_sockets:
                     try:
-                        data = sock.recv(4096)
+                        data = sock.recv(SOCKET_RECV_CHUNK)
                         if data:
                             self.raw_data_received(data)
                         else:

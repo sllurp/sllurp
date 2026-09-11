@@ -1,8 +1,10 @@
 import ssl
+from socket import SOL_SOCKET, SO_RCVBUF
 from unittest.mock import Mock, patch
 
 import pytest
 
+from sllurp.llrp import SOCKET_RECV_CHUNK
 from sllurp.secure import (
     LLRP_SECURE_PORT,
     LLRPTLSReaderClient,
@@ -52,7 +54,7 @@ def test_custom_context_cannot_be_mixed_with_context_options():
         )
 
 
-def test_connect_wraps_socket_with_tls():
+def test_connect_wraps_socket_with_tls_and_sets_receive_buffer():
     raw_socket = Mock()
     tls_socket = Mock()
 
@@ -72,11 +74,18 @@ def test_connect_wraps_socket_with_tls():
     raw_socket.connect.assert_called_once_with(
         ("reader.example.test", LLRP_SECURE_PORT)
     )
+    raw_socket.setsockopt.assert_any_call(
+        SOL_SOCKET, SO_RCVBUF, reader.config.socket_receive_buffer_bytes
+    )
     context.wrap_socket.assert_called_once_with(
         raw_socket,
         server_hostname="reader-cert.example.test",
     )
     assert reader._socket is tls_socket
+
+
+def test_secure_receive_chunk_matches_core_client():
+    assert SOCKET_RECV_CHUNK >= 64 * 1024
 
 
 def test_tls_handshake_failure_closes_raw_socket():
