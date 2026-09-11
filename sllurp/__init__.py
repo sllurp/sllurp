@@ -1,4 +1,4 @@
-"""Low Level Reader Protocol implemtnation in pure Python"""
+"""Low Level Reader Protocol implementation in pure Python."""
 
 from .version import __version__ as sllurp_version
 
@@ -8,6 +8,8 @@ __all__ = (
     "llrp_errors",
     "llrp_proto",
     "secure",
+    "reader_management",
+    "dedup",
     "util",
     "log",
 )
