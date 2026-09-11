@@ -1,4 +1,5 @@
 import select
+import ssl
 
 from binascii import hexlify
 from collections import defaultdict
@@ -1519,6 +1520,15 @@ class LLRPReaderConfig:
         self.start_inventory = True
         self.reset_on_connect = True
 
+        # Optional TLS transport. Zebra FXR90 readers can expose LLRP in
+        # secure mode; plain TCP remains the default for existing readers.
+        self.tls_enabled = False
+        self.tls_verify = True
+        self.tls_ca_file = None
+        self.tls_client_cert = None
+        self.tls_client_key = None
+        self.tls_server_hostname = None
+
         ## Extensions specific
         self.impinj_extended_configuration = False
         self.impinj_search_mode = None
@@ -1553,6 +1563,8 @@ class LLRPReaderConfig:
     def validate_config(self):
         if "Channelist" in self.frequencies and "ChannelList" not in self.frequencies:
             self.frequencies["ChannelList"] = self.frequencies.pop("Channelist")
+        if self.tls_client_key and not self.tls_client_cert:
+            raise LLRPError("tls_client_key requires tls_client_cert")
         if hasattr(self, "tx_power"):
             if isinstance(self.tx_power, int):
                 self.tx_power = {ant: self.tx_power for ant in self.antennas}
@@ -1709,20 +1721,67 @@ class LLRPReaderClient:
     def clear_disconnected_callback(self, cb):
         self._disconnected_callbacks = []
 
+    def _create_tls_context(self):
+        """Create the SSL context used for secure LLRP connections."""
+        if self.config.tls_verify:
+            context = ssl.create_default_context(cafile=self.config.tls_ca_file)
+        else:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+
+        if self.config.tls_client_cert:
+            context.load_cert_chain(
+                certfile=self.config.tls_client_cert,
+                keyfile=self.config.tls_client_key,
+            )
+        return context
+
+    def _socket_has_pending_data(self):
+        """Return whether an SSL socket has already-decrypted buffered data."""
+        pending = getattr(self._socket, "pending", None)
+        if pending is None:
+            return False
+        try:
+            return pending() > 0
+        except (OSError, ValueError):
+            return False
+
     def _connect_socket(self):
         if self._socket:
             raise ReaderConfigurationError("Already connected")
+
+        raw_socket = None
         try:
-            self._socket = socket(AF_INET, SOCK_STREAM)
+            raw_socket = socket(AF_INET, SOCK_STREAM)
             # Sllurp original timeout is 3s
-            self._socket.settimeout(self._socktimeout)
-            self._socket.connect((self._host, self._port))
-            self._socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
-            self._socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+            raw_socket.settimeout(self._socktimeout)
+            raw_socket.connect((self._host, self._port))
+            raw_socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
+            raw_socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+
+            if self.config.tls_enabled:
+                context = self._create_tls_context()
+                server_hostname = self.config.tls_server_hostname or self._host
+                self._socket = context.wrap_socket(
+                    raw_socket, server_hostname=server_hostname
+                )
+            else:
+                self._socket = raw_socket
         except:
+            sock = self._socket or raw_socket
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
             self._socket = None
             raise
-        logger.info("connected to %s (:%s)", self._host, self._port)
+
+        transport = "TLS" if self.config.tls_enabled else "TCP"
+        logger.info(
+            "connected to %s (:%s) over %s", self._host, self._port, transport
+        )
         return True
 
     def connect(self, start_main_loop=True):
@@ -1905,10 +1964,12 @@ class LLRPReaderClient:
             while True:
                 lost_connection = False
                 socket_list = [self._socket]
-                # Get the list sockets which are readable
-                read_sockets, write_sockets, error_sockets = select.select(
-                    socket_list, [], []
-                )
+                # SSLSocket may already have decrypted application data
+                # buffered even when the underlying fd is not readable.
+                if self._socket_has_pending_data():
+                    read_sockets = socket_list
+                else:
+                    read_sockets, _, _ = select.select(socket_list, [], [])
                 for sock in read_sockets:
                     # Incoming message from remote server
                     if sock == self._socket:

@@ -22,7 +22,7 @@ with not much effort to other LLRP-compatible readers:
 - Impinj Speedway Revolution (R220, R420)
 - Impinj Speedway xPortal
 - Motorola MC9190-Z (handheld)
-- Zebra Fixed RFID Reader (FX7500, FX9600)
+- Zebra Fixed RFID Reader (FX7500, FX9600, FXR90 family)
 
 File an issue on GitHub_ if you would like help getting another kind of reader
 to work.
@@ -56,6 +56,37 @@ If the reader gets into a funny state because you're debugging against it
 state by running ``sllurp reset ip.add.re.ss``.
 
 .. _PyPI: https://pypi.python.org/pypi/sllurp
+
+
+Zebra FXR90
+-----------
+
+The FXR90 family can be used through its LLRP interface.  sllurp keeps antenna
+handling capability-driven rather than hard-coding a particular FXR90 SKU, so
+the same code works with the 4-port, integrated-antenna plus external-port, and
+8-port variants.  Use antenna ``0`` to request all antennas exposed by the
+reader::
+
+    $ sllurp inventory -a 0 fxr90.example
+
+For readers configured for secure LLRP, enable TLS.  The default is to verify
+the reader certificate using the operating system trust store; a private CA
+bundle can be supplied explicitly::
+
+    $ sllurp inventory --tls --tls-ca-file /path/to/reader-ca.pem -a 0 fxr90.example
+
+If the reader requires client-certificate authentication, also provide a
+certificate and its private key::
+
+    $ sllurp inventory --tls --tls-client-cert client.pem --tls-client-key client.key fxr90.example
+
+When connecting to an IP address while the certificate is issued to a DNS
+name, use ``--tls-server-hostname`` to set the TLS SNI/certificate hostname.
+``--tls-no-verify`` is available for controlled test environments, but disables
+certificate validation and should not be used as the normal production setup.
+
+The FXR90 support here targets standard LLRP plus Zebra's secure transport.  It
+does not attempt to emulate Zebra's separate IoT Connector protocol.
 
 Reader API
 ----------

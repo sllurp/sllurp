@@ -98,6 +98,12 @@ def main(main_args):
         session=args.session,
         mode_identifier=args.mode_identifier,
         tag_population=args.population,
+        tls_enabled=args.tls_enabled,
+        tls_verify=args.tls_verify,
+        tls_ca_file=args.tls_ca_file,
+        tls_client_cert=args.tls_client_cert,
+        tls_client_key=args.tls_client_key,
+        tls_server_hostname=args.tls_server_hostname,
         start_inventory=True,
         disconnect_when_done=True,
         tag_content_selector={
