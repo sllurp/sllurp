@@ -24,6 +24,11 @@ with not much effort to other LLRP-compatible readers:
 - Motorola MC9190-Z (handheld)
 - Zebra Fixed RFID Reader (FX7500, FX9600, FXR90 family)
 
+Zebra HTTP/HTTPS management adapters additionally cover the documented RM
+interface on FX7400, FX7500, FX9500, FX9600, and ATR7000, plus Zebra IoT
+Connector local REST on supported FX7500/FX9600/ATR7000 firmware and FXR90.
+See ``docs/reader-management.rst`` for the model capability matrix and examples.
+
 File an issue on GitHub_ if you would like help getting another kind of reader
 to work.
 
@@ -85,8 +90,10 @@ name, use ``--tls-server-hostname`` to set the TLS SNI/certificate hostname.
 ``--tls-no-verify`` is available for controlled test environments, but disables
 certificate validation and should not be used as the normal production setup.
 
-The FXR90 support here targets standard LLRP plus Zebra's secure transport.  It
-does not attempt to emulate Zebra's separate IoT Connector protocol.
+FXR90 management is also available through Zebra IoT Connector local REST using
+``sllurp.zebra_management.ZebraIoTConnectorManager``.  LLRP remains the reader
+inventory/control protocol; the REST adapter is for the reader's separate web
+management surface.
 
 Reader API
 ----------

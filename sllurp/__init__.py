@@ -10,6 +10,7 @@ __all__ = (
     "secure",
     "readers",
     "reader_management",
+    "zebra_management",
     "dedup",
     "util",
     "log",
