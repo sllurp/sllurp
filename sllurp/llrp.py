@@ -243,7 +243,7 @@ class C1G2LockPayload:
     def __init__(self, Privilege, DataField):
         if Privilege < 0 or Privilege > 3:
             raise ValueError("Invalid Privilege value")
-        if DataField < 0 or Privilege > 4:
+        if DataField < 0 or DataField > 4:
             raise ValueError("Invalid DataField value")
 
         self.Privilege = Privilege
@@ -385,7 +385,7 @@ class LLRPClient:
             or config.impinj_extended_configuration
             or config.impinj_event_selector
             or config.frequencies.get("Automatic", False)
-            or len(config.frequencies.get("Channelist", [])) > 1
+            or len(config.frequencies.get("ChannelList", [])) > 1
         ):
             logger.info("Enabling Impinj extensions")
 
@@ -512,6 +512,7 @@ class LLRPClient:
                     "Requested Tari {} is incompatible with selected "
                     "mode {}".format(self.config.tari, self.reader_mode)
                 )
+                raise ReaderConfigurationError(errstr)
 
         logger.info("using reader mode: %s", self.reader_mode)
 
@@ -604,7 +605,7 @@ class LLRPClient:
                 or self.config.impinj_extended_configuration
                 or self.config.impinj_event_selector
                 or self.config.frequencies.get("Automatic", False)
-                or len(self.config.frequencies.get("Channelist", [])) > 1
+                or len(self.config.frequencies.get("ChannelList", [])) > 1
             ):
 
                 def enable_impinj_ext_cb(state, is_success, *args):
@@ -1316,9 +1317,8 @@ class LLRPClient:
     def setTxPowerDbm(self, tx_pow_dbm=None):
         if tx_pow_dbm is None:
             # select max TX power
-            ret_tx_power = {
-                ant: self.tx_power_table[-1] for ant in self.config.antennas
-            }
+            max_power_idx = self.tx_power_table.index(max(self.tx_power_table))
+            ret_tx_power = {ant: max_power_idx for ant in self.config.antennas}
         else:
             ret_config_dbm = {}
             ret_tx_power = {}
@@ -1503,7 +1503,7 @@ class LLRPReaderConfig:
 
         self.frequencies = {
             "HopTableId": DEFAULT_HOPTABLE_INDEX,
-            "Channelist": [DEFAULT_CHANNEL_INDEX],
+            "ChannelList": [DEFAULT_CHANNEL_INDEX],
             "Automatic": False,
         }
 
@@ -1551,6 +1551,8 @@ class LLRPReaderConfig:
                 setattr(self, key, value)
 
     def validate_config(self):
+        if "Channelist" in self.frequencies and "ChannelList" not in self.frequencies:
+            self.frequencies["ChannelList"] = self.frequencies.pop("Channelist")
         if hasattr(self, "tx_power"):
             if isinstance(self.tx_power, int):
                 self.tx_power = {ant: self.tx_power for ant in self.antennas}
@@ -1649,8 +1651,6 @@ class LLRPReaderClient:
     def clear_state_callback(self, state):
         if state in self._llrp_state_callbacks:
             self._llrp_state_callbacks[state] = []
-        else:
-            self._llrp_message_callbacks = defaultdict(list)
 
     def add_message_callback(self, msg_type, cb):
         if cb not in self._llrp_message_callbacks[msg_type]:
@@ -1780,7 +1780,9 @@ class LLRPReaderClient:
             self.join(timeout)
 
     def hard_disconnect(self):
-        """Stop the recv worker, and close sockets"""
+        """Stop the recv worker, close sockets, and reset frame state."""
+        self.partial_data = b""
+        self.expected_bytes = 0
         self._stop_main_loop.set()
         # stop listening thread.
         if self._socket:

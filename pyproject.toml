@@ -40,8 +40,8 @@ sllurp = "sllurp.cli:cli"
 [project.urls]
 Homepage = "https://github.com/sllurp/sllurp"
 
-[tool.setuptools]
-packages = ["sllurp"]
+[tool.setuptools.packages.find]
+include = ["sllurp*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "sllurp.version.__version__"}

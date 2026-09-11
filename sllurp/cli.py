@@ -248,6 +248,8 @@ def log(
         antennas=antennas,
         epc=epc,
         reader_timestamp=reader_timestamp,
+        frequencies=frequencies,
+        hoptable_id=hoptable_id,
     )
     logger.debug("log args: %s", args)
     _log.main(args)

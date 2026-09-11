@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
       fail-fast: false
     env:
       cache-revision: 2
@@ -23,3 +23,21 @@ jobs:
       - name: Run tests
         run: pytest
 
+  package-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Build wheel
+        run: python -m pip wheel . --no-deps -w dist
+      - name: Install wheel in a clean environment
+        run: |
+          python -m venv /tmp/sllurp-wheel-test
+          /tmp/sllurp-wheel-test/bin/pip install dist/sllurp-*.whl
+      - name: Smoke-test installed package
+        run: |
+          /tmp/sllurp-wheel-test/bin/python -c "import sllurp; import sllurp.epc; import sllurp.verb.inventory; import sllurp.cli"
+          /tmp/sllurp-wheel-test/bin/sllurp --help >/dev/null

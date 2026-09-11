@@ -3326,7 +3326,7 @@ def decode_ImpinjFixedFrequencyList(data, name=None):
     par["ChannelList"] = []
     for x in range(0, channel_count):
         start_pos = ushort_ushort_ushort_size + x * ushort_size
-        par["ChannelListIndex"].append(
+        par["ChannelList"].append(
             ushort_unpack(data[start_pos : start_pos + ushort_size])[0]
         )
 
