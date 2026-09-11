@@ -26,6 +26,12 @@ class ReaderHandler(BaseHTTPRequestHandler):
         if self.path == "/settings":
             self._write_json(200, {"mode": "inventory", "power": 30})
             return
+        if self.path == "/redirect-external":
+            self.send_response(302)
+            self.send_header("Location", "https://attacker.example/settings")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         self._write_json(404, {"error": "missing"})
 
     def do_PATCH(self):
@@ -111,6 +117,16 @@ def test_cross_origin_request_is_rejected_before_credentials_can_leak():
 
     with pytest.raises(ValueError, match="absolute http"):
         manager.request("GET", "//attacker.example/settings")
+
+
+def test_cross_origin_redirect_is_rejected(reader_server):
+    host, port = reader_server.server_address
+    manager = HTTPReaderManager(
+        f"http://{host}:{port}", username="admin", password="secret"
+    )
+
+    with pytest.raises(ReaderManagementError, match="redirect left"):
+        manager.request("GET", "/redirect-external")
 
 
 def test_embedded_url_credentials_are_rejected():
