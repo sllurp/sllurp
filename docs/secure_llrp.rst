@@ -1,12 +1,19 @@
 Secure LLRP (LLRP over TLS)
 ===========================
 
-LLRP can run over TLS. The IANA-assigned default TCP port for encrypted LLRP is
-5085; normal unencrypted LLRP commonly uses TCP port 5084.
+LLRP can run over TLS. IANA assigns TCP port 5084 to normal LLRP and TCP port
+5085 to encrypted LLRP. sllurp's TLS transport is reader-neutral: it can be used
+with any reader/firmware that actually exposes LLRP over TLS.
 
-sllurp's existing :class:`sllurp.llrp.LLRPReaderClient` remains unchanged and
-continues to use plain TCP. Use :class:`sllurp.secure.LLRPTLSReaderClient` when
-the reader is configured for LLRP over TLS.
+Two APIs are available:
+
+* :class:`sllurp.llrp.LLRPReaderClient` with ``tls_enabled=True`` in
+  :class:`sllurp.llrp.LLRPReaderConfig`.
+* :class:`sllurp.secure.LLRPTLSReaderClient`, a convenience client that defaults
+  to encrypted-LLRP port 5085.
+
+The command-line ``--tls`` option uses the same transport and, unless ``--port``
+is explicitly supplied, uses port 5085. Plain LLRP keeps port 5084.
 
 Verified server certificate
 ---------------------------
@@ -49,47 +56,108 @@ Readers that require a client certificate can use::
 A fully configured :class:`ssl.SSLContext` may instead be supplied using the
 ``ssl_context`` argument.
 
-Disabling verification
-----------------------
+Command line
+------------
 
-``verify=False`` is available for controlled lab/debugging situations, but it
-does not authenticate the reader and is not suitable for production networks.
+For a Zebra FX7500/FX9600 configured with **Enable Secure Mode**::
+
+    $ sllurp inventory --tls --tls-ca-file /path/to/reader-ca.pem reader.example
+
+Zebra documents that enabling Secure LLRP switches the default LLRP port to
+5085. If the reader is configured with a non-default secure port, override it::
+
+    $ sllurp inventory --tls --port 55085 reader.example
 
 Reader compatibility
 --------------------
 
-TLS support is a reader/firmware capability. Configuring sllurp for TLS does not
-make a reader expose a secure LLRP listener; the reader must be configured for
-LLRP/TLS first.
+TLS is a reader/firmware feature, not a different LLRP message set. The same
+sllurp LLRP encoder/decoder is used after the TLS session is established.
 
-Motorola/Zebra FX7400
----------------------
+==============================  ==========================  =====================
+Reader family                   Secure LLRP status          Default/documented port
+==============================  ==========================  =====================
+Zebra FX7500                    **Yes**                     5085 in Secure Mode
+Zebra FX9600                    **Yes**                     5085 in Secure Mode
+Zebra FXR90 family              sllurp TLS-capable;         Firmware/config dependent
+                                verify firmware settings
+Motorola/Zebra FX7400           Not documented             5084 plain LLRP
+Zebra FX9500                    Not documented             5084 plain LLRP
+Motorola/Zebra MC9190-Z         Not documented             Use documented LLRP setup
+Impinj Speedway R220/R420       **No** encrypted LLRP      5084 TCP only
+Impinj Speedway xPortal         **No** encrypted LLRP      5084 TCP only
+Impinj Speedway R1000           Legacy; not verified       Use documented LLRP setup
+==============================  ==========================  =====================
 
-The FX7400 implements standard LLRP and its documented default LLRP server port
-is 5084. sllurp already contains Motorola vendor ID 161 handling and a set of
-Motorola ``Moto*`` custom LLRP parameters, so no separate transport or message
-codec is required for ordinary FX7400 LLRP inventory/configuration.
+Zebra FX7500 and FX9600
+~~~~~~~~~~~~~~~~~~~~~~~
 
-The FX7400 documentation reviewed for this change advertises SSL/SSH security
-generally, but its LLRP configuration documents the normal LLRP listener on
-port 5084 and does not document a separate LLRP-over-TLS listener. Therefore,
-do not assume that an FX7400 accepts secure LLRP on port 5085. Use normal LLRP
-on 5084 unless the exact FX7400 firmware in use explicitly exposes LLRP/TLS.
+Zebra's FX Series integration documentation explicitly describes a **Secure
+LLRP Service**. Enabling Secure Mode changes the default LLRP port to 5085,
+supports TLS 1.2-compliant ciphers, and optionally validates the peer using
+certificates. The same documentation states that FX7500 and FX9600 can use a
+custom reader certificate and can require a client certificate issued by the
+same CA.
 
-Example::
+This means sllurp secure LLRP applies directly to both FX7500 and FX9600; it is
+not an FXR90-only feature.
 
-    from sllurp.llrp import LLRPReaderClient, LLRPReaderConfig
+Zebra FXR90
+~~~~~~~~~~~
 
-    reader = LLRPReaderClient(
-        "fx7400.example.com",
-        5084,
-        LLRPReaderConfig(),
-    )
-    reader.connect()
+sllurp's transport implementation is not model-specific and works with an
+FXR90 endpoint configured to accept LLRP over TLS. Zebra's current FXR90
+platform documentation advertises TLS/FIPS capabilities and certificate
+management, but the public guide reviewed for this matrix does not document the
+classic FX7500/FX9600 ``Enable Secure Mode -> port 5085`` control as explicitly.
+Do not assume port 5085 on every FXR90 firmware build; use the reader's configured
+LLRP endpoint/port.
+
+Motorola/Zebra FX7400 and Zebra FX9500
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The reviewed FX7400 and FX9500 guides document normal LLRP on port 5084. They do
+not document the FX7500/FX9600 Secure LLRP mode. sllurp therefore supports their
+normal LLRP operation, but does not claim vendor-confirmed encrypted LLRP for
+those models. If a particular firmware exposes LLRP/TLS, sllurp's generic TLS
+transport can still be pointed at that endpoint explicitly.
+
+Impinj Speedway and xPortal
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Impinj's Octane LLRP documentation states that TLS encrypted connection support
+is not available for the Speedway fixed-reader family covered by that guide and
+that only TCP connections are supported. Impinj also documents xPortal as using
+the same configuration/operation as Speedway R120/R220/R420. Therefore sllurp
+must continue to use ordinary LLRP/TCP for those readers; ``--tls`` cannot add a
+hardware feature that the reader does not expose.
+
+References
+----------
+
+* IANA service registry (``llrp`` 5084, ``encrypted-llrp`` 5085):
+  https://www.iana.org/assignments/service-names-port-numbers/
+* Zebra FX Series integration guide (FX7500/FX9600 Secure LLRP):
+  https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/product/fx-series-integrator-guide-en.pdf
+* Zebra FX7500 product specification:
+  https://www.zebra.com/us/en/products/spec-sheets/rfid/rfid-readers/fx7500.html
+* Zebra FX9500 user guide:
+  https://www.zebra.cn/content/dam/support-dam/en/documentation/unrestricted/guide/product/fx9500-ug-en.pdf
+* Impinj Octane LLRP guide:
+  https://support.impinj.com/hc/article_attachments/4403727655059/Impinj_Octane_LLRP_7.6.pdf
+* Impinj Speedway installation guide (xPortal uses Speedway configuration):
+  https://support.impinj.com/hc/article_attachments/33622168584723
+
+Disabling verification
+----------------------
+
+``verify=False`` / ``--tls-no-verify`` is available for controlled lab/debugging
+situations, but it does not authenticate the reader and is not suitable for
+production networks.
 
 Hardware validation
 -------------------
 
 The TLS transport is covered by unit tests using mocked sockets and SSL
-contexts. Actual interoperability still depends on the reader model, firmware,
+contexts. Actual interoperability still depends on reader model, firmware,
 certificate configuration, and supported TLS versions/cipher suites.
