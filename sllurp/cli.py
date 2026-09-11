@@ -13,6 +13,46 @@ from .verb import access as _access
 logger = loggie.get_logger(__name__)
 
 
+def tls_options(func):
+    """Add secure-LLRP transport options to a reader command."""
+    options = [
+        click.option(
+            "--tls",
+            "tls_enabled",
+            is_flag=True,
+            default=False,
+            help="Connect to the reader using TLS-secured LLRP.",
+        ),
+        click.option(
+            "--tls-verify/--tls-no-verify",
+            "tls_verify",
+            default=True,
+            help="Verify the reader TLS certificate (default: verify).",
+        ),
+        click.option(
+            "--tls-ca-file",
+            type=click.Path(),
+            help="CA certificate bundle used to verify the reader.",
+        ),
+        click.option(
+            "--tls-client-cert",
+            type=click.Path(),
+            help="Client certificate for mutual TLS / peer validation.",
+        ),
+        click.option(
+            "--tls-client-key",
+            type=click.Path(),
+            help="Private key for --tls-client-cert.",
+        ),
+        click.option(
+            "--tls-server-hostname",
+            help="TLS SNI/certificate hostname override (useful when connecting by IP).",
+        ),
+    ]
+    for option in reversed(options):
+        func = option(func)
+    return func
+
 @click.group()
 @click.option("-d", "--debug", is_flag=True, default=False)
 @click.option("-l", "--logfile", type=click.Path())
@@ -106,6 +146,7 @@ def cli(debug, logfile):
     help="HopTableID to use (default 1) for regions "
     "with frequency hopping regulatory requirements",
 )
+@tls_options
 def inventory(
     host,
     port,
@@ -126,6 +167,12 @@ def inventory(
     impinj_reports,
     frequencies,
     hoptable_id,
+    tls_enabled,
+    tls_verify,
+    tls_ca_file,
+    tls_client_cert,
+    tls_client_key,
+    tls_server_hostname,
 ):
     """Conduct inventory (searching the area around the antennas)."""
     # XXX band-aid hack to provide many args to _inventory.main
@@ -151,6 +198,12 @@ def inventory(
             "impinj_reports",
             "frequencies",
             "hoptable_id",
+            "tls_enabled",
+            "tls_verify",
+            "tls_ca_file",
+            "tls_client_cert",
+            "tls_client_key",
+            "tls_server_hostname",
         ],
     )
     args = Args(
@@ -173,6 +226,12 @@ def inventory(
         impinj_reports=impinj_reports,
         frequencies=frequencies,
         hoptable_id=hoptable_id,
+        tls_enabled=tls_enabled,
+        tls_verify=tls_verify,
+        tls_ca_file=tls_ca_file,
+        tls_client_cert=tls_client_cert,
+        tls_client_key=tls_client_key,
+        tls_server_hostname=tls_server_hostname,
     )
     logger.debug("inventory args: %s", args)
     _inventory.main(args)
@@ -215,6 +274,7 @@ def inventory(
     help="HopTableID to use (default 1) for regions "
     "with frequency hopping regulatory requirements",
 )
+@tls_options
 def log(
     host,
     port,
@@ -225,6 +285,12 @@ def log(
     reader_timestamp,
     frequencies,
     hoptable_id,
+    tls_enabled,
+    tls_verify,
+    tls_ca_file,
+    tls_client_cert,
+    tls_client_key,
+    tls_server_hostname,
 ):
     Args = namedtuple(
         "Args",
@@ -238,6 +304,12 @@ def log(
             "reader_timestamp",
             "frequencies",
             "hoptable_id",
+            "tls_enabled",
+            "tls_verify",
+            "tls_ca_file",
+            "tls_client_cert",
+            "tls_client_key",
+            "tls_server_hostname",
         ],
     )
     args = Args(
@@ -250,6 +322,12 @@ def log(
         reader_timestamp=reader_timestamp,
         frequencies=frequencies,
         hoptable_id=hoptable_id,
+        tls_enabled=tls_enabled,
+        tls_verify=tls_verify,
+        tls_ca_file=tls_ca_file,
+        tls_client_cert=tls_client_cert,
+        tls_client_key=tls_client_key,
+        tls_server_hostname=tls_server_hostname,
     )
     logger.debug("log args: %s", args)
     _log.main(args)
@@ -327,6 +405,7 @@ def log(
     help="HopTableID to use (default 1) for regions "
     "with frequency hopping regulatory requirements",
 )
+@tls_options
 def access(
     host,
     port,
@@ -346,6 +425,12 @@ def access(
     access_password,
     frequencies,
     hoptable_id,
+    tls_enabled,
+    tls_verify,
+    tls_ca_file,
+    tls_client_cert,
+    tls_client_key,
+    tls_server_hostname,
 ):
     Args = namedtuple(
         "Args",
@@ -368,6 +453,12 @@ def access(
             "access_password",
             "frequencies",
             "hoptable_id",
+            "tls_enabled",
+            "tls_verify",
+            "tls_ca_file",
+            "tls_client_cert",
+            "tls_client_key",
+            "tls_server_hostname",
         ],
     )
     args = Args(
@@ -389,6 +480,12 @@ def access(
         access_password=access_password,
         frequencies=frequencies,
         hoptable_id=hoptable_id,
+        tls_enabled=tls_enabled,
+        tls_verify=tls_verify,
+        tls_ca_file=tls_ca_file,
+        tls_client_cert=tls_client_cert,
+        tls_client_key=tls_client_key,
+        tls_server_hostname=tls_server_hostname,
     )
     logger.debug("access args: %s", args)
     _access.main(args)
@@ -402,7 +499,38 @@ def version():
 @cli.command()
 @click.argument("host", type=str, nargs=-1)
 @click.option("-p", "--port", type=int, default=5084)
-def reset(host, port):
-    Args = namedtuple("Args", ["host", "port"])
-    args = Args(host=host, port=port)
+@tls_options
+def reset(
+    host,
+    port,
+    tls_enabled,
+    tls_verify,
+    tls_ca_file,
+    tls_client_cert,
+    tls_client_key,
+    tls_server_hostname,
+):
+    Args = namedtuple(
+        "Args",
+        [
+            "host",
+            "port",
+            "tls_enabled",
+            "tls_verify",
+            "tls_ca_file",
+            "tls_client_cert",
+            "tls_client_key",
+            "tls_server_hostname",
+        ],
+    )
+    args = Args(
+        host=host,
+        port=port,
+        tls_enabled=tls_enabled,
+        tls_verify=tls_verify,
+        tls_ca_file=tls_ca_file,
+        tls_client_cert=tls_client_cert,
+        tls_client_key=tls_client_key,
+        tls_server_hostname=tls_server_hostname,
+    )
     _reset.main(args)
