@@ -7,6 +7,7 @@ __all__ = (
     "llrp_decoder",
     "llrp_errors",
     "llrp_proto",
+    "secure",
     "reader_management",
     "dedup",
     "util",
