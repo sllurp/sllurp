@@ -14,7 +14,7 @@ import ssl
 from dataclasses import dataclass
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin, urlparse
+from urllib.parse import ParseResult, urljoin, urlparse
 from urllib.request import HTTPSHandler, Request, build_opener
 
 
@@ -59,7 +59,9 @@ class HTTPReaderManager:
     """Generic HTTP/HTTPS management transport for RFID readers.
 
     The class is intentionally vendor-neutral.  Callers provide the reader's
-    API path and payload documented by the reader vendor.
+    API path and payload documented by the reader vendor.  Requests are kept on
+    the configured reader origin so authentication material cannot be forwarded
+    to another host through an absolute URL.
 
     Parameters:
         base_url: Reader base URL, including ``http://`` or ``https://``.
@@ -90,6 +92,8 @@ class HTTPReaderManager:
         parsed = urlparse(base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("base_url must be an absolute http:// or https:// URL")
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("base_url must not contain embedded credentials")
         if bearer_token and (username is not None or password is not None):
             raise ValueError("bearer_token cannot be combined with username/password")
         if (username is None) != (password is None):
@@ -106,6 +110,7 @@ class HTTPReaderManager:
         self.default_headers = dict(headers or {})
         self.timeout = float(timeout)
         self.verify_tls = bool(verify_tls)
+        self._base_origin = self._origin(parsed)
 
         ssl_context = None
         if parsed.scheme == "https":
@@ -121,11 +126,28 @@ class HTTPReaderManager:
             handlers.append(HTTPSHandler(context=ssl_context))
         self._opener = build_opener(*handlers)
 
+    @staticmethod
+    def _origin(parsed: ParseResult) -> tuple[str, str, int]:
+        """Return a normalized scheme/host/port tuple for origin comparisons."""
+        if parsed.hostname is None:
+            raise ValueError("URL must include a hostname")
+        if parsed.port is not None:
+            port = parsed.port
+        else:
+            port = 443 if parsed.scheme == "https" else 80
+        return parsed.scheme.lower(), parsed.hostname.casefold(), port
+
     def _url(self, path: str) -> str:
         parsed = urlparse(path)
-        if parsed.scheme:
+        if parsed.scheme or parsed.netloc:
             if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-                raise ValueError("path URL must use http:// or https://")
+                raise ValueError("path URL must use absolute http:// or https://")
+            if parsed.username is not None or parsed.password is not None:
+                raise ValueError("path URL must not contain embedded credentials")
+            if self._origin(parsed) != self._base_origin:
+                raise ValueError(
+                    "reader management requests must stay on the configured reader host"
+                )
             return path
         return urljoin(self.base_url, path.lstrip("/"))
 
