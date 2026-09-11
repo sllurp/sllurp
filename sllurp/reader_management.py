@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import ParseResult, urljoin, urlparse
-from urllib.request import HTTPSHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 
 class ReaderManagementError(RuntimeError):
@@ -35,6 +35,37 @@ class ReaderManagementError(RuntimeError):
 
 class UnsupportedReaderOperation(ReaderManagementError):
     """Raised when a reader/model has no documented support for an operation."""
+
+
+def _origin(parsed: ParseResult) -> tuple[str, str, int]:
+    """Return a normalized scheme/host/port tuple for origin comparisons."""
+    if parsed.hostname is None:
+        raise ValueError("URL must include a hostname")
+    if parsed.port is not None:
+        port = parsed.port
+    else:
+        port = 443 if parsed.scheme == "https" else 80
+    return parsed.scheme.lower(), parsed.hostname.casefold(), port
+
+
+class _SameOriginRedirectHandler(HTTPRedirectHandler):
+    """Reject redirects that would move an authenticated request off-reader."""
+
+    def __init__(self, allowed_origin: tuple[str, str, int]) -> None:
+        super().__init__()
+        self.allowed_origin = allowed_origin
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlparse(newurl)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or _origin(parsed) != self.allowed_origin
+        ):
+            raise ReaderManagementError(
+                "reader management redirect left the configured reader host"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 @dataclass(frozen=True)
@@ -59,9 +90,9 @@ class HTTPReaderManager:
     """Generic HTTP/HTTPS management transport for RFID readers.
 
     The class is intentionally vendor-neutral.  Callers provide the reader's
-    API path and payload documented by the reader vendor.  Requests are kept on
-    the configured reader origin so authentication material cannot be forwarded
-    to another host through an absolute URL.
+    API path and payload documented by the reader vendor.  Requests and
+    redirects are kept on the configured reader origin so authentication
+    material cannot be forwarded to another host.
 
     Parameters:
         base_url: Reader base URL, including ``http://`` or ``https://``.
@@ -110,9 +141,9 @@ class HTTPReaderManager:
         self.default_headers = dict(headers or {})
         self.timeout = float(timeout)
         self.verify_tls = bool(verify_tls)
-        self._base_origin = self._origin(parsed)
+        self._base_origin = _origin(parsed)
 
-        ssl_context = None
+        handlers = [_SameOriginRedirectHandler(self._base_origin)]
         if parsed.scheme == "https":
             if verify_tls:
                 ssl_context = ssl.create_default_context(cafile=ca_file)
@@ -120,22 +151,8 @@ class HTTPReaderManager:
                 ssl_context = ssl._create_unverified_context()
             if cert_file:
                 ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
-
-        handlers = []
-        if ssl_context is not None:
             handlers.append(HTTPSHandler(context=ssl_context))
         self._opener = build_opener(*handlers)
-
-    @staticmethod
-    def _origin(parsed: ParseResult) -> tuple[str, str, int]:
-        """Return a normalized scheme/host/port tuple for origin comparisons."""
-        if parsed.hostname is None:
-            raise ValueError("URL must include a hostname")
-        if parsed.port is not None:
-            port = parsed.port
-        else:
-            port = 443 if parsed.scheme == "https" else 80
-        return parsed.scheme.lower(), parsed.hostname.casefold(), port
 
     def _url(self, path: str) -> str:
         parsed = urlparse(path)
@@ -144,7 +161,7 @@ class HTTPReaderManager:
                 raise ValueError("path URL must use absolute http:// or https://")
             if parsed.username is not None or parsed.password is not None:
                 raise ValueError("path URL must not contain embedded credentials")
-            if self._origin(parsed) != self._base_origin:
+            if _origin(parsed) != self._base_origin:
                 raise ValueError(
                     "reader management requests must stay on the configured reader host"
                 )
