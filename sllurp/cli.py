@@ -5,12 +5,25 @@ import logging
 import click
 from . import __version__
 from . import log as loggie
+from .llrp import LLRP_DEFAULT_PORT
+from .secure import LLRP_SECURE_PORT
 from .verb import reset as _reset
 from .verb import inventory as _inventory
 from .verb import log as _log
 from .verb import access as _access
 
 logger = loggie.get_logger(__name__)
+
+
+def _resolve_llrp_port(port, tls_enabled):
+    """Use the standard port for the selected LLRP transport.
+
+    Explicit ``--port`` always wins. Plain LLRP defaults to 5084 and encrypted
+    LLRP defaults to the IANA-assigned port 5085.
+    """
+    if port is not None:
+        return port
+    return LLRP_SECURE_PORT if tls_enabled else LLRP_DEFAULT_PORT
 
 
 def tls_options(func):
@@ -53,6 +66,7 @@ def tls_options(func):
         func = option(func)
     return func
 
+
 @click.group()
 @click.option("-d", "--debug", is_flag=True, default=False)
 @click.option("-l", "--logfile", type=click.Path())
@@ -62,7 +76,13 @@ def cli(debug, logfile):
 
 @cli.command()
 @click.argument("host", type=str, nargs=-1)
-@click.option("-p", "--port", type=int, default=5084)
+@click.option(
+    "-p",
+    "--port",
+    type=int,
+    default=None,
+    help="LLRP port (default: 5084, or 5085 with --tls).",
+)
 @click.option("-t", "--time", type=float, help="seconds to inventory")
 @click.option(
     "-n", "--report-every-n-tags", type=int, help="issue a TagReport every N tags"
@@ -175,6 +195,7 @@ def inventory(
     tls_server_hostname,
 ):
     """Conduct inventory (searching the area around the antennas)."""
+    port = _resolve_llrp_port(port, tls_enabled)
     # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple(
         "Args",
@@ -239,7 +260,13 @@ def inventory(
 
 @cli.command()
 @click.argument("host", type=str, nargs=-1)
-@click.option("-p", "--port", type=int, default=5084)
+@click.option(
+    "-p",
+    "--port",
+    type=int,
+    default=None,
+    help="LLRP port (default: 5084, or 5085 with --tls).",
+)
 @click.option("-o", "--outfile", type=click.File("w"), default="-")
 @click.option(
     "-a",
@@ -292,6 +319,7 @@ def log(
     tls_client_key,
     tls_server_hostname,
 ):
+    port = _resolve_llrp_port(port, tls_enabled)
     Args = namedtuple(
         "Args",
         [
@@ -335,7 +363,13 @@ def log(
 
 @cli.command()
 @click.argument("host", type=str, nargs=-1)
-@click.option("-p", "--port", type=int, default=5084)
+@click.option(
+    "-p",
+    "--port",
+    type=int,
+    default=None,
+    help="LLRP port (default: 5084, or 5085 with --tls).",
+)
 @click.option("-t", "--time", type=float, help="seconds to inventory")
 @click.option(
     "-n", "--report-every-n-tags", type=int, help="issue a TagReport every N tags"
@@ -432,6 +466,7 @@ def access(
     tls_client_key,
     tls_server_hostname,
 ):
+    port = _resolve_llrp_port(port, tls_enabled)
     Args = namedtuple(
         "Args",
         [
@@ -498,7 +533,13 @@ def version():
 
 @cli.command()
 @click.argument("host", type=str, nargs=-1)
-@click.option("-p", "--port", type=int, default=5084)
+@click.option(
+    "-p",
+    "--port",
+    type=int,
+    default=None,
+    help="LLRP port (default: 5084, or 5085 with --tls).",
+)
 @tls_options
 def reset(
     host,
@@ -510,6 +551,7 @@ def reset(
     tls_client_key,
     tls_server_hostname,
 ):
+    port = _resolve_llrp_port(port, tls_enabled)
     Args = namedtuple(
         "Args",
         [
