@@ -11,7 +11,6 @@ from sllurp.llrp import (
     C1G2LockPayload,
     LLRP_DEFAULT_PORT,
 )
-from sllurp.llrp_proto import Modulation_DefaultTari
 from sllurp.log import get_logger
 
 startTime = None

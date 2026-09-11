@@ -4799,6 +4799,8 @@ class LLRPROSpec(dict):
         ips = self["AISpec"][0]["InventoryParameterSpec"][0]
 
         freq_channel_list = frequencies.get("ChannelList", [DEFAULT_CHANNEL_INDEX])
+        if not freq_channel_list:
+            raise LLRPError("ChannelList must contain at least one channel")
         # patch up per-antenna config
         for antid in antennas:
             transmit_power = tx_power[antid]

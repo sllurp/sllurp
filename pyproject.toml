@@ -32,7 +32,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = [
+    "pytest",
+    "pytest-cov",
+    "hypothesis",
+]
 
 [project.scripts]
 sllurp = "sllurp.cli:cli"

@@ -117,6 +117,9 @@ def msg_header_decode(data):
 
 def tlv_param_header_decode(data):
     # Decode for normal param header (non-tve)
+    if len(data) < tlv_par_header_size:
+        return None, 0, 0, 0, 0
+
     partype, length = tlv_par_header_unpack(data[:tlv_par_header_size])
     hdr_len = tlv_par_header_size
     # ie partype & BITMASK(10)
@@ -124,10 +127,14 @@ def tlv_param_header_decode(data):
     if partype != TYPE_CUSTOM:
         return partype, 0, 0, hdr_len, length
 
+    custom_header_size = hdr_len + par_vendor_subtype_size
+    if len(data) < custom_header_size:
+        return None, 0, 0, 0, 0
+
     vendorid, subtype = par_vendor_subtype_unpack(
         data[hdr_len : hdr_len + par_vendor_subtype_size]
     )
-    hdr_len += par_vendor_subtype_size
+    hdr_len = custom_header_size
     return partype, vendorid, subtype, hdr_len, length
 
 
@@ -137,6 +144,9 @@ def tve_param_header_decode(data):
     Given an array of bytes, tries to interpret a TVE parameter from the
     beginning of the array.  Returns the decoded data and the number of bytes
     it read."""
+
+    if len(data) < tve_header_size:
+        return None, 0, 0
 
     # Most common case first
     # decode the TVE field's header (1 bit "reserved" + 7-bit type)

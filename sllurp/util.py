@@ -1,3 +1,4 @@
+from bisect import bisect_right
 from inspect import stack
 import re
 from time import monotonic
@@ -35,20 +36,18 @@ def natural_keys(text):
 
 
 def find_closest(table, target):
-    left = 0
-    right = len(table) - 1
+    """Return the greatest table entry not above target.
 
-    if target > table[right]:
-        left = right
-    else:
-        # find the closest value in the conversion table
-        while right != left + 1:
-            middle = (left + right) // 2
-            if table[middle] == target:
-                left = middle
-                break
-            if table[middle] < target:
-                left = middle
-            if table[middle] > target:
-                right = middle
-    return left, table[left]
+    Values below the first entry clamp to the first entry and values above the
+    last entry clamp to the last entry. The table must be non-empty and sorted
+    in ascending order.
+    """
+    if not table:
+        raise ValueError("table must not be empty")
+
+    index = bisect_right(table, target) - 1
+    if index < 0:
+        index = 0
+    elif index >= len(table):
+        index = len(table) - 1
+    return index, table[index]

@@ -10,7 +10,7 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
       fail-fast: false
     env:
-      cache-revision: 2
+      cache-revision: 3
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -22,6 +22,20 @@ jobs:
         run: pip3 install -e .[test]
       - name: Run tests
         run: pytest
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip3 install -e .[test]
+      - name: Run branch coverage
+        run: pytest --cov=sllurp --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=65
 
   package-smoke:
     runs-on: ubuntu-latest

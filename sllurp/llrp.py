@@ -1271,7 +1271,7 @@ class LLRPClient:
         >>> LLRPReaderState.parsePowerTable({})
         [0]
         """
-        bandtbl = uhfbandcap["TransmitPowerLevelTableEntry"]
+        bandtbl = uhfbandcap.get("TransmitPowerLevelTableEntry", [])
         tx_power_table = [0] * (len(bandtbl) + 1)
         for v in bandtbl:
             idx = v["Index"]
@@ -1304,15 +1304,18 @@ class LLRPClient:
                 tx_power = self.tx_power_table.index(max_power_dbm)
                 ret[antid] = (tx_power, max_power_dbm)
 
-            try:
-                power_dbm = self.tx_power_table[tx_power]
-                ret[antid] = (tx_power, power_dbm)
-            except IndexError:
+            if (
+                not isinstance(tx_power, int)
+                or tx_power < 0
+                or tx_power >= len(self.tx_power_table)
+            ):
                 raise LLRPError(
                     "Invalid tx_power for antenna {}: "
                     "requested={}, min_available={}, "
                     "max_available={}".format(antid, tx_power, min_power, max_power)
                 )
+            power_dbm = self.tx_power_table[tx_power]
+            ret[antid] = (tx_power, power_dbm)
         return ret
 
     def setTxPowerDbm(self, tx_pow_dbm=None):
