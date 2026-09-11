@@ -2,9 +2,8 @@
 
 LLRP controls RFID inventory behavior, but many readers expose additional
 vendor-specific management APIs over HTTP or HTTPS.  The endpoint layout and
-payload schema are not standardized, so this module deliberately provides a
-small transport abstraction rather than pretending every reader uses the same
-settings model.
+payload schema are not standardized, so this module provides both a generic
+transport and a factory for the vendor adapters implemented by sllurp.
 """
 
 from __future__ import annotations
@@ -32,6 +31,10 @@ class ReaderManagementError(RuntimeError):
         super().__init__(message)
         self.status = status
         self.body = body
+
+
+class UnsupportedReaderOperation(ReaderManagementError):
+    """Raised when a reader/model has no documented support for an operation."""
 
 
 @dataclass(frozen=True)
@@ -221,3 +224,77 @@ class HTTPReaderManager:
     def replace_settings(self, path: str, settings: Mapping[str, Any]) -> Any:
         """Replace a settings resource using HTTP PUT."""
         return self.update_settings(path, settings, method="PUT")
+
+
+def _management_model_key(model: str) -> str:
+    return "".join(character for character in model.upper() if character.isalnum())
+
+
+def create_reader_manager(
+    model: str,
+    base_url: str,
+    *,
+    vendor: str | None = None,
+    api: str = "auto",
+    **kwargs: Any,
+) -> Any:
+    """Create a documented HTTP/HTTPS management adapter for ``model``.
+
+    The factory intentionally refuses to guess private web-UI endpoints.  A
+    model is selected only when sllurp has a documented vendor adapter.  For an
+    arbitrary documented endpoint callers can always instantiate
+    :class:`HTTPReaderManager` directly.
+    """
+
+    key = _management_model_key(model)
+    vendor_key = (vendor or "").strip().lower()
+
+    zebra_keys = {
+        "FX7400",
+        "FX7500",
+        "FX9500",
+        "FX9600",
+        "ATR7000",
+        "FXR90",
+        "FXR904",
+        "FXR908",
+    }
+    if key in zebra_keys or vendor_key in {"zebra", "motorola"}:
+        from .zebra_management import zebra_reader_manager
+
+        return zebra_reader_manager(model, base_url, api=api, **kwargs)
+
+    if key in {"R700", "R720", "IMPINJR700", "IMPINJR720"}:
+        if api.lower() not in {"auto", "rest"}:
+            raise ValueError("Impinj R700-series management api must be 'auto' or 'rest'")
+        from .impinj_management import ImpinjRESTManager
+
+        return ImpinjRESTManager(base_url, model=model, **kwargs)
+
+    legacy_impinj = {
+        "R1000",
+        "SPEEDWAYR1000",
+        "R220",
+        "SPEEDWAYR220",
+        "R420",
+        "SPEEDWAYR420",
+        "XPORTAL",
+        "XARRAY",
+        "XSPAN",
+    }
+    if key in legacy_impinj or vendor_key == "impinj":
+        raise UnsupportedReaderOperation(
+            f"{model} does not have a documented Impinj reader-configuration "
+            "REST API supported by sllurp; use RShell/SSH for device management "
+            "or HTTPReaderManager only with a vendor-documented endpoint"
+        )
+
+    if vendor_key in {"generic", "http", "https"}:
+        if api.lower() not in {"auto", "generic", "http", "https"}:
+            raise ValueError("generic management api must be auto/generic/http/https")
+        return HTTPReaderManager(base_url, **kwargs)
+
+    raise UnsupportedReaderOperation(
+        f"no documented built-in HTTP/HTTPS management adapter for {model!r}; "
+        "use HTTPReaderManager directly when the vendor provides a stable endpoint"
+    )
