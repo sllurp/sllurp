@@ -50,6 +50,8 @@ def main(args):
     factory_args = dict(
         duration=args.time,
         report_every_n_tags=args.every_n,
+        dedup_seconds=args.dedup_seconds,
+        dedup_backend=args.dedup_backend,
         antennas=enabled_antennas,
         tx_power=args.tx_power,
         tari=args.tari,

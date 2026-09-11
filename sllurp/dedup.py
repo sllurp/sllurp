@@ -1,14 +1,16 @@
 """Tag report deduplication helpers.
 
-LLRP readers can accumulate repeated observations inside a TagReportData and
-expose TagSeenCount, but applications can still receive the same EPC in
-multiple reports.  This module provides an optional client-side suppression
-window without changing the reader's RF behavior.
+LLRP readers can aggregate repeated observations inside a TagReportData, but
+applications can still receive the same EPC in multiple reports. This module
+provides a client-side timed suppression fallback with Zebra-style semantics:
+report immediately, suppress for the configured interval, then allow another
+report. Suppressed sightings do not extend the interval.
 """
 
 from __future__ import annotations
 
 import time
+from collections import deque
 from collections.abc import Callable, Iterable, Mapping
 from threading import RLock
 from typing import Any
@@ -34,14 +36,11 @@ def _freeze(value: Any) -> Any:
 
 
 def default_tag_key(tag: Mapping[str, Any], *, include_antenna: bool = False) -> Any:
-    """Return a useful identity key for an LLRP TagReportData dictionary.
-
-    EPC-96 is the common compact LLRP representation.  Variable-length EPCs
-    are normally decoded under EPCData.  If neither is present, the complete
-    report is used so the deduplicator still behaves deterministically.
-    """
+    """Return a stable identity key for an LLRP TagReportData dictionary."""
     if "EPC-96" in tag:
         key = ("EPC-96", _freeze(tag["EPC-96"]))
+    elif "EPC" in tag:
+        key = ("EPC", _freeze(tag["EPC"]))
     elif "EPCData" in tag:
         key = ("EPCData", _freeze(tag["EPCData"]))
     else:
@@ -53,17 +52,15 @@ def default_tag_key(tag: Mapping[str, Any], *, include_antenna: bool = False) ->
 
 
 class TagReportDeduplicator:
-    """Suppress duplicate tag reports for a configurable time window.
+    """Suppress duplicate tag reports for a fixed cooldown interval.
 
-    The deduplicator is designed to be used directly as an sllurp tag callback
-    wrapper::
+    The first sighting is emitted immediately. Additional sightings inside
+    ``window_seconds`` are dropped without refreshing the expiry time. Once
+    the interval from the last emitted sighting expires, the tag is eligible
+    to be emitted again.
 
-        dedup = TagReportDeduplicator(my_callback, window_seconds=1.0)
-        reader.add_tag_report_callback(dedup)
-
-    By default, the EPC is the identity and duplicate sightings refresh the
-    suppression window.  Set ``include_antenna=True`` if the same EPC seen on
-    different antennas should be delivered separately.
+    Expiry is tracked with a deque plus a dictionary so normal lookup and
+    cleanup are amortized O(1), including large active populations.
     """
 
     def __init__(
@@ -73,7 +70,7 @@ class TagReportDeduplicator:
         window_seconds: float = 1.0,
         include_antenna: bool = False,
         key: TagKey | None = None,
-        max_entries: int = 100_000,
+        max_entries: int = 1_000_000,
         emit_empty: bool = False,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -90,12 +87,24 @@ class TagReportDeduplicator:
         self.emit_empty = bool(emit_empty)
         self.clock = clock
         self._seen: dict[Any, float] = {}
+        self._expiry_queue: deque[tuple[float, Any]] = deque()
+        self._evictions = 0
         self._lock = RLock()
 
+    @property
+    def entry_count(self) -> int:
+        return len(self._seen)
+
+    @property
+    def evictions(self) -> int:
+        return self._evictions
+
     def reset(self) -> None:
-        """Forget all previously seen tags."""
+        """Forget all previously seen tags and reset eviction statistics."""
         with self._lock:
             self._seen.clear()
+            self._expiry_queue.clear()
+            self._evictions = 0
 
     def _tag_key(self, tag: Mapping[str, Any]) -> Any:
         if self.key is not None:
@@ -103,25 +112,20 @@ class TagReportDeduplicator:
         return default_tag_key(tag, include_antenna=self.include_antenna)
 
     def _purge_expired(self, now: float) -> None:
-        if not self._seen:
-            return
-        if self.window_seconds == 0:
-            self._seen.clear()
-            return
-        cutoff = now - self.window_seconds
-        expired = [key for key, last_seen in self._seen.items() if last_seen <= cutoff]
-        for key in expired:
-            self._seen.pop(key, None)
+        while self._expiry_queue and self._expiry_queue[0][0] <= now:
+            expiry, key = self._expiry_queue.popleft()
+            if self._seen.get(key) == expiry:
+                self._seen.pop(key, None)
 
     def _trim(self) -> None:
-        overflow = len(self._seen) - self.max_entries
-        if overflow <= 0:
-            return
-        for key, _ in sorted(self._seen.items(), key=lambda item: item[1])[:overflow]:
-            self._seen.pop(key, None)
+        while len(self._seen) > self.max_entries and self._expiry_queue:
+            expiry, key = self._expiry_queue.popleft()
+            if self._seen.get(key) == expiry:
+                self._seen.pop(key, None)
+                self._evictions += 1
 
     def filter(self, tag_reports: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-        """Return only reports not seen inside the configured window."""
+        """Return only reports whose fixed cooldown has expired."""
         reports = list(tag_reports)
         if self.window_seconds == 0:
             return reports
@@ -132,10 +136,14 @@ class TagReportDeduplicator:
             self._purge_expired(now)
             for tag in reports:
                 key = self._tag_key(tag)
-                last_seen = self._seen.get(key)
-                self._seen[key] = now
-                if last_seen is None or now - last_seen >= self.window_seconds:
-                    unique.append(tag)
+                expiry = self._seen.get(key)
+                if expiry is not None and now < expiry:
+                    continue
+
+                expiry = now + self.window_seconds
+                self._seen[key] = expiry
+                self._expiry_queue.append((expiry, key))
+                unique.append(tag)
             self._trim()
         return unique
 
