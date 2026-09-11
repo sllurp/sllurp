@@ -9,6 +9,7 @@ from socket import (
     SHUT_RDWR,
     SOL_SOCKET,
     SO_KEEPALIVE,
+    SO_RCVBUF,
     IPPROTO_TCP,
     TCP_NODELAY,
     socket,
@@ -17,7 +18,7 @@ from socket import (
 from threading import Thread, Event
 from weakref import WeakSet
 
-from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ
+from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ, VENDOR_ID_MOTOROLA
 from .llrp_proto import (
     LLRPROSpec,
     LLRPError,
@@ -36,12 +37,15 @@ from .llrp_proto import (
     DEFAULT_HOPTABLE_INDEX,
 )
 from .llrp_errors import ReaderConfigurationError
+from .dedup import TagReportDeduplicator
 from .log import get_logger, is_general_debug_enabled
 from .util import natural_keys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
 LLRP_MSG_ID_MAX = 4294967295
 THREAD_NAME_PREFIX = "sllurp-reader"
+SOCKET_RECV_CHUNK = 64 * 1024
+ZEBRA_TIMED_DEDUP_MAX_SECONDS = 600
 
 all_reader_refs = WeakSet()
 logger = get_logger(__name__)
@@ -401,6 +405,7 @@ class LLRPClient:
         self.last_msg_id = 0
 
         self.disconnecting = False
+        self.dedup_backend_active = "disabled"
 
     def update_config(self, new_config):
         """Update LLRPClient's config
@@ -516,6 +521,60 @@ class LLRPClient:
                 raise ReaderConfigurationError(errstr)
 
         logger.info("using reader mode: %s", self.reader_mode)
+        self._select_dedup_backend(capdict)
+
+    @staticmethod
+    def _supports_zebra_periodic_tag_reports(capdict):
+        """Return whether Zebra/Motorola periodic tag reporting is advertised.
+
+        Newer decoders may expose MotoAdvancedCapabilities directly. Older
+        sllurp versions preserve unknown custom capability parameters under
+        SllurpDecodeError; Zebra vendor 161 subtype 110 stores the periodic
+        reporting support flag in bit 4 of the byte after its 32-bit version.
+        """
+        advanced = capdict.get("MotoAdvancedCapabilities")
+        if advanced is not None:
+            return bool(advanced.get("CanSupportPeriodicTagReports", False))
+
+        for raw in capdict.get("SllurpDecodeError", []):
+            if (
+                raw.get("VendorID") == VENDOR_ID_MOTOROLA
+                and raw.get("Subtype") == 110
+            ):
+                data = raw.get("Data", b"")
+                return len(data) >= 5 and bool(data[4] & 0x10)
+        return False
+
+    def _select_dedup_backend(self, capdict):
+        seconds = self.config.dedup_seconds
+        requested = self.config.dedup_backend
+        if seconds is None:
+            self.dedup_backend_active = "disabled"
+            return self.dedup_backend_active
+
+        if requested == "memory":
+            self.dedup_backend_active = "memory"
+            return self.dedup_backend_active
+
+        hardware_supported = (
+            seconds <= ZEBRA_TIMED_DEDUP_MAX_SECONDS
+            and self._supports_zebra_periodic_tag_reports(capdict)
+            and self.config.report_every_n_tags is None
+        )
+
+        if requested == "hardware" and not hardware_supported:
+            raise ReaderConfigurationError(
+                "hardware timed dedup is unavailable for this reader/configuration "
+                f"or exceeds {ZEBRA_TIMED_DEDUP_MAX_SECONDS} seconds"
+            )
+
+        self.dedup_backend_active = "hardware" if hardware_supported else "memory"
+        logger.info(
+            "timed tag dedup: %ss via %s",
+            seconds,
+            self.dedup_backend_active,
+        )
+        return self.dedup_backend_active
 
     def processDeferreds(self, msgName, isSuccess):
         deferreds = self._deferreds[msgName]
@@ -1215,6 +1274,19 @@ class LLRPClient:
             )
 
         self.rospec = LLRPROSpec(self.reader_mode, 1, **rospec_kwargs)
+        if self.dedup_backend_active == "hardware":
+            report_spec = self.rospec["ROReportSpec"]
+            # Zebra MotoROReportTrigger subtype 125: 1 = periodic report or
+            # end of AISpec. The standard ROReportSpec N field is seconds.
+            report_spec["ROReportTrigger"] = "None"
+            report_spec["N"] = int(config.dedup_seconds)
+            report_spec.setdefault("CustomParameter", []).append(
+                {
+                    "VendorID": VENDOR_ID_MOTOROLA,
+                    "Subtype": 125,
+                    "Payload": b"\x01",
+                }
+            )
         logger.debugfast("ROSpec:\n%s", self.rospec)
         return self.rospec
 
@@ -1473,6 +1545,10 @@ class LLRPReaderConfig:
         self.tag_population = 4
         self.report_every_n_tags = None
         self.report_timeout_ms = 0
+        self.dedup_seconds = None
+        self.dedup_backend = "auto"
+        self.dedup_max_entries = 1_000_000
+        self.socket_receive_buffer_bytes = 1 << 20
         self.antennas = [1]
         # Use the power associated with an exact tx power index
         self.tx_power = 0
@@ -1564,6 +1640,39 @@ class LLRPReaderConfig:
                 setattr(self, key, value)
 
     def validate_config(self):
+        if self.dedup_seconds is not None:
+            if (
+                isinstance(self.dedup_seconds, bool)
+                or not isinstance(self.dedup_seconds, int)
+                or self.dedup_seconds <= 0
+            ):
+                raise LLRPError("dedup_seconds must be a positive integer or None")
+        if self.dedup_backend not in {"auto", "hardware", "memory"}:
+            raise LLRPError("dedup_backend must be auto, hardware, or memory")
+        if (
+            self.dedup_backend == "hardware"
+            and self.dedup_seconds is not None
+            and self.dedup_seconds > ZEBRA_TIMED_DEDUP_MAX_SECONDS
+        ):
+            raise LLRPError(
+                f"hardware dedup supports at most {ZEBRA_TIMED_DEDUP_MAX_SECONDS} seconds"
+            )
+        if (
+            isinstance(self.dedup_max_entries, bool)
+            or not isinstance(self.dedup_max_entries, int)
+            or self.dedup_max_entries <= 0
+        ):
+            raise LLRPError("dedup_max_entries must be a positive integer")
+        if (
+            self.socket_receive_buffer_bytes is not None
+            and (
+                isinstance(self.socket_receive_buffer_bytes, bool)
+                or not isinstance(self.socket_receive_buffer_bytes, int)
+                or self.socket_receive_buffer_bytes <= 0
+            )
+        ):
+            raise LLRPError("socket_receive_buffer_bytes must be a positive integer or None")
+
         if "Channelist" in self.frequencies and "ChannelList" not in self.frequencies:
             self.frequencies["ChannelList"] = self.frequencies.pop("Channelist")
         if self.tls_client_key and not self.tls_client_cert:
@@ -1611,6 +1720,15 @@ class LLRPReaderClient:
         else:
             self.config = LLRPReaderConfig()
 
+        self._deduplicator = (
+            TagReportDeduplicator(
+                window_seconds=self.config.dedup_seconds,
+                max_entries=self.config.dedup_max_entries,
+            )
+            if self.config.dedup_seconds is not None
+            else None
+        )
+
         # New llrp client
         self.llrp = LLRPClient(
             self.config,
@@ -1641,11 +1759,23 @@ class LLRPReaderClient:
         Not completely safe, to be used with caution.
         """
         self.config = new_config
+        self._deduplicator = (
+            TagReportDeduplicator(
+                window_seconds=new_config.dedup_seconds,
+                max_entries=new_config.dedup_max_entries,
+            )
+            if new_config.dedup_seconds is not None
+            else None
+        )
         if self.llrp:
             self.llrp.update_config(new_config)
 
     def get_peername(self):
         return (self._host, self._port)
+
+    @property
+    def dedup_backend_active(self):
+        return self.llrp.dedup_backend_active
 
     def add_state_callback(self, state, cb):
         """Add a callback to run upon a state transition.
@@ -1757,6 +1887,10 @@ class LLRPReaderClient:
         raw_socket = None
         try:
             raw_socket = socket(AF_INET, SOCK_STREAM)
+            if self.config.socket_receive_buffer_bytes is not None:
+                raw_socket.setsockopt(
+                    SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
+                )
             # Sllurp original timeout is 3s
             raw_socket.settimeout(self._socktimeout)
             raw_socket.connect((self._host, self._port))
@@ -1977,7 +2111,7 @@ class LLRPReaderClient:
                     # Incoming message from remote server
                     if sock == self._socket:
                         try:
-                            data = sock.recv(4096)
+                            data = sock.recv(SOCKET_RECV_CHUNK)
                             if data:
                                 self.raw_data_received(data)
                             else:
@@ -2132,6 +2266,13 @@ class LLRPReaderClient:
 
     def _on_llrp_tag_report(self, _, lmsg):
         tags_report_dict = lmsg.msgdict["RO_ACCESS_REPORT"]["TagReportData"]
+        if (
+            self.llrp.dedup_backend_active == "memory"
+            and self._deduplicator is not None
+        ):
+            tags_report_dict = self._deduplicator.filter(tags_report_dict)
+            if not tags_report_dict:
+                return
         for fn in self._tag_report_callbacks:
             try:
                 fn(self, tags_report_dict)

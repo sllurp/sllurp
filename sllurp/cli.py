@@ -88,6 +88,18 @@ def cli(debug, logfile):
     "-n", "--report-every-n-tags", type=int, help="issue a TagReport every N tags"
 )
 @click.option(
+    "--dedup-seconds",
+    type=click.IntRange(min=1),
+    help="Suppress repeated EPC reports for this many seconds.",
+)
+@click.option(
+    "--dedup-backend",
+    type=click.Choice(["auto", "hardware", "memory"]),
+    default="auto",
+    show_default=True,
+    help="Timed dedup backend; auto prefers reader hardware up to 600s.",
+)
+@click.option(
     "-a",
     "--antennas",
     type=str,
@@ -172,6 +184,8 @@ def inventory(
     port,
     time,
     report_every_n_tags,
+    dedup_seconds,
+    dedup_backend,
     antennas,
     tx_power,
     tari,
@@ -204,6 +218,8 @@ def inventory(
             "port",
             "time",
             "every_n",
+            "dedup_seconds",
+            "dedup_backend",
             "antennas",
             "tx_power",
             "tari",
@@ -232,6 +248,8 @@ def inventory(
         port=port,
         time=time,
         every_n=report_every_n_tags,
+        dedup_seconds=dedup_seconds,
+        dedup_backend=dedup_backend,
         antennas=antennas,
         tx_power=tx_power,
         tari=tari,

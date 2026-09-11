@@ -24,7 +24,7 @@ def test_deduplicates_epc_within_window():
     assert dedup.filter([tag]) == [tag]
 
 
-def test_duplicate_sighting_refreshes_window():
+def test_duplicate_sighting_does_not_refresh_window():
     clock = FakeClock()
     dedup = TagReportDeduplicator(window_seconds=1.0, clock=clock)
     tag = {"EPC-96": b"0123456789ab"}
@@ -32,9 +32,7 @@ def test_duplicate_sighting_refreshes_window():
     assert dedup.filter([tag]) == [tag]
     clock.advance(0.8)
     assert dedup.filter([tag]) == []
-    clock.advance(0.8)
-    assert dedup.filter([tag]) == []
-    clock.advance(1.0)
+    clock.advance(0.2)
     assert dedup.filter([tag]) == [tag]
 
 
@@ -72,3 +70,14 @@ def test_zero_window_disables_cross_report_suppression():
     tag = {"EPC-96": b"0123456789ab"}
 
     assert dedup.filter([tag, tag]) == [tag, tag]
+
+
+def test_large_population_default_capacity_and_eviction_are_bounded():
+    clock = FakeClock()
+    dedup = TagReportDeduplicator(window_seconds=600, max_entries=5, clock=clock)
+    tags = [{"EPC-96": f"tag-{i}".encode()} for i in range(8)]
+
+    assert dedup.filter(tags) == tags
+    assert dedup.entry_count == 5
+    assert dedup.evictions == 3
+    assert TagReportDeduplicator().max_entries >= 500_000
