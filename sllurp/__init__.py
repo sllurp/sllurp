@@ -12,6 +12,7 @@ __all__ = (
     "reader_management",
     "zebra_management",
     "impinj_management",
+    "intermec_management",
     "dedup",
     "util",
     "log",

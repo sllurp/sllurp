@@ -289,6 +289,14 @@ def create_reader_manager(
             "or HTTPReaderManager only with a vendor-documented endpoint"
         )
 
+    intermec_keys = {"IF1", "IF2", "IF61"}
+    if key in intermec_keys or vendor_key in {"intermec", "honeywell"}:
+        if api.lower() not in {"auto", "dcws", "soap"}:
+            raise ValueError("Intermec/Honeywell management api must be auto/dcws/soap")
+        from .intermec_management import IntermecDCWSManager
+
+        return IntermecDCWSManager(base_url, model=model, **kwargs)
+
     if vendor_key in {"generic", "http", "https"}:
         if api.lower() not in {"auto", "generic", "http", "https"}:
             raise ValueError("generic management api must be auto/generic/http/https")
