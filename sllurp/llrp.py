@@ -2017,8 +2017,18 @@ class LLRPReaderClient:
         if not isinstance(op_spec, C1G2OpSpec):
             raise ValueError("op_spec needs to be a valid C1G2OpSpec object")
 
-        if target_spec and not isinstance(target_spec, C1G2TargetTag):
-            raise ValueError("target_spec needs to be a valid C1G2TargetTag " "object")
+        if target_spec is not None and not isinstance(target_spec, C1G2TargetTag):
+            if not isinstance(target_spec, (list, tuple)):
+                raise ValueError(
+                    "target_spec must be a C1G2TargetTag or a list/tuple of up to two targets"
+                )
+            if len(target_spec) > 2 or any(
+                not isinstance(target, C1G2TargetTag) for target in target_spec
+            ):
+                raise ValueError(
+                    "target_spec must contain at most two C1G2TargetTag objects"
+                )
+            target_spec = list(target_spec)
 
         if stop_after_count < 0:
             stop_after_count = 0
