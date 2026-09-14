@@ -1711,7 +1711,8 @@ Param_struct["C1G2Read"] = {
     "type": 341,
     "fields": [
         "OpSpecID",
-        "AccessPassword" "MB",
+        "AccessPassword",
+        "MB",
         "WordPtr",
         "WordCount",
     ],
@@ -1739,7 +1740,8 @@ Param_struct["C1G2Write"] = {
     "type": 342,
     "fields": [
         "OpSpecID",
-        "AccessPassword" "MB",
+        "AccessPassword",
+        "MB",
         "WordPtr",
         "WriteDataWordCount",
         "WriteData",
@@ -1796,12 +1798,13 @@ Param_struct["C1G2BlockWrite"] = {
     "type": 347,
     "fields": [
         "OpSpecID",
-        "AccessPassword" "MB",
+        "AccessPassword",
+        "MB",
         "WordPtr",
         "WriteDataWordCount",
         "WriteData",
     ],
-    "encode": encode_C1G2Write,
+    "encode": encode_C1G2BlockWrite,
 }
 
 
@@ -4681,7 +4684,7 @@ class LLRPROSpec(dict):
         tari=None,
         session=2,
         tag_population=4,
-        tag_filter_mask=[],
+        tag_filter_mask=None,
         impinj_search_mode=None,
         impinj_tag_content_selector=None,
         frequencies=None,
@@ -4709,6 +4712,8 @@ class LLRPROSpec(dict):
 
         if frequencies is None:
             frequencies = {}
+        if tag_filter_mask is None:
+            tag_filter_mask = []
 
         # if reader mode settings are specified, pepper them into this ROSpec
         override_tari = None

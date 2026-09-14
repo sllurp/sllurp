@@ -242,7 +242,7 @@ def main():
     try:
         for reader in reader_clients:
             reader.connect()
-    except:
+    except Exception:
         # On one error, abort all
         for reader in reader_clients:
             reader.disconnect()
@@ -262,7 +262,7 @@ def main():
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")
                     pass
 

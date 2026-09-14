@@ -44,7 +44,7 @@ def main(args):
         host, port = reader.get_peername()
         try:
             reader.connect()
-        except:
+        except Exception:
             logger.error("Failed to connect to %s:%d. Skipping...", host, port)
 
     while True:
@@ -62,5 +62,5 @@ def main(args):
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")
