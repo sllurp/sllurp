@@ -45,7 +45,10 @@ def test_aispec_event_decodes_optional_tv_singulation_details():
     assert decoded["EventType"] == "End_of_AISpec"
     assert decoded["ROSpecID"] == 7
     assert decoded["SpecIndex"] == 2
-    assert decoded["C1G2SingulationDetails"] == (11, 13)
+    assert decoded["C1G2SingulationDetails"] == {
+        "NumCollisionSlots": 11,
+        "NumEmptySlots": 13,
+    }
 
 
 @pytest.mark.parametrize(
