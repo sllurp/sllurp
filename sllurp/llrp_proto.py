@@ -4677,6 +4677,7 @@ class LLRPROSpec(dict):
         duration_sec=None,
         report_every_n_tags=None,
         report_timeout_ms=0,
+        ro_report_every_n_tags=None,
         tag_content_selector=None,
         tari=None,
         session=2,
@@ -4696,6 +4697,15 @@ class LLRPROSpec(dict):
                 "invalid ROSpec state {} (need [{}])".format(
                     state, ",".join(ROSpecState_Name2Type.keys())
                 )
+            )
+        if ro_report_every_n_tags is not None and (
+            isinstance(ro_report_every_n_tags, bool)
+            or not isinstance(ro_report_every_n_tags, int)
+            or not 1 <= ro_report_every_n_tags <= 65535
+        ):
+            raise LLRPError(
+                "ro_report_every_n_tags must be an integer from 1 through 65535 "
+                "or None"
             )
         # backward compatibility: allow integer tx_power
         if isinstance(tx_power, int):
@@ -4778,6 +4788,16 @@ class LLRPROSpec(dict):
                 },
             }
         )
+
+        if ro_report_every_n_tags is not None:
+            # ROReportSpec controls delivery cadence; unlike the legacy
+            # report_every_n_tags option, it must not terminate the AISpec.
+            self["ROReportSpec"]["N"] = ro_report_every_n_tags
+            logger.info(
+                "RO_ACCESS_REPORT will be requested every %d tag observations "
+                "while AISpec remains active",
+                ro_report_every_n_tags,
+            )
 
         if impinj_tag_content_selector:
             self["ROReportSpec"]["ImpinjTagReportContentSelector"] = {
@@ -4879,12 +4899,15 @@ class LLRPROSpec(dict):
         if report_every_n_tags is not None:
             if report_timeout_ms:
                 logger.info(
-                    "will report every ~N=%d tags or %d ms",
+                    "AISpec will end after %d tag observations or %d ms",
                     report_every_n_tags,
                     report_timeout_ms,
                 )
             else:
-                logger.info("will report every ~N=%d tags", report_every_n_tags)
+                logger.info(
+                    "AISpec will end after %d tag observations",
+                    report_every_n_tags,
+                )
             self["AISpec"][0]["AISpecStopTrigger"].update(
                 {
                     "AISpecStopTriggerType": "Tag observation",

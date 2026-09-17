@@ -1194,6 +1194,7 @@ class LLRPClient:
             duration_sec=config.duration,
             report_every_n_tags=config.report_every_n_tags,
             report_timeout_ms=config.report_timeout_ms,
+            ro_report_every_n_tags=config.ro_report_every_n_tags,
             tx_power=config.tx_power,
             antennas=config.antennas,
             tag_content_selector=config.tag_content_selector,
@@ -1467,6 +1468,9 @@ class LLRPReaderConfig:
         self.session = 2
         self.mode_identifier = None
         self.tag_population = 4
+        # ROReportSpec cadence is independent of AISpec lifetime. The legacy
+        # report_* fields below retain their historical AISpec-stop semantics.
+        self.ro_report_every_n_tags = None
         self.report_every_n_tags = None
         self.report_timeout_ms = 0
         self.antennas = [1]
@@ -1551,6 +1555,15 @@ class LLRPReaderConfig:
                 setattr(self, key, value)
 
     def validate_config(self):
+        if self.ro_report_every_n_tags is not None and (
+            isinstance(self.ro_report_every_n_tags, bool)
+            or not isinstance(self.ro_report_every_n_tags, int)
+            or not 1 <= self.ro_report_every_n_tags <= 65535
+        ):
+            raise LLRPError(
+                "ro_report_every_n_tags must be an integer from 1 through 65535 "
+                "or None"
+            )
         if hasattr(self, "tx_power"):
             if isinstance(self.tx_power, int):
                 self.tx_power = {ant: self.tx_power for ant in self.antennas}

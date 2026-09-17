@@ -49,6 +49,7 @@ def main(args):
 
     factory_args = dict(
         duration=args.time,
+        ro_report_every_n_tags=getattr(args, "ro_report_every_n_tags", None),
         report_every_n_tags=args.every_n,
         antennas=enabled_antennas,
         tx_power=args.tx_power,

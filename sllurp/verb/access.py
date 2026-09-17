@@ -91,6 +91,7 @@ def main(main_args):
     frequency_list = [int(x.strip()) for x in args.frequencies.split(",")]
 
     factory_args = dict(
+        ro_report_every_n_tags=getattr(args, "ro_report_every_n_tags", None),
         report_every_n_tags=args.every_n,
         antennas=enabled_antennas,
         tx_power=args.tx_power,
