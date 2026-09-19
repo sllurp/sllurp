@@ -243,7 +243,7 @@ class C1G2LockPayload:
     def __init__(self, Privilege, DataField):
         if Privilege < 0 or Privilege > 3:
             raise ValueError("Invalid Privilege value")
-        if DataField < 0 or Privilege > 4:
+        if DataField < 0 or DataField > 4:
             raise ValueError("Invalid DataField value")
 
         self.Privilege = Privilege
@@ -409,7 +409,8 @@ class LLRPClient:
         self.config = new_config
 
     def setState(self, newstate, onCompletion=None):
-        assert newstate is not None
+        if newstate is None:
+            raise LLRPError("reader state cannot be None")
         if is_general_debug_enabled():
             logger.debugfast(
                 "state change: %s -> %s",
@@ -499,8 +500,8 @@ class LLRPClient:
         if self.reader_mode and self.config.tari:
             if (
                 self.reader_mode["MinTari"]
-                < self.config.tari
-                < self.reader_mode["MaxTari"]
+                <= self.config.tari
+                <= self.reader_mode["MaxTari"]
             ):
                 logger.debug(
                     "Overriding mode Tari %s with requested Tari %s",
@@ -512,6 +513,7 @@ class LLRPClient:
                     "Requested Tari {} is incompatible with selected "
                     "mode {}".format(self.config.tari, self.reader_mode)
                 )
+                raise ReaderConfigurationError(errstr)
 
         logger.info("using reader mode: %s", self.reader_mode)
 
@@ -1453,7 +1455,8 @@ class LLRPClient:
             sent_ids.append((name, self.last_msg_id))
         llrp_msg = LLRPMessage(msgdict=msg_dict)
 
-        assert llrp_msg.msgbytes, "LLRPMessage is empty"
+        if not llrp_msg.msgbytes:
+            raise LLRPError("LLRPMessage is empty")
         self.transport_tx_write(llrp_msg.msgbytes)
 
         return sent_ids
@@ -1719,7 +1722,13 @@ class LLRPReaderClient:
             self._socket.connect((self._host, self._port))
             self._socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
             self._socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
-        except:
+        except Exception:
+            sock = self._socket
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    logger.debug("socket cleanup failed", exc_info=True)
             self._socket = None
             raise
         logger.info("connected to %s (:%s)", self._host, self._port)
@@ -1786,7 +1795,7 @@ class LLRPReaderClient:
         if self._socket:
             try:
                 self._socket.shutdown(SHUT_RDWR)
-            except:
+            except Exception:
                 pass
             self._socket.close()
             self._socket = None
@@ -1806,14 +1815,14 @@ class LLRPReaderClient:
                     continue
                 if not reader.disconnect_requested.is_set():
                     reader.disconnect()
-            except:
+            except Exception:
                 pass
 
         # Be patient...
         for reader in all_reader_refs:
             try:
                 reader.join(timeout_per_reader)
-            except:
+            except Exception:
                 pass
 
         if force:
@@ -1821,7 +1830,7 @@ class LLRPReaderClient:
             for reader in all_reader_refs:
                 try:
                     reader.hard_disconnect()
-                except:
+                except Exception:
                     pass
 
     def on_lost_connection(self):
@@ -1845,7 +1854,7 @@ class LLRPReaderClient:
 
         try:
             self.hard_disconnect()
-        except:
+        except Exception:
             logger.exception("hard_disconnect error in lost connection")
 
         if not self.config.reconnect:
@@ -1856,7 +1865,7 @@ class LLRPReaderClient:
             try:
                 self._connect_socket()
                 return False
-            except:
+            except Exception:
                 logger.warning("Reconnection attempt failed.")
             if remaining_attempts > 0:
                 remaining_attempts -= 1
@@ -1942,7 +1951,7 @@ class LLRPReaderClient:
                         # we can continue the loop with a socket that should
                         # have been updated
                         self._stop_main_loop.clear()
-        except:
+        except Exception:
             logger.exception("Exception encountered in main loop, exiting...")
 
         self._socket_thread = None
@@ -2034,7 +2043,7 @@ class LLRPReaderClient:
         for fn in self._disconnected_callbacks:
             try:
                 fn(self)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during user on_disconnected callback." "Continuing anyway..."
                 )
@@ -2044,7 +2053,7 @@ class LLRPReaderClient:
         for fn in self._llrp_state_callbacks[newstate]:
             try:
                 fn(self, newstate)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during state change callback execution"
                     ". Continuing anyway..."
@@ -2058,7 +2067,7 @@ class LLRPReaderClient:
         for fn in self._llrp_message_callbacks[msgName]:
             try:
                 fn(self, lmsg)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during message callback execution. " "Continuing anyway..."
                 )
@@ -2069,7 +2078,7 @@ class LLRPReaderClient:
         for fn in self._tag_report_callbacks:
             try:
                 fn(self, tags_report_dict)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during user on_llrp_tag_report "
                     "callback. Continuing anyway..."
@@ -2082,7 +2091,7 @@ class LLRPReaderClient:
         for fn in self._event_notification_callbacks:
             try:
                 fn(self, event_data_dict)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during user _on_llrp_event_notification"
                     "callback. Continuing anyway..."

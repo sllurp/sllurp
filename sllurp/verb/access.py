@@ -147,7 +147,7 @@ def main(main_args):
     try:
         for reader in reader_clients:
             reader.connect()
-    except:
+    except Exception:
         if reader:
             logger.error(
                 "Failed to establish a connection with: %r", reader.get_peername()
@@ -171,5 +171,5 @@ def main(main_args):
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")

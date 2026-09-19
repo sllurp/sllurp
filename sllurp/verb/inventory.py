@@ -142,7 +142,7 @@ def main(args):
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")
             break
 
