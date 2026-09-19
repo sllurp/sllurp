@@ -25,7 +25,21 @@ def cli(debug, logfile):
 @click.option("-p", "--port", type=int, default=5084)
 @click.option("-t", "--time", type=float, help="seconds to inventory")
 @click.option(
-    "-n", "--report-every-n-tags", type=int, help="issue a TagReport every N tags"
+    "--ro-report-every-n-tags",
+    type=click.IntRange(min=1, max=65535),
+    help=(
+        "Emit an RO_ACCESS_REPORT after N tag observations without ending "
+        "the AISpec."
+    ),
+)
+@click.option(
+    "-n",
+    "--report-every-n-tags",
+    type=int,
+    help=(
+        "Legacy: end the AISpec after N tag observations; accumulated "
+        "observations report at the inventory boundary."
+    ),
 )
 @click.option(
     "-a",
@@ -110,6 +124,7 @@ def inventory(
     host,
     port,
     time,
+    ro_report_every_n_tags,
     report_every_n_tags,
     antennas,
     tx_power,
@@ -135,6 +150,7 @@ def inventory(
             "host",
             "port",
             "time",
+            "ro_report_every_n_tags",
             "every_n",
             "antennas",
             "tx_power",
@@ -157,6 +173,7 @@ def inventory(
         host=host,
         port=port,
         time=time,
+        ro_report_every_n_tags=ro_report_every_n_tags,
         every_n=report_every_n_tags,
         antennas=antennas,
         tx_power=tx_power,
@@ -258,7 +275,21 @@ def log(
 @click.option("-p", "--port", type=int, default=5084)
 @click.option("-t", "--time", type=float, help="seconds to inventory")
 @click.option(
-    "-n", "--report-every-n-tags", type=int, help="issue a TagReport every N tags"
+    "--ro-report-every-n-tags",
+    type=click.IntRange(min=1, max=65535),
+    help=(
+        "Emit an RO_ACCESS_REPORT after N tag observations without ending "
+        "the AISpec."
+    ),
+)
+@click.option(
+    "-n",
+    "--report-every-n-tags",
+    type=int,
+    help=(
+        "Legacy: end the AISpec after N tag observations; accumulated "
+        "observations report at the inventory boundary."
+    ),
 )
 @click.option(
     "-a",
@@ -329,6 +360,7 @@ def access(
     host,
     port,
     time,
+    ro_report_every_n_tags,
     report_every_n_tags,
     antennas,
     tx_power,
@@ -351,6 +383,7 @@ def access(
             "host",
             "port",
             "time",
+            "ro_report_every_n_tags",
             "every_n",
             "antennas",
             "tx_power",
@@ -372,6 +405,7 @@ def access(
         host=host,
         port=port,
         time=time,
+        ro_report_every_n_tags=ro_report_every_n_tags,
         every_n=report_every_n_tags,
         antennas=antennas,
         tx_power=tx_power,
